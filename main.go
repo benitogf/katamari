@@ -194,18 +194,32 @@ func (app *App) delData(mode string, key string, index string) {
 	return
 }
 
-func (app *App) sendData(clients []*websocket.Conn, mode string, key string) {
+func (app *App) getEncodedData(mode string, key string) string {
 	raw := app.getData(mode, key)
 	data := ""
 	if len(raw) > 0 {
 		data = base64.StdEncoding.EncodeToString(raw)
 	}
-	for _, client := range clients {
-		err := client.WriteMessage(1, []byte("{"+
-			"\"data\": \""+data+"\""+
-			"}"))
-		if err != nil {
-			stderr.Println("sendDataError:", err)
+
+	return data
+}
+
+func writeToClient(client *websocket.Conn, data string) {
+	err := client.WriteMessage(1, []byte("{"+
+		"\"data\": \""+data+"\""+
+		"}"))
+	if err != nil {
+		stderr.Println("sendDataError:", err)
+	}
+}
+
+func (app *App) sendData(clients []int) {
+	if len(clients) > 0 {
+		for _, clientIndex := range clients {
+			data := app.getEncodedData(app.clients[clientIndex].mode, app.clients[clientIndex].key)
+			for _, client := range app.clients[clientIndex].connections {
+				writeToClient(client, data)
+			}
 		}
 	}
 }
@@ -218,7 +232,7 @@ func (app *App) sendTime(clients []*websocket.Conn) {
 			"\"data\": \""+data+"\""+
 			"}"))
 		if err != nil {
-			stderr.Println("sendDataError:", err)
+			stderr.Println("sendTimeError:", err)
 		}
 	}
 }
@@ -232,6 +246,24 @@ func (app *App) findPool(mode string, key string) int {
 	}
 
 	return poolIndex
+}
+
+func removeLastIndex(key string) string {
+	sp := strings.Split(key, separator)
+	return strings.Replace(key, separator+sp[len(sp)-1], "", 1)
+}
+
+func (app *App) findConnections(mode string, key string) []int {
+	var res []int
+	for i := range app.clients {
+		if (app.clients[i].key == key && app.clients[i].mode == mode) ||
+			(mode == "sa" && app.clients[i].mode == "mo" && removeLastIndex(key) == app.clients[i].key) ||
+			(mode == "mo" && app.clients[i].mode == "sa" && removeLastIndex(app.clients[i].key) == key) {
+			res = append(res, i)
+		}
+	}
+
+	return res
 }
 
 func (app *App) findClient(poolIndex int, client *websocket.Conn) int {
@@ -350,7 +382,7 @@ func (app *App) readClient(client *websocket.Conn, mode string, key string) {
 			}
 			break
 		}
-		app.sendData(app.clients[poolIndex].connections, mode, key)
+		app.sendData(app.findConnections(mode, key))
 	}
 }
 
@@ -374,7 +406,8 @@ func (app *App) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// send initial msg
-		app.sendData([]*websocket.Conn{client}, mode, vars["key"])
+		data := app.getEncodedData(mode, vars["key"])
+		writeToClient(client, data)
 
 		// defered client close
 		defer app.closeClient(client, mode, vars["key"])
@@ -393,10 +426,7 @@ func (app *App) rPost(mode string) func(w http.ResponseWriter, r *http.Request) 
 		err := decoder.Decode(&obj)
 		if err == nil {
 			index := app.setData(mode, key, obj.Index, "R", obj.Data)
-			poolIndex := app.findPool(mode, key)
-			if poolIndex != -1 {
-				app.sendData(app.clients[poolIndex].connections, mode, key)
-			}
+			app.sendData(app.findConnections(mode, key))
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, "{"+
 				"\"index\": \""+index+"\""+
