@@ -3,8 +3,8 @@
 [![Build Status][build-image]][build-url]
 
 
-[build-url]: https://travis-ci.com/benitogf/samo
-[build-image]: https://api.travis-ci.com/benitogf/samo.svg?token=b628aVyTMNXTpbUCmJtn&branch=master&style=flat-square
+[build-url]: https://travis-ci.org/benitogf/samo
+[build-image]: https://api.travis-ci.org/benitogf/samo.svg?branch=master&style=flat-square
 
 pub/sub and http service for leveldb object storage
 
