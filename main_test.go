@@ -31,6 +31,7 @@ func TestSASetGetDel(t *testing.T) {
 	app.init("localhost:9889", "test/db", "/")
 	var err error
 	app.db, err = leveldb.OpenFile(app.storage, nil)
+	defer app.db.Close()
 	require.Equal(t, err, nil)
 	app.delData("sa", "test", "")
 	index := app.setData("sa", "test", "", "", "test")
@@ -51,7 +52,8 @@ func TestMOSetGetDel(t *testing.T) {
 	app.init("localhost:9889", "test/db", "/")
 	var err error
 	app.db, err = leveldb.OpenFile(app.storage, nil)
-	require.Equal(t, err, nil)
+	defer app.db.Close()
+	require.Equal(t, nil, err)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	_ = app.setData("sa", "test/123", "", "", "test")
