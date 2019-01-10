@@ -112,7 +112,7 @@ func (app *SAMO) getData(mode string, key string) []byte {
 		if err == nil {
 			return data
 		}
-		app.console.err("getDataError["+mode+"/"+key+"]", err)
+		app.console.err("getError["+mode+"/"+key+"]", err)
 	case "mo":
 		iter := app.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
 		res := []Object{}
@@ -123,7 +123,7 @@ func (app *SAMO) getData(mode string, key string) []byte {
 				if err == nil {
 					res = append(res, newObject)
 				} else {
-					app.console.err("getDataError["+mode+"/"+key+"]", err)
+					app.console.err("getError["+mode+"/"+key+"]", err)
 				}
 			}
 		}
@@ -178,10 +178,11 @@ func (app *SAMO) setData(mode string, key string, index string, subIndex string,
 		[]byte(key),
 		dataBytes.Bytes(), nil)
 	if err == nil {
+		app.console.log("set[" + mode + "/" + key + "]")
 		return index
 	}
 
-	app.console.err("setDataError["+mode+"/"+key+"]", err)
+	app.console.err("setError["+mode+"/"+key+"]", err)
 	return ""
 }
 
@@ -193,11 +194,11 @@ func (app *SAMO) delData(mode string, key string, index string) {
 
 	err := app.db.Delete([]byte(key), nil)
 	if err == nil {
-		app.console.log("deleted:", key)
+		app.console.log("delete[" + mode + "/" + key + "]")
 		return
 	}
 
-	app.console.err("delDataError["+mode+"/"+key+"]", err)
+	app.console.err("deleteError["+mode+"/"+key+"]", err)
 	return
 }
 
@@ -216,7 +217,7 @@ func (app *SAMO) writeToClient(client *websocket.Conn, data string) {
 		"\"data\": \""+data+"\""+
 		"}"))
 	if err != nil {
-		app.console.err("sendDataError:", err)
+		app.console.err("sendError", err)
 	}
 }
 
@@ -239,7 +240,7 @@ func (app *SAMO) sendTime(clients []*websocket.Conn) {
 			"\"data\": \""+data+"\""+
 			"}"))
 		if err != nil {
-			app.console.err("sendTimeError:", err)
+			app.console.err("sendTimeError", err)
 		}
 	}
 }
@@ -292,7 +293,7 @@ func (app *SAMO) newClient(w http.ResponseWriter, r *http.Request, mode string, 
 	client, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		app.console.err("socketUpgradeError:", err)
+		app.console.err("socketUpgradeError", err)
 		return nil, err
 	}
 
@@ -384,7 +385,7 @@ func (app *SAMO) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
 		if !validKey(key, app.separator) {
-			app.console.err("socketKeyError:", key)
+			app.console.err("socketKeyError", key)
 			return
 		}
 		client, err := app.newClient(w, r, mode, key)
