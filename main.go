@@ -10,8 +10,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/bclicn/color"
@@ -31,6 +33,7 @@ type Pool struct {
 
 // SAMO : server router, Pool array, and server address
 type SAMO struct {
+	Server    *http.Server
 	Router    *mux.Router
 	clients   []*Pool
 	storage   string
@@ -38,6 +41,7 @@ type SAMO struct {
 	db        *leveldb.DB
 	address   string
 	console   *Console
+	closing   bool
 }
 
 // Object : data structure of elements
@@ -62,7 +66,7 @@ type Stats struct {
 var port = flag.Int("port", 8800, "ws service port")
 var host = flag.String("host", "localhost", "ws service host")
 var storage = flag.String("storage", "data/db", "path to the data folder")
-var separator = flag.String("separator", "/", "string to use as key separator")
+var separator = flag.String("separator", "/", "character to use as key separator")
 
 func validKey(key string, separator string) bool {
 	// https://stackoverflow.com/a/26792316/6582356
@@ -83,9 +87,29 @@ func extractNonNil(event map[string]interface{}, field string) string {
 	return data
 }
 
-func (app *SAMO) getStats(w http.ResponseWriter, r *http.Request) {
-	// TODO: retry
+func generateRouteRegex(separator string) string {
+	return "[a-zA-Z\\d\\" + separator + "]+"
+}
 
+func (app *SAMO) checkDb() {
+	tryes := 0
+	if app.db == nil || app.closing {
+		for (app.db == nil && tryes < 10) || app.closing {
+			tryes++
+			time.Sleep(800 * time.Millisecond)
+		}
+		if app.db == nil {
+			var err error
+			app.db, err = leveldb.OpenFile(app.storage, nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+}
+
+func (app *SAMO) getStats(w http.ResponseWriter, r *http.Request) {
+	app.checkDb()
 	iter := app.db.NewIterator(nil, nil)
 	stats := Stats{}
 	for iter.Next() {
@@ -105,7 +129,7 @@ func (app *SAMO) getStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *SAMO) getData(mode string, key string) []byte {
-	// TODO: retry
+	app.checkDb()
 	switch mode {
 	case "sa":
 		data, err := app.db.Get([]byte(key), nil)
@@ -141,7 +165,6 @@ func (app *SAMO) getData(mode string, key string) []byte {
 }
 
 func (app *SAMO) setData(mode string, key string, index string, subIndex string, data string) string {
-	// TODO: retry
 	now := time.Now().UTC().UnixNano()
 	updated := now
 	if index == "" {
@@ -151,6 +174,7 @@ func (app *SAMO) setData(mode string, key string, index string, subIndex string,
 		key += app.separator + index
 	}
 
+	app.checkDb()
 	previous, err := app.db.Get([]byte(key), nil)
 	created := now
 	if err != nil && err.Error() == "leveldb: not found" {
@@ -187,11 +211,11 @@ func (app *SAMO) setData(mode string, key string, index string, subIndex string,
 }
 
 func (app *SAMO) delData(mode string, key string, index string) {
-	// TODO: retry
 	if mode == "mo" {
 		key += app.separator + index
 	}
 
+	app.checkDb()
 	err := app.db.Delete([]byte(key), nil)
 	if err == nil {
 		app.console.log("delete[" + mode + "/" + key + "]")
@@ -470,6 +494,7 @@ func (app *SAMO) init(address string, storage string, separator string) {
 	app.storage = storage
 	app.separator = separator
 	app.Router = mux.NewRouter()
+	app.closing = false
 	app.console = &Console{
 		log: log.New(
 			os.Stdout,
@@ -483,13 +508,14 @@ func (app *SAMO) init(address string, storage string, separator string) {
 				color.BPurple(time.Now().String())+
 				color.BRed("]"),
 			0).Println}
+	rr := generateRouteRegex(app.separator)
 	app.Router.HandleFunc("/", app.getStats)
-	app.Router.HandleFunc("/sa/{key:[a-zA-Z0-9-:/]+$}", app.wss("sa"))
-	app.Router.HandleFunc("/mo/{key:[a-zA-Z0-9-:/]+$}", app.wss("mo"))
-	app.Router.HandleFunc("/r/sa/{key:[a-zA-Z0-9-:/]+$}", app.rPost("sa")).Methods("POST")
-	app.Router.HandleFunc("/r/mo/{key:[a-zA-Z0-9-:/]+$}", app.rPost("mo")).Methods("POST")
-	app.Router.HandleFunc("/r/sa/{key:[a-zA-Z0-9-:/]+$}", app.rGet("sa")).Methods("GET")
-	app.Router.HandleFunc("/r/mo/{key:[a-zA-Z0-9-:/]+$}", app.rGet("mo")).Methods("GET")
+	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
+	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
+	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
+	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
+	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
+	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
 	app.Router.HandleFunc("/time", app.timeWs)
 }
 
@@ -512,12 +538,38 @@ func (app *SAMO) timer() {
 
 func (app *SAMO) start() {
 	var err error
+	app.console.log("starting db")
 	app.db, err = leveldb.OpenFile(app.storage, nil)
 	if err == nil {
-		log.Fatal(http.ListenAndServe(app.address, cors.Default().Handler(app.Router)))
+		app.Server = &http.Server{
+			Addr:    app.address,
+			Handler: cors.Default().Handler(app.Router)}
+		err = app.Server.ListenAndServe()
+		if !app.closing {
+			log.Fatal(err)
+		}
 	} else {
 		log.Fatal(err)
 	}
+}
+
+func (app *SAMO) close(sig os.Signal) {
+	app.closing = true
+	app.db.Close()
+	app.console.log("shutdown", sig)
+	app.Server.Shutdown(nil)
+}
+
+func (app *SAMO) waitSignal() {
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		app.close(sig)
+		done <- true
+	}()
+	<-done
 }
 
 func main() {
@@ -527,5 +579,6 @@ func main() {
 	app.init(*host+":"+strconv.Itoa(*port), *storage, *separator)
 	go app.start()
 	app.console.log("glad to serve[" + app.address + "]")
-	app.timer()
+	go app.timer()
+	app.waitSignal()
 }
