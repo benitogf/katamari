@@ -114,6 +114,7 @@ func TestHttpRGet(t *testing.T) {
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
+	app.close(os.Interrupt)
 }
 
 func TestWSKey(t *testing.T) {
@@ -121,18 +122,28 @@ func TestWSKey(t *testing.T) {
 	app.init("localhost:9889", "test/db", ":")
 	go app.start()
 	defer app.close(os.Interrupt)
+	tryes := 0
+	for app.Server == nil && tryes < 10 {
+		tryes++
+		time.Sleep(800 * time.Millisecond)
+	}
+	require.NotEmpty(t, app.Server)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
+	app.console.err(err)
 	require.Error(t, err)
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test::1"}
 	c, _, err = websocket.DefaultDialer.Dial(u2.String(), nil)
 	require.Nil(t, c)
+	app.console.err(err)
 	require.Error(t, err)
 	u3 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1:"}
 	c, _, err = websocket.DefaultDialer.Dial(u3.String(), nil)
 	require.Nil(t, c)
+	app.console.err(err)
 	require.Error(t, err)
+	app.close(os.Interrupt)
 }
 
 func TestRPostWSBroadcast(t *testing.T) {
@@ -242,6 +253,12 @@ func TestWSBroadcast(t *testing.T) {
 			require.NoError(t, err)
 			wrote = true
 		}
+	}
+
+	tryes := 0
+	for got1 == "" && tryes < 10 {
+		tryes++
+		time.Sleep(800 * time.Millisecond)
 	}
 
 	require.Equal(t, got1, "["+got2+"]")
