@@ -54,8 +54,10 @@ type Object struct {
 
 // Console : interface to formated terminal output
 type Console struct {
-	log func(v ...interface{})
-	err func(v ...interface{})
+	_log *log.Logger
+	_err *log.Logger
+	log  func(v ...interface{})
+	err  func(v ...interface{})
 }
 
 // Stats : data structure of global keys
@@ -70,7 +72,7 @@ var separator = flag.String("separator", "/", "character to use as key separator
 
 func validKey(key string, separator string) bool {
 	// https://stackoverflow.com/a/26792316/6582356
-	return !(strings.Contains(key, separator+separator) || strings.HasSuffix(key, separator) || strings.HasPrefix(key, separator))
+	return !strings.Contains(key, separator+separator)
 }
 
 func isMO(key string, index string, separator string) bool {
@@ -88,7 +90,7 @@ func extractNonNil(event map[string]interface{}, field string) string {
 }
 
 func generateRouteRegex(separator string) string {
-	return "[a-zA-Z\\d\\" + separator + "]+"
+	return "[a-zA-Z\\d][a-zA-Z\\d\\" + separator + "]+[a-zA-Z\\d]"
 }
 
 func (app *SAMO) checkDb() {
@@ -237,7 +239,7 @@ func (app *SAMO) getEncodedData(mode string, key string) string {
 }
 
 func (app *SAMO) writeToClient(client *websocket.Conn, data string) {
-	err := client.WriteMessage(1, []byte("{"+
+	err := client.WriteMessage(websocket.TextMessage, []byte("{"+
 		"\"data\": \""+data+"\""+
 		"}"))
 	if err != nil {
@@ -317,7 +319,7 @@ func (app *SAMO) newClient(w http.ResponseWriter, r *http.Request, mode string, 
 	client, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		app.console.err("socketUpgradeError", err)
+		app.console.err("socketUpgradeError["+mode+"/"+key+"]", err)
 		return nil, err
 	}
 
@@ -345,7 +347,7 @@ func (app *SAMO) newClient(w http.ResponseWriter, r *http.Request, mode string, 
 
 func (app *SAMO) closeClient(client *websocket.Conn, mode string, key string) {
 	// remove the client before closing
-	app.console.log("socketClientClosing[" + mode + "/" + key + "]")
+	app.console.err("socketClientClosing[" + mode + "/" + key + "]")
 	poolIndex := app.findPool(mode, key)
 
 	// auxiliar clients array
@@ -362,9 +364,6 @@ func (app *SAMO) closeClient(client *websocket.Conn, mode string, key string) {
 
 	// replace clients array with the auxiliar
 	app.clients[poolIndex].connections = na
-	if len(na) > 0 {
-		app.console.log("socketPoolEmpty[" + mode + "/" + key + "]")
-	}
 	client.Close()
 }
 
@@ -415,7 +414,6 @@ func (app *SAMO) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 		client, err := app.newClient(w, r, mode, key)
 
 		if err != nil {
-			app.console.err("socketUpgradeError["+mode+"/"+key+"]", err)
 			return
 		}
 
@@ -471,7 +469,6 @@ func (app *SAMO) timeWs(w http.ResponseWriter, r *http.Request) {
 	client, err := app.newClient(w, r, mode, key)
 
 	if err != nil {
-		app.console.err("socketUpgradeError["+mode+"/"+key+"]", err)
 		return
 	}
 
@@ -492,22 +489,27 @@ func (app *SAMO) timeWs(w http.ResponseWriter, r *http.Request) {
 func (app *SAMO) init(address string, storage string, separator string) {
 	app.address = address
 	app.storage = storage
+	if len(separator) > 1 {
+		log.Fatal("the separator needs to be one character, currently it has ", len(separator), " please change or remove this flag, the default value is \"/\"")
+	}
 	app.separator = separator
 	app.Router = mux.NewRouter()
 	app.closing = false
 	app.console = &Console{
-		log: log.New(
-			os.Stdout,
-			color.BBlue("SAMO~[")+
-				color.BPurple(time.Now().String())+
-				color.BBlue("]"),
-			0).Println,
-		err: log.New(
-			os.Stderr,
-			color.BRed("SAMO~[")+
-				color.BPurple(time.Now().String())+
-				color.BRed("]"),
-			0).Println}
+		_err: log.New(os.Stderr, "", 0),
+		_log: log.New(os.Stdout, "", 0),
+		log: func(v ...interface{}) {
+			app.console._log.SetPrefix(color.BBlue("["+storage+"]~[") +
+				color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
+				color.BBlue("]~"))
+			app.console._log.Println(v)
+		},
+		err: func(v ...interface{}) {
+			app.console._err.SetPrefix(color.BRed("["+storage+"]~[") +
+				color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
+				color.BRed("]~"))
+			app.console._err.Println(v)
+		}}
 	rr := generateRouteRegex(app.separator)
 	app.Router.HandleFunc("/", app.getStats)
 	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
@@ -541,6 +543,7 @@ func (app *SAMO) start() {
 	app.console.log("starting db")
 	app.db, err = leveldb.OpenFile(app.storage, nil)
 	if err == nil {
+		app.console.log("starting server")
 		app.Server = &http.Server{
 			Addr:    app.address,
 			Handler: cors.Default().Handler(app.Router)}
@@ -556,7 +559,7 @@ func (app *SAMO) start() {
 func (app *SAMO) close(sig os.Signal) {
 	app.closing = true
 	app.db.Close()
-	app.console.log("shutdown", sig)
+	app.console.err("shutdown", sig)
 	app.Server.Shutdown(nil)
 }
 

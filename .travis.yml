@@ -11,3 +11,5 @@ install:
   - go get github.com/rs/cors
   - go get github.com/stretchr/testify
   - go get github.com/syndtr/goleveldb/leveldb
+
+script: go test -v -coverprofile cover.out
