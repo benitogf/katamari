@@ -62,6 +62,7 @@ func TestSASetGetDel(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
 	go app.start()
+	defer app.close(os.Interrupt)
 	app.delData("sa", "test", "")
 	index := app.setData("sa", "test", "", "", "test")
 	require.NotEmpty(t, index)
@@ -74,13 +75,13 @@ func TestSASetGetDel(t *testing.T) {
 	app.delData("sa", "test", "")
 	dataDel := string(app.getData("sa", "test"))
 	require.Equal(t, "", dataDel)
-	app.close(os.Interrupt)
 }
 
 func TestMOSetGetDel(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
 	go app.start()
+	defer app.close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
@@ -93,13 +94,13 @@ func TestMOSetGetDel(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
 	require.Equal(t, "test", testObjects[0].Data)
-	app.close(os.Interrupt)
 }
 
 func TestHttpRGet(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
 	go app.start()
+	defer app.close(os.Interrupt)
 	app.delData("sa", "test", "")
 	_ = app.setData("sa", "test", "", "", "test")
 	data := app.getData("sa", "test")
@@ -113,32 +114,32 @@ func TestHttpRGet(t *testing.T) {
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
-	app.close(os.Interrupt)
 }
 
 func TestWSKey(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", ":")
 	go app.start()
+	defer app.close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	require.Equal(t, "websocket: bad handshake", err.Error())
+	require.Error(t, err)
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test::1"}
 	c, _, err = websocket.DefaultDialer.Dial(u2.String(), nil)
 	require.Nil(t, c)
-	require.Equal(t, "websocket: bad handshake", err.Error())
+	require.Error(t, err)
 	u3 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1:"}
 	c, _, err = websocket.DefaultDialer.Dial(u3.String(), nil)
 	require.Nil(t, c)
-	require.Equal(t, "websocket: bad handshake", err.Error())
-	app.close(os.Interrupt)
+	require.Error(t, err)
 }
 
 func TestRPostWSBroadcast(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
 	go app.start()
+	defer app.close(os.Interrupt)
 	app.delData("sa", "test", "")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -183,13 +184,13 @@ func TestRPostWSBroadcast(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, wsObject.Index, rPostObject.Index)
 	require.Equal(t, 200, resp.StatusCode)
-	app.close(os.Interrupt)
 }
 
 func TestWSBroadcast(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
 	go app.start()
+	defer app.close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
@@ -244,5 +245,4 @@ func TestWSBroadcast(t *testing.T) {
 	}
 
 	require.Equal(t, got1, "["+got2+"]")
-	app.close(os.Interrupt)
 }
