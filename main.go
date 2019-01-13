@@ -558,9 +558,13 @@ func (app *SAMO) start() {
 
 func (app *SAMO) close(sig os.Signal) {
 	app.closing = true
-	app.db.Close()
+	if app.db != nil {
+		app.db.Close()
+	}
 	app.console.err("shutdown", sig)
-	app.Server.Shutdown(nil)
+	if app.Server != nil {
+		app.Server.Shutdown(nil)
+	}
 }
 
 func (app *SAMO) waitSignal() {
