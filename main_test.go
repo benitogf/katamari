@@ -160,6 +160,14 @@ func TestRPostKey(t *testing.T) {
 	require.Equal(t, 204, resp.StatusCode)
 }
 
+func TestDoubleShutdown(t *testing.T) {
+	app := SAMO{}
+	app.init("localhost:9889", "test/db", ":")
+	app.start()
+	defer app.close(os.Interrupt)
+	app.close(os.Interrupt)
+}
+
 func TestHttpRGet(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
@@ -178,7 +186,6 @@ func TestHttpRGet(t *testing.T) {
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
-	app.close(os.Interrupt)
 }
 
 func TestWSKey(t *testing.T) {
@@ -242,9 +249,9 @@ func TestRPostWSBroadcast(t *testing.T) {
 	resp := w.Result()
 	body, _ := ioutil.ReadAll(resp.Body)
 	tryes := 0
-	for got == "" && tryes < 10 {
+	for got == "" && tryes < 10000 {
 		tryes++
-		time.Sleep(800 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	var wsObject Object
 	err = json.Unmarshal([]byte(got), &wsObject)
@@ -315,9 +322,9 @@ func TestWSBroadcast(t *testing.T) {
 	}
 
 	tryes := 0
-	for got1 == "" && tryes < 10 {
+	for got1 == "" && tryes < 10000 {
 		tryes++
-		time.Sleep(800 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	require.Equal(t, got1, "["+got2+"]")

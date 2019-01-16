@@ -575,7 +575,7 @@ func (app *SAMO) timer() {
 
 func (app *SAMO) waitServer() {
 	tryes := 0
-	for app.Server == nil && tryes < 10 {
+	for app.Server == nil && tryes < 100 {
 		tryes++
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -585,34 +585,36 @@ func (app *SAMO) waitServer() {
 }
 
 func (app *SAMO) start() {
-	var err error
-	app.console.log("starting db")
-	app.db, err = leveldb.OpenFile(app.storage, nil)
-	if err == nil {
-		app.console.log("starting server")
-		app.Server = &http.Server{
-			Addr:    app.address,
-			Handler: cors.Default().Handler(app.Router)}
-		go func() {
+	go func() {
+		var err error
+		app.console.log("starting db")
+		app.db, err = leveldb.OpenFile(app.storage, nil)
+		if err == nil {
+			app.console.log("starting server")
+			app.Server = &http.Server{
+				Addr:    app.address,
+				Handler: cors.Default().Handler(app.Router)}
 			err = app.Server.ListenAndServe()
 			if !app.closing {
 				log.Fatal(err)
 			}
-		}()
-		app.waitServer()
-	} else {
-		log.Fatal(err)
-	}
+		} else {
+			log.Fatal(err)
+		}
+	}()
+	app.waitServer()
 }
 
 func (app *SAMO) close(sig os.Signal) {
-	app.closing = true
-	if app.db != nil {
-		app.db.Close()
-	}
-	app.console.err("shutdown", sig)
-	if app.Server != nil {
-		app.Server.Shutdown(nil)
+	if !app.closing {
+		app.closing = true
+		if app.db != nil {
+			app.db.Close()
+		}
+		app.console.err("shutdown", sig)
+		if app.Server != nil {
+			app.Server.Shutdown(nil)
+		}
 	}
 }
 
