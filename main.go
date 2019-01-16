@@ -31,17 +31,24 @@ type Pool struct {
 	connections []*websocket.Conn
 }
 
+// Archetype : function to check proper key->data covalent bond
+type Archetype func(data string) bool
+
+// Archetypes : a map that allows structure and content formalization of key->data
+type Archetypes map[string]Archetype
+
 // SAMO : server router, Pool array, and server address
 type SAMO struct {
-	Server    *http.Server
-	Router    *mux.Router
-	clients   []*Pool
-	storage   string
-	separator string
-	db        *leveldb.DB
-	address   string
-	console   *Console
-	closing   bool
+	Server     *http.Server
+	Router     *mux.Router
+	clients    []*Pool
+	archetypes Archetypes
+	storage    string
+	separator  string
+	db         *leveldb.DB
+	address    string
+	console    *Console
+	closing    bool
 }
 
 // Object : data structure of elements
@@ -91,6 +98,15 @@ func extractNonNil(event map[string]interface{}, field string) string {
 
 func generateRouteRegex(separator string) string {
 	return "[a-zA-Z\\d][a-zA-Z\\d\\" + separator + "]+[a-zA-Z\\d]"
+}
+
+func (app *SAMO) checkArchetype(mode string, key string, data string) bool {
+	path := mode + "/" + key
+	if app.archetypes[path] != nil {
+		return app.archetypes[path](data)
+	}
+
+	return true
 }
 
 func (app *SAMO) checkDb() {
@@ -166,9 +182,15 @@ func (app *SAMO) getData(mode string, key string) []byte {
 	return []byte("")
 }
 
-func (app *SAMO) setData(mode string, key string, index string, subIndex string, data string) string {
+func (app *SAMO) setData(mode string, key string, index string, subIndex string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
 	updated := now
+
+	if !app.checkArchetype(mode, key, data) {
+		app.console.err("setError["+mode+"/"+key+"]", "improper data")
+		return "", errors.New("SAMO: dataArchtypeError improper data")
+	}
+
 	if index == "" {
 		index = strconv.FormatInt(now, 16) + subIndex
 	}
@@ -205,11 +227,11 @@ func (app *SAMO) setData(mode string, key string, index string, subIndex string,
 		dataBytes.Bytes(), nil)
 	if err == nil {
 		app.console.log("set[" + mode + "/" + key + "]")
-		return index
+		return index, nil
 	}
 
 	app.console.err("setError["+mode+"/"+key+"]", err)
-	return ""
+	return "", err
 }
 
 func (app *SAMO) delData(mode string, key string, index string) {
@@ -391,7 +413,7 @@ func (app *SAMO) readClient(client *websocket.Conn, mode string, key string) {
 			if data != "" {
 				poolIndex := app.findPool(mode, key)
 				clientIndex := app.findClient(poolIndex, client)
-				_ = app.setData(mode, key, index, strconv.Itoa(clientIndex), data)
+				_, _ = app.setData(mode, key, index, strconv.Itoa(clientIndex), data)
 			}
 			break
 		case "DEL":
@@ -438,20 +460,33 @@ func (app *SAMO) rPost(mode string) func(w http.ResponseWriter, r *http.Request)
 			defer r.Body.Close()
 			err = decoder.Decode(&obj)
 			if err == nil {
-				index := app.setData(mode, key, obj.Index, "R", obj.Data)
-				app.sendData(app.findConnections(mode, key))
-				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprintf(w, "{"+
-					"\"index\": \""+index+"\""+
-					"}")
-				return
+				if obj.Data != "" {
+					index, err := app.setData(mode, key, obj.Index, "R", obj.Data)
+					if err == nil {
+						app.sendData(app.findConnections(mode, key))
+						w.Header().Set("Content-Type", "application/json")
+						fmt.Fprintf(w, "{"+
+							"\"index\": \""+index+"\""+
+							"}")
+						return
+					}
+
+					w.WriteHeader(http.StatusExpectationFailed)
+					fmt.Fprintf(w, "%s", err)
+					return
+				}
+
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%s", errors.New("SAMO: emptyDataError data is empty"))
 			}
-		} else {
-			err = errors.New("pathKeyError[" + key + "]: the provided key is not valid")
+
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s", err)
+			return
 		}
 
 		w.WriteHeader(http.StatusNoContent)
-		fmt.Fprintf(w, "%s", err)
+		fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
 	}
 }
 
@@ -538,6 +573,17 @@ func (app *SAMO) timer() {
 	}
 }
 
+func (app *SAMO) waitServer() {
+	tryes := 0
+	for app.Server == nil && tryes < 10 {
+		tryes++
+		time.Sleep(100 * time.Millisecond)
+	}
+	if app.Server == nil {
+		log.Fatal("Server start failed")
+	}
+}
+
 func (app *SAMO) start() {
 	var err error
 	app.console.log("starting db")
@@ -547,10 +593,13 @@ func (app *SAMO) start() {
 		app.Server = &http.Server{
 			Addr:    app.address,
 			Handler: cors.Default().Handler(app.Router)}
-		err = app.Server.ListenAndServe()
-		if !app.closing {
-			log.Fatal(err)
-		}
+		go func() {
+			err = app.Server.ListenAndServe()
+			if !app.closing {
+				log.Fatal(err)
+			}
+		}()
+		app.waitServer()
 	} else {
 		log.Fatal(err)
 	}
@@ -584,7 +633,7 @@ func main() {
 	log.SetFlags(0)
 	app := SAMO{}
 	app.init(*host+":"+strconv.Itoa(*port), *storage, *separator)
-	go app.start()
+	app.start()
 	app.console.log("glad to serve[" + app.address + "]")
 	go app.timer()
 	app.waitSignal()

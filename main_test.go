@@ -61,10 +61,10 @@ func TestIsMo(t *testing.T) {
 func TestSASetGetDel(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
-	go app.start()
+	app.start()
 	defer app.close(os.Interrupt)
 	app.delData("sa", "test", "")
-	index := app.setData("sa", "test", "", "", "test")
+	index, _ := app.setData("sa", "test", "", "", "test")
 	require.NotEmpty(t, index)
 	data := app.getData("sa", "test")
 	var testObject Object
@@ -80,13 +80,13 @@ func TestSASetGetDel(t *testing.T) {
 func TestMOSetGetDel(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
-	go app.start()
+	app.start()
 	defer app.close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
-	_ = app.setData("sa", "test/123", "", "", "test")
-	index := app.setData("mo", "test", "MOtest", "", "test")
+	_, _ = app.setData("sa", "test/123", "", "", "test")
+	index, _ := app.setData("mo", "test", "MOtest", "", "test")
 	require.Equal(t, "MOtest", index)
 	data := app.getData("mo", "test")
 	var testObjects []Object
@@ -96,13 +96,77 @@ func TestMOSetGetDel(t *testing.T) {
 	require.Equal(t, "test", testObjects[0].Data)
 }
 
+func TestArchetype(t *testing.T) {
+	app := SAMO{}
+	app.init("localhost:9889", "test/db", "/")
+	app.archetypes = Archetypes{
+		"sa/test": func(data string) bool {
+			return data == "test"
+		},
+	}
+	app.start()
+	defer app.close(os.Interrupt)
+	app.delData("sa", "test", "")
+	index, err := app.setData("sa", "test", "", "", "notest")
+	require.Empty(t, index)
+	require.Error(t, err)
+	index, err = app.setData("sa", "test", "", "", "test")
+	require.NotEmpty(t, index)
+	require.NoError(t, err)
+	var jsonStr = []byte(`{"data":"notest"}`)
+	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 417, resp.StatusCode)
+}
+
+func TestRPostNonObject(t *testing.T) {
+	app := SAMO{}
+	app.init("localhost:9889", "test/db", "/")
+	app.start()
+	defer app.close(os.Interrupt)
+	var jsonStr = []byte(`non object`)
+	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 400, resp.StatusCode)
+}
+
+func TestRPostEmptyData(t *testing.T) {
+	app := SAMO{}
+	app.init("localhost:9889", "test/db", "/")
+	app.start()
+	defer app.close(os.Interrupt)
+	var jsonStr = []byte(`{"data":""}`)
+	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 400, resp.StatusCode)
+}
+
+func TestRPostKey(t *testing.T) {
+	app := SAMO{}
+	app.init("localhost:9889", "test/db", ":")
+	app.start()
+	defer app.close(os.Interrupt)
+	var jsonStr = []byte(`{"data":"test"}`)
+	req := httptest.NewRequest("POST", "/r/sa/test::a", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 204, resp.StatusCode)
+}
+
 func TestHttpRGet(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
-	go app.start()
+	app.start()
 	defer app.close(os.Interrupt)
 	app.delData("sa", "test", "")
-	_ = app.setData("sa", "test", "", "", "test")
+	_, _ = app.setData("sa", "test", "", "", "test")
 	data := app.getData("sa", "test")
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
@@ -120,13 +184,8 @@ func TestHttpRGet(t *testing.T) {
 func TestWSKey(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", ":")
-	go app.start()
+	app.start()
 	defer app.close(os.Interrupt)
-	tryes := 0
-	for app.Server == nil && tryes < 10 {
-		tryes++
-		time.Sleep(800 * time.Millisecond)
-	}
 	require.NotEmpty(t, app.Server)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -149,7 +208,7 @@ func TestWSKey(t *testing.T) {
 func TestRPostWSBroadcast(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
-	go app.start()
+	app.start()
 	defer app.close(os.Interrupt)
 	app.delData("sa", "test", "")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
@@ -200,12 +259,12 @@ func TestRPostWSBroadcast(t *testing.T) {
 func TestWSBroadcast(t *testing.T) {
 	app := SAMO{}
 	app.init("localhost:9889", "test/db", "/")
-	go app.start()
+	app.start()
 	defer app.close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
-	_ = app.setData("sa", "test/1", "", "", "test")
+	_, _ = app.setData("sa", "test/1", "", "", "test")
 	u1 := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test"}
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1"}
 	c1, _, err := websocket.DefaultDialer.Dial(u1.String(), nil)
