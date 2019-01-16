@@ -1,4 +1,4 @@
-package main
+package samo
 
 import (
 	"bytes"
@@ -15,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"gopkg.in/godo.v2/glob"
 
 	"github.com/bclicn/color"
 	"github.com/gorilla/mux"
@@ -37,12 +39,12 @@ type Archetype func(data string) bool
 // Archetypes : a map that allows structure and content formalization of key->data
 type Archetypes map[string]Archetype
 
-// SAMO : server router, Pool array, and server address
-type SAMO struct {
+// Server : SAMO application server
+type Server struct {
 	Server     *http.Server
 	Router     *mux.Router
 	clients    []*Pool
-	archetypes Archetypes
+	Archetypes Archetypes
 	storage    string
 	separator  string
 	db         *leveldb.DB
@@ -77,17 +79,17 @@ var host = flag.String("host", "localhost", "ws service host")
 var storage = flag.String("storage", "data/db", "path to the data folder")
 var separator = flag.String("separator", "/", "character to use as key separator")
 
-func validKey(key string, separator string) bool {
+func (app *Server) validKey(key string, separator string) bool {
 	// https://stackoverflow.com/a/26792316/6582356
 	return !strings.Contains(key, separator+separator)
 }
 
-func isMO(key string, index string, separator string) bool {
+func (app *Server) isMO(key string, index string, separator string) bool {
 	moIndex := strings.Split(strings.Replace(index, key+separator, "", 1), separator)
 	return len(moIndex) == 1 && moIndex[0] != key
 }
 
-func extractNonNil(event map[string]interface{}, field string) string {
+func (app *Server) extractNonNil(event map[string]interface{}, field string) string {
 	data := ""
 	if event[field] != nil {
 		data = event[field].(string)
@@ -96,20 +98,25 @@ func extractNonNil(event map[string]interface{}, field string) string {
 	return data
 }
 
-func generateRouteRegex(separator string) string {
+func (app *Server) generateRouteRegex(separator string) string {
 	return "[a-zA-Z\\d][a-zA-Z\\d\\" + separator + "]+[a-zA-Z\\d]"
 }
 
-func (app *SAMO) checkArchetype(mode string, key string, data string) bool {
-	path := mode + "/" + key
-	if app.archetypes[path] != nil {
-		return app.archetypes[path](data)
+func (app *Server) checkArchetype(key string, data string) bool {
+	found := ""
+	for ar := range app.Archetypes {
+		if glob.Globexp(ar).MatchString(key) {
+			found = ar
+		}
+	}
+	if found != "" {
+		return app.Archetypes[found](data)
 	}
 
 	return true
 }
 
-func (app *SAMO) checkDb() {
+func (app *Server) checkDb() {
 	tryes := 0
 	if app.db == nil || app.closing {
 		for (app.db == nil && tryes < 10) || app.closing {
@@ -126,7 +133,7 @@ func (app *SAMO) checkDb() {
 	}
 }
 
-func (app *SAMO) getStats(w http.ResponseWriter, r *http.Request) {
+func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	app.checkDb()
 	iter := app.db.NewIterator(nil, nil)
 	stats := Stats{}
@@ -146,7 +153,7 @@ func (app *SAMO) getStats(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", err)
 }
 
-func (app *SAMO) getData(mode string, key string) []byte {
+func (app *Server) getData(mode string, key string) []byte {
 	app.checkDb()
 	switch mode {
 	case "sa":
@@ -156,10 +163,10 @@ func (app *SAMO) getData(mode string, key string) []byte {
 		}
 		app.console.err("getError["+mode+"/"+key+"]", err)
 	case "mo":
-		iter := app.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
+		iter := app.db.NewIterator(util.BytesPrefix([]byte(key+app.separator)), nil)
 		res := []Object{}
 		for iter.Next() {
-			if isMO(key, string(iter.Key()), app.separator) {
+			if app.isMO(key, string(iter.Key()), app.separator) {
 				var newObject Object
 				err := json.Unmarshal(iter.Value(), &newObject)
 				if err == nil {
@@ -182,20 +189,20 @@ func (app *SAMO) getData(mode string, key string) []byte {
 	return []byte("")
 }
 
-func (app *SAMO) setData(mode string, key string, index string, subIndex string, data string) (string, error) {
+func (app *Server) setData(mode string, key string, index string, subIndex string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
 	updated := now
-
-	if !app.checkArchetype(mode, key, data) {
-		app.console.err("setError["+mode+"/"+key+"]", "improper data")
-		return "", errors.New("SAMO: dataArchtypeError improper data")
-	}
 
 	if index == "" {
 		index = strconv.FormatInt(now, 16) + subIndex
 	}
 	if mode == "mo" {
 		key += app.separator + index
+	}
+
+	if !app.checkArchetype(key, data) {
+		app.console.err("setError["+mode+"/"+key+"]", "improper data")
+		return "", errors.New("SAMO: dataArchtypeError improper data")
 	}
 
 	app.checkDb()
@@ -234,7 +241,7 @@ func (app *SAMO) setData(mode string, key string, index string, subIndex string,
 	return "", err
 }
 
-func (app *SAMO) delData(mode string, key string, index string) {
+func (app *Server) delData(mode string, key string, index string) {
 	if mode == "mo" {
 		key += app.separator + index
 	}
@@ -250,7 +257,7 @@ func (app *SAMO) delData(mode string, key string, index string) {
 	return
 }
 
-func (app *SAMO) getEncodedData(mode string, key string) string {
+func (app *Server) getEncodedData(mode string, key string) string {
 	raw := app.getData(mode, key)
 	data := ""
 	if len(raw) > 0 {
@@ -260,7 +267,7 @@ func (app *SAMO) getEncodedData(mode string, key string) string {
 	return data
 }
 
-func (app *SAMO) writeToClient(client *websocket.Conn, data string) {
+func (app *Server) writeToClient(client *websocket.Conn, data string) {
 	err := client.WriteMessage(websocket.TextMessage, []byte("{"+
 		"\"data\": \""+data+"\""+
 		"}"))
@@ -269,7 +276,7 @@ func (app *SAMO) writeToClient(client *websocket.Conn, data string) {
 	}
 }
 
-func (app *SAMO) sendData(clients []int) {
+func (app *Server) sendData(clients []int) {
 	if len(clients) > 0 {
 		for _, clientIndex := range clients {
 			data := app.getEncodedData(app.clients[clientIndex].mode, app.clients[clientIndex].key)
@@ -280,7 +287,7 @@ func (app *SAMO) sendData(clients []int) {
 	}
 }
 
-func (app *SAMO) sendTime(clients []*websocket.Conn) {
+func (app *Server) sendTime(clients []*websocket.Conn) {
 	now := time.Now().UTC().UnixNano()
 	data := strconv.FormatInt(now, 10)
 	for _, client := range clients {
@@ -293,7 +300,7 @@ func (app *SAMO) sendTime(clients []*websocket.Conn) {
 	}
 }
 
-func (app *SAMO) findPool(mode string, key string) int {
+func (app *Server) findPool(mode string, key string) int {
 	poolIndex := -1
 	for i := range app.clients {
 		if app.clients[i].key == key && app.clients[i].mode == mode {
@@ -305,12 +312,12 @@ func (app *SAMO) findPool(mode string, key string) int {
 	return poolIndex
 }
 
-func (app *SAMO) findConnections(mode string, key string) []int {
+func (app *Server) findConnections(mode string, key string) []int {
 	var res []int
 	for i := range app.clients {
 		if (app.clients[i].key == key && app.clients[i].mode == mode) ||
-			(mode == "sa" && app.clients[i].mode == "mo" && isMO(app.clients[i].key, key, app.separator)) ||
-			(mode == "mo" && app.clients[i].mode == "sa" && isMO(key, app.clients[i].key, app.separator)) {
+			(mode == "sa" && app.clients[i].mode == "mo" && app.isMO(app.clients[i].key, key, app.separator)) ||
+			(mode == "mo" && app.clients[i].mode == "sa" && app.isMO(key, app.clients[i].key, app.separator)) {
 			res = append(res, i)
 		}
 	}
@@ -318,7 +325,7 @@ func (app *SAMO) findConnections(mode string, key string) []int {
 	return res
 }
 
-func (app *SAMO) findClient(poolIndex int, client *websocket.Conn) int {
+func (app *Server) findClient(poolIndex int, client *websocket.Conn) int {
 	clientIndex := -1
 	for i := range app.clients[poolIndex].connections {
 		if app.clients[poolIndex].connections[i] == client {
@@ -330,7 +337,7 @@ func (app *SAMO) findClient(poolIndex int, client *websocket.Conn) int {
 	return clientIndex
 }
 
-func (app *SAMO) newClient(w http.ResponseWriter, r *http.Request, mode string, key string) (*websocket.Conn, error) {
+func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string, key string) (*websocket.Conn, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -367,7 +374,7 @@ func (app *SAMO) newClient(w http.ResponseWriter, r *http.Request, mode string, 
 	return client, nil
 }
 
-func (app *SAMO) closeClient(client *websocket.Conn, mode string, key string) {
+func (app *Server) closeClient(client *websocket.Conn, mode string, key string) {
 	// remove the client before closing
 	app.console.err("socketClientClosing[" + mode + "/" + key + "]")
 	poolIndex := app.findPool(mode, key)
@@ -389,7 +396,7 @@ func (app *SAMO) closeClient(client *websocket.Conn, mode string, key string) {
 	client.Close()
 }
 
-func (app *SAMO) readClient(client *websocket.Conn, mode string, key string) {
+func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 	for {
 		_, message, err := client.ReadMessage()
 
@@ -404,9 +411,9 @@ func (app *SAMO) readClient(client *websocket.Conn, mode string, key string) {
 			app.console.err("jsonUnmarshalError["+mode+"/"+key+"]", err)
 			break
 		}
-		op := extractNonNil(wsEvent, "op")
-		index := extractNonNil(wsEvent, "index")
-		data := extractNonNil(wsEvent, "data")
+		op := app.extractNonNil(wsEvent, "op")
+		index := app.extractNonNil(wsEvent, "index")
+		data := app.extractNonNil(wsEvent, "data")
 
 		switch op {
 		case "":
@@ -426,10 +433,10 @@ func (app *SAMO) readClient(client *websocket.Conn, mode string, key string) {
 	}
 }
 
-func (app *SAMO) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
+func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !validKey(key, app.separator) {
+		if !app.validKey(key, app.separator) {
 			app.console.err("socketKeyError", key)
 			return
 		}
@@ -450,11 +457,11 @@ func (app *SAMO) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *SAMO) rPost(mode string) func(w http.ResponseWriter, r *http.Request) {
+func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
 		var err error
-		if validKey(key, app.separator) {
+		if app.validKey(key, app.separator) {
 			var obj Object
 			decoder := json.NewDecoder(r.Body)
 			defer r.Body.Close()
@@ -490,7 +497,7 @@ func (app *SAMO) rPost(mode string) func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (app *SAMO) rGet(mode string) func(w http.ResponseWriter, r *http.Request) {
+func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := string(app.getData(mode, mux.Vars(r)["key"]))
 		w.Header().Set("Content-Type", "application/json")
@@ -498,7 +505,7 @@ func (app *SAMO) rGet(mode string) func(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (app *SAMO) timeWs(w http.ResponseWriter, r *http.Request) {
+func (app *Server) timeWs(w http.ResponseWriter, r *http.Request) {
 	mode := "ws"
 	key := "time"
 	client, err := app.newClient(w, r, mode, key)
@@ -521,7 +528,36 @@ func (app *SAMO) timeWs(w http.ResponseWriter, r *http.Request) {
 	app.sendTime([]*websocket.Conn{client})
 }
 
-func (app *SAMO) init(address string, storage string, separator string) {
+func (app *Server) timer() {
+	ticker := time.NewTicker(time.Second)
+	quit := make(chan struct{})
+	for {
+		select {
+		case <-ticker.C:
+			poolIndex := app.findPool("ws", "time")
+			if poolIndex != -1 {
+				app.sendTime(app.clients[poolIndex].connections)
+			}
+		case <-quit:
+			ticker.Stop()
+			return
+		}
+	}
+}
+
+func (app *Server) waitServer() {
+	tryes := 0
+	for app.Server == nil && tryes < 100 {
+		tryes++
+		time.Sleep(100 * time.Millisecond)
+	}
+	if app.Server == nil {
+		log.Fatal("Server start failed")
+	}
+}
+
+// Start : initialize and start the http server and database connection
+func (app *Server) Start(address string, storage string, separator string) {
 	app.address = address
 	app.storage = storage
 	if len(separator) > 1 {
@@ -545,7 +581,7 @@ func (app *SAMO) init(address string, storage string, separator string) {
 				color.BRed("]~"))
 			app.console._err.Println(v)
 		}}
-	rr := generateRouteRegex(app.separator)
+	rr := app.generateRouteRegex(app.separator)
 	app.Router.HandleFunc("/", app.getStats)
 	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
 	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
@@ -554,37 +590,6 @@ func (app *SAMO) init(address string, storage string, separator string) {
 	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
 	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
 	app.Router.HandleFunc("/time", app.timeWs)
-}
-
-func (app *SAMO) timer() {
-	ticker := time.NewTicker(time.Second)
-	quit := make(chan struct{})
-	for {
-		select {
-		case <-ticker.C:
-			poolIndex := app.findPool("ws", "time")
-			if poolIndex != -1 {
-				app.sendTime(app.clients[poolIndex].connections)
-			}
-		case <-quit:
-			ticker.Stop()
-			return
-		}
-	}
-}
-
-func (app *SAMO) waitServer() {
-	tryes := 0
-	for app.Server == nil && tryes < 100 {
-		tryes++
-		time.Sleep(100 * time.Millisecond)
-	}
-	if app.Server == nil {
-		log.Fatal("Server start failed")
-	}
-}
-
-func (app *SAMO) start() {
 	go func() {
 		var err error
 		app.console.log("starting db")
@@ -603,9 +608,12 @@ func (app *SAMO) start() {
 		}
 	}()
 	app.waitServer()
+	app.console.log("glad to serve[" + app.address + "]")
+	go app.timer()
 }
 
-func (app *SAMO) close(sig os.Signal) {
+// Close : shutdowns the http server and database connection
+func (app *Server) Close(sig os.Signal) {
 	if !app.closing {
 		app.closing = true
 		if app.db != nil {
@@ -618,13 +626,14 @@ func (app *SAMO) close(sig os.Signal) {
 	}
 }
 
-func (app *SAMO) waitSignal() {
+// WaitClose : Blocks waiting for SIGINT or SIGTERM
+func (app *Server) WaitClose() {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		app.close(sig)
+		app.Close(sig)
 		done <- true
 	}()
 	<-done
@@ -633,10 +642,7 @@ func (app *SAMO) waitSignal() {
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
-	app := SAMO{}
-	app.init(*host+":"+strconv.Itoa(*port), *storage, *separator)
-	app.start()
-	app.console.log("glad to serve[" + app.address + "]")
-	go app.timer()
-	app.waitSignal()
+	app := Server{}
+	app.Start(*host+":"+strconv.Itoa(*port), *storage, *separator)
+	app.WaitClose()
 }

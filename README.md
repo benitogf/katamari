@@ -12,6 +12,13 @@ pub/sub and http service for leveldb object storage
 | ------------- |:-------------:| -----:|
 | get | key list | http://{host}:{port} |
 
+#### time
+
+| method | description | url    |
+| ------------- |:-------------:| -----:|
+| websocket| time tick | ws://{host}:{port}/time |
+
+
 #### single allocation (SA)
 
 | method | description | url    |
@@ -81,5 +88,29 @@ pub/sub and http service for leveldb object storage
 {
     op: 'DEL',
     index: 'test'
+}
+```
+
+## Data archetypes
+
+Define custom acceptance criteria of data using key glob patterns
+
+```go
+package main
+
+import "github.com/benitogf/samo"
+
+func main() {
+	app := samo.Server{}
+	app.Archetypes = samo.Archetypes{
+		"things/*": func(data string) bool {
+			return data == "object"
+		},
+		"bag": func(data string) bool {
+			return data == "marbles"
+		},
+	}
+	app.Start("localhost:9889", "test/db", "/")
+	app.WaitClose()
 }
 ```

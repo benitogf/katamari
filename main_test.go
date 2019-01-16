@@ -1,4 +1,4 @@
-package main
+package samo
 
 import (
 	"bytes"
@@ -18,12 +18,13 @@ import (
 )
 
 func Decode(message []byte) (string, error) {
+	app := Server{}
 	var wsEvent map[string]interface{}
 	err := json.Unmarshal(message, &wsEvent)
 	if err != nil {
 		return "", err
 	}
-	decoded, err := base64.StdEncoding.DecodeString(extractNonNil(wsEvent, "data"))
+	decoded, err := base64.StdEncoding.DecodeString(app.extractNonNil(wsEvent, "data"))
 	if err != nil {
 		return "", err
 	}
@@ -31,38 +32,40 @@ func Decode(message []byte) (string, error) {
 }
 
 func TestRegex(t *testing.T) {
+	app := Server{}
 	separator := "/"
-	rr, _ := regexp.Compile("^" + generateRouteRegex(separator) + "$")
+	rr, _ := regexp.Compile("^" + app.generateRouteRegex(separator) + "$")
 	require.True(t, rr.MatchString("a/b/c"))
 	require.False(t, rr.MatchString("/a/b/c"))
 	require.False(t, rr.MatchString("a/b/c/"))
 	require.False(t, rr.MatchString("a:b/c"))
 	separator = ":"
-	rr, _ = regexp.Compile("^" + generateRouteRegex(separator) + "$")
+	rr, _ = regexp.Compile("^" + app.generateRouteRegex(separator) + "$")
 	require.True(t, rr.MatchString("a:b:c"))
 	require.False(t, rr.MatchString("a:b/c"))
 }
 
 func TestValidKey(t *testing.T) {
-	require.True(t, validKey("test", "/"))
-	require.True(t, validKey("test/1", "/"))
-	require.False(t, validKey("test//1", "/"))
-	require.False(t, validKey("test///1", "/"))
+	app := Server{}
+	require.True(t, app.validKey("test", "/"))
+	require.True(t, app.validKey("test/1", "/"))
+	require.False(t, app.validKey("test//1", "/"))
+	require.False(t, app.validKey("test///1", "/"))
 }
 
 func TestIsMo(t *testing.T) {
-	require.True(t, isMO("thing", "thing/123", "/"))
-	require.True(t, isMO("thing/123", "thing/123/123", "/"))
-	require.False(t, isMO("thing/123", "thing/12", "/"))
-	require.False(t, isMO("thing/1", "thing/123", "/"))
-	require.False(t, isMO("thing/123", "thing/123/123/123", "/"))
+	app := Server{}
+	require.True(t, app.isMO("thing", "thing/123", "/"))
+	require.True(t, app.isMO("thing/123", "thing/123/123", "/"))
+	require.False(t, app.isMO("thing/123", "thing/12", "/"))
+	require.False(t, app.isMO("thing/1", "thing/123", "/"))
+	require.False(t, app.isMO("thing/123", "thing/123/123/123", "/"))
 }
 
 func TestSASetGetDel(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
 	index, _ := app.setData("sa", "test", "", "", "test")
 	require.NotEmpty(t, index)
@@ -78,10 +81,9 @@ func TestSASetGetDel(t *testing.T) {
 }
 
 func TestMOSetGetDel(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
@@ -97,24 +99,37 @@ func TestMOSetGetDel(t *testing.T) {
 }
 
 func TestArchetype(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.archetypes = Archetypes{
-		"sa/test": func(data string) bool {
+	app := Server{}
+	app.Archetypes = Archetypes{
+		"test1": func(data string) bool {
+			return data == "test1"
+		},
+		"test?/*": func(data string) bool {
 			return data == "test"
 		},
 	}
-	app.start()
-	defer app.close(os.Interrupt)
-	app.delData("sa", "test", "")
-	index, err := app.setData("sa", "test", "", "", "notest")
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
+	index, err := app.setData("sa", "test1", "", "", "notest")
 	require.Empty(t, index)
 	require.Error(t, err)
-	index, err = app.setData("sa", "test", "", "", "test")
+	index, err = app.setData("sa", "test1", "", "", "test1")
+	require.NotEmpty(t, index)
+	require.NoError(t, err)
+	index, err = app.setData("mo", "test1", "", "", "notest")
+	require.Empty(t, index)
+	require.Error(t, err)
+	index, err = app.setData("mo", "test1", "", "", "test")
+	require.NotEmpty(t, index)
+	require.NoError(t, err)
+	index, err = app.setData("sa", "test0/1", "", "", "notest")
+	require.Empty(t, index)
+	require.Error(t, err)
+	index, err = app.setData("sa", "test0/1", "", "", "test")
 	require.NotEmpty(t, index)
 	require.NoError(t, err)
 	var jsonStr = []byte(`{"data":"notest"}`)
-	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
@@ -122,10 +137,9 @@ func TestArchetype(t *testing.T) {
 }
 
 func TestRPostNonObject(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`non object`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
@@ -135,10 +149,9 @@ func TestRPostNonObject(t *testing.T) {
 }
 
 func TestRPostEmptyData(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":""}`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
@@ -148,10 +161,9 @@ func TestRPostEmptyData(t *testing.T) {
 }
 
 func TestRPostKey(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", ":")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", ":")
+	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":"test"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test::a", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
@@ -161,18 +173,16 @@ func TestRPostKey(t *testing.T) {
 }
 
 func TestDoubleShutdown(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", ":")
-	app.start()
-	defer app.close(os.Interrupt)
-	app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", ":")
+	defer app.Close(os.Interrupt)
+	app.Close(os.Interrupt)
 }
 
 func TestHttpRGet(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
 	_, _ = app.setData("sa", "test", "", "", "test")
 	data := app.getData("sa", "test")
@@ -189,10 +199,9 @@ func TestHttpRGet(t *testing.T) {
 }
 
 func TestWSKey(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", ":")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", ":")
+	defer app.Close(os.Interrupt)
 	require.NotEmpty(t, app.Server)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -209,14 +218,13 @@ func TestWSKey(t *testing.T) {
 	require.Nil(t, c)
 	app.console.err(err)
 	require.Error(t, err)
-	app.close(os.Interrupt)
+	app.Close(os.Interrupt)
 }
 
 func TestRPostWSBroadcast(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -264,10 +272,9 @@ func TestRPostWSBroadcast(t *testing.T) {
 }
 
 func TestWSBroadcast(t *testing.T) {
-	app := SAMO{}
-	app.init("localhost:9889", "test/db", "/")
-	app.start()
-	defer app.close(os.Interrupt)
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
