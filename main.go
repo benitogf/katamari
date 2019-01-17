@@ -89,6 +89,10 @@ func (app *Server) validKey(key string, separator string) bool {
 	return !strings.Contains(key, separator+separator)
 }
 
+func (app *Server) extractMoIndex(index string, separator string) string {
+	return index[strings.LastIndexAny(index, separator)+1:]
+}
+
 func (app *Server) isMO(key string, index string, separator string) bool {
 	moIndex := strings.Split(strings.Replace(index, key+separator, "", 1), separator)
 	return len(moIndex) == 1 && moIndex[0] != key
@@ -205,10 +209,13 @@ func (app *Server) setData(mode string, key string, index string, subIndex strin
 	now := time.Now().UTC().UnixNano()
 	updated := now
 
-	if index == "" {
-		index = strconv.FormatInt(now, 16) + subIndex
+	if mode == "sa" {
+		index = app.extractMoIndex(key, app.separator)
 	}
 	if mode == "mo" {
+		if index == "" {
+			index = strconv.FormatInt(now, 16) + subIndex
+		}
 		key += app.separator + index
 	}
 
@@ -229,7 +236,6 @@ func (app *Server) setData(mode string, key string, index string, subIndex strin
 		err = json.Unmarshal(previous, &oldObject)
 		if err == nil {
 			created = oldObject.Created
-			index = oldObject.Index
 		}
 	}
 

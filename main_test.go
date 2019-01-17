@@ -68,11 +68,12 @@ func TestSASetGetDel(t *testing.T) {
 	app.Start("localhost:9889", "test/db", "/")
 	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
-	index, _ := app.setData("sa", "test", "", "", "test")
+	index, err := app.setData("sa", "test", "", "", "test")
+	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data := app.getData("sa", "test")
 	var testObject Object
-	err := json.Unmarshal(data, &testObject)
+	err = json.Unmarshal(data, &testObject)
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
@@ -88,12 +89,15 @@ func TestMOSetGetDel(t *testing.T) {
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
-	_, _ = app.setData("sa", "test/123", "", "", "test")
-	index, _ := app.setData("mo", "test", "MOtest", "", "test")
+	index, err := app.setData("sa", "test/123", "", "", "test")
+	require.NoError(t, err)
+	require.Equal(t, "123", index)
+	index, err = app.setData("mo", "test", "MOtest", "", "test")
+	require.NoError(t, err)
 	require.Equal(t, "MOtest", index)
 	data := app.getData("mo", "test")
 	var testObjects []Object
-	err := json.Unmarshal(data, &testObjects)
+	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
 	require.Equal(t, "test", testObjects[0].Data)
@@ -117,10 +121,10 @@ func TestArchetype(t *testing.T) {
 	index, err = app.setData("sa", "test1", "", "", "test1")
 	require.NotEmpty(t, index)
 	require.NoError(t, err)
-	index, err = app.setData("mo", "test1", "", "", "notest")
+	index, err = app.setData("mo", "test1", "1", "", "notest")
 	require.Empty(t, index)
 	require.Error(t, err)
-	index, err = app.setData("mo", "test1", "", "", "test")
+	index, err = app.setData("mo", "test1", "1", "", "test")
 	require.NotEmpty(t, index)
 	require.NoError(t, err)
 	index, err = app.setData("sa", "test0/1", "", "", "notest")
@@ -168,7 +172,9 @@ func TestAudit(t *testing.T) {
 	}
 	app.Start("localhost:9889", "test/db", "/")
 	defer app.Close(os.Interrupt)
-	_, _ = app.setData("sa", "test", "", "", "test")
+	index, err := app.setData("sa", "test", "", "", "test")
+	require.NoError(t, err)
+	require.Equal(t, "test", index)
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
@@ -224,7 +230,9 @@ func TestHttpRGet(t *testing.T) {
 	app.Start("localhost:9889", "test/db", "/")
 	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
-	_, _ = app.setData("sa", "test", "", "", "test")
+	index, err := app.setData("sa", "test", "", "", "test")
+	require.NoError(t, err)
+	require.Equal(t, "test", index)
 	data := app.getData("sa", "test")
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
@@ -331,7 +339,9 @@ func TestWSBroadcast(t *testing.T) {
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
 	app.delData("mo", "test", "1")
-	_, _ = app.setData("sa", "test/1", "", "", "test")
+	index, err := app.setData("sa", "test/1", "", "", "test")
+	require.NoError(t, err)
+	require.Equal(t, "1", index)
 	u1 := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test"}
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1"}
 	c1, _, err := websocket.DefaultDialer.Dial(u1.String(), nil)
@@ -399,4 +409,21 @@ func TestWSBroadcast(t *testing.T) {
 	}
 
 	require.Equal(t, got1, "["+got2+"]")
+}
+
+func TestGetStats(t *testing.T) {
+	app := Server{}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	require.Equal(t, "{\"keys\":[\"test\",\"test/1\",\"test0/1\",\"test1\",\"test1/1\"]}", string(body))
 }
