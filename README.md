@@ -91,9 +91,9 @@ pub/sub and http service for leveldb object storage
 }
 ```
 
-## Data archetypes and Requests audit
+## Data archetypes and audit
 
-Define custom acceptance criteria of data using key glob patterns and audit requests
+Define custom acceptance criteria of data using key glob patterns and audit middleware
 
 ```go
 package main
@@ -114,10 +114,10 @@ func main() {
 			return data == "marbles"
 		},
 	}
-	app.Audit = func(r *http.Request) {
+	app.Audit = func(r *http.Request) bool {
 		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
 	}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:8800", "data/db", '/')
 	app.WaitClose()
 }
 ```

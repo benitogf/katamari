@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -79,11 +78,6 @@ type Stats struct {
 	Keys []string `json:"keys"`
 }
 
-var port = flag.Int("port", 8800, "ws service port")
-var host = flag.String("host", "localhost", "ws service host")
-var storage = flag.String("storage", "data/db", "path to the data folder")
-var separator = flag.String("separator", "/", "character to use as key separator")
-
 func (app *Server) validKey(key string, separator string) bool {
 	// https://stackoverflow.com/a/26792316/6582356
 	return !strings.Contains(key, separator+separator)
@@ -125,26 +119,8 @@ func (app *Server) checkArchetype(key string, data string) bool {
 	return true
 }
 
-func (app *Server) checkDb() {
-	tryes := 0
-	if app.db == nil || app.closing {
-		for (app.db == nil && tryes < 10) || app.closing {
-			tryes++
-			time.Sleep(800 * time.Millisecond)
-		}
-		if app.db == nil {
-			var err error
-			app.db, err = leveldb.OpenFile(app.storage, nil)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-}
-
 func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	if app.Audit(r) {
-		app.checkDb()
 		iter := app.db.NewIterator(nil, nil)
 		stats := Stats{}
 		for iter.Next() {
@@ -159,7 +135,7 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "%s", err)
 		return
 	}
@@ -170,7 +146,6 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Server) getData(mode string, key string) []byte {
-	app.checkDb()
 	switch mode {
 	case "sa":
 		data, err := app.db.Get([]byte(key), nil)
@@ -224,7 +199,6 @@ func (app *Server) setData(mode string, key string, index string, subIndex strin
 		return "", errors.New("SAMO: dataArchtypeError improper data")
 	}
 
-	app.checkDb()
 	previous, err := app.db.Get([]byte(key), nil)
 	created := now
 	if err != nil && err.Error() == "leveldb: not found" {
@@ -264,7 +238,6 @@ func (app *Server) delData(mode string, key string, index string) {
 		key += app.separator + index
 	}
 
-	app.checkDb()
 	err := app.db.Delete([]byte(key), nil)
 	if err == nil {
 		app.console.log("delete[" + mode + "/" + key + "]")
@@ -505,7 +478,11 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 							return
 						}
 
-						w.WriteHeader(http.StatusExpectationFailed)
+						if err.Error() == "SAMO: dataArchtypeError improper data" {
+							w.WriteHeader(http.StatusBadRequest)
+						} else {
+							w.WriteHeader(http.StatusInternalServerError)
+						}
 						fmt.Fprintf(w, "%s", err)
 						return
 					}
@@ -574,7 +551,6 @@ func (app *Server) timeWs(w http.ResponseWriter, r *http.Request) {
 
 func (app *Server) timer() {
 	ticker := time.NewTicker(time.Second)
-	quit := make(chan struct{})
 	for {
 		select {
 		case <-ticker.C:
@@ -582,32 +558,30 @@ func (app *Server) timer() {
 			if poolIndex != -1 {
 				app.sendTime(app.clients[poolIndex].connections)
 			}
-		case <-quit:
-			ticker.Stop()
-			return
 		}
 	}
 }
 
-func (app *Server) waitServer() {
+func (app *Server) waitStart() {
 	tryes := 0
-	for app.Server == nil && tryes < 100 {
+	for (app.Server == nil || app.db == nil) && tryes < 100 {
 		tryes++
 		time.Sleep(100 * time.Millisecond)
 	}
-	if app.Server == nil {
+	if app.Server == nil || app.db == nil {
 		log.Fatal("Server start failed")
 	}
 }
 
 // Start : initialize and start the http server and database connection
-func (app *Server) Start(address string, storage string, separator string) {
+// 	port : ws service port 8800
+//  host : ws service host "localhost"
+// 	storage : path to the data folder "data/db"
+// 	separator : rune to use as key separator '/'
+func (app *Server) Start(address string, storage string, separator rune) {
 	app.address = address
 	app.storage = storage
-	if len(separator) > 1 {
-		log.Fatal("the separator needs to be one character, currently it has ", len(separator), " please change or remove this flag, the default value is \"/\"")
-	}
-	app.separator = separator
+	app.separator = string(separator)
 	app.Router = mux.NewRouter()
 	app.closing = false
 	if app.Audit == nil {
@@ -654,7 +628,7 @@ func (app *Server) Start(address string, storage string, separator string) {
 			log.Fatal(err)
 		}
 	}()
-	app.waitServer()
+	app.waitStart()
 	app.console.log("glad to serve[" + app.address + "]")
 	go app.timer()
 }
@@ -684,12 +658,4 @@ func (app *Server) WaitClose() {
 		done <- true
 	}()
 	<-done
-}
-
-func main() {
-	flag.Parse()
-	log.SetFlags(0)
-	app := Server{}
-	app.Start(*host+":"+strconv.Itoa(*port), *storage, *separator)
-	app.WaitClose()
 }

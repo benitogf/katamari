@@ -65,7 +65,7 @@ func TestIsMo(t *testing.T) {
 
 func TestSASetGetDel(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
 	index, err := app.setData("sa", "test", "", "", "test")
@@ -84,7 +84,7 @@ func TestSASetGetDel(t *testing.T) {
 
 func TestMOSetGetDel(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
@@ -113,7 +113,7 @@ func TestArchetype(t *testing.T) {
 			return data == "test"
 		},
 	}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	index, err := app.setData("sa", "test1", "", "", "notest")
 	require.Empty(t, index)
@@ -138,12 +138,12 @@ func TestArchetype(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 417, resp.StatusCode)
+	require.Equal(t, 400, resp.StatusCode)
 }
 
 func TestRPostNonObject(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`non object`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
@@ -155,7 +155,7 @@ func TestRPostNonObject(t *testing.T) {
 
 func TestRPostEmptyData(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":""}`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
@@ -170,7 +170,7 @@ func TestAudit(t *testing.T) {
 	app.Audit = func(r *http.Request) bool {
 		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET"
 	}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	index, err := app.setData("sa", "test", "", "", "test")
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestAudit(t *testing.T) {
 
 func TestRPostKey(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", ":")
+	app.Start("localhost:9889", "test/db", ':')
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":"test"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test::a", bytes.NewBuffer(jsonStr))
@@ -220,14 +220,14 @@ func TestRPostKey(t *testing.T) {
 
 func TestDoubleShutdown(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", ":")
+	app.Start("localhost:9889", "test/db", ':')
 	defer app.Close(os.Interrupt)
 	app.Close(os.Interrupt)
 }
 
 func TestHttpRGet(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
 	index, err := app.setData("sa", "test", "", "", "test")
@@ -249,7 +249,7 @@ func TestHttpRGet(t *testing.T) {
 
 func TestRequestKey(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", ":")
+	app.Start("localhost:9889", "test/db", ':')
 	defer app.Close(os.Interrupt)
 	require.NotEmpty(t, app.Server)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
@@ -275,9 +275,59 @@ func TestRequestKey(t *testing.T) {
 	require.Equal(t, 400, resp.StatusCode)
 }
 
+func TestWsTime(t *testing.T) {
+	app := Server{}
+	app.Start("localhost:9889", "test/db", '/')
+	defer app.Close(os.Interrupt)
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
+	c1, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	require.NoError(t, err)
+	c2, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	require.NoError(t, err)
+	count := 0
+	c1time := ""
+	c2time := ""
+
+	go func() {
+		for {
+			_, message, err := c1.ReadMessage()
+			if err != nil {
+				app.console.err("read c1", err)
+				break
+			}
+			c1time = string(message)
+			app.console.log("time c1", c1time)
+			count++
+		}
+	}()
+
+	for {
+		_, message, err := c2.ReadMessage()
+		if err != nil {
+			app.console.err("read c2", err)
+			break
+		}
+		c2time = string(message)
+		app.console.log("time c2", c2time)
+		err = c2.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		require.NoError(t, err)
+	}
+
+	tryes := 0
+	for count < 3 && tryes < 10000 {
+		tryes++
+		time.Sleep(2 * time.Millisecond)
+	}
+
+	err = c1.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	require.NoError(t, err)
+	require.NotEmpty(t, c1time)
+	require.NotEmpty(t, c2time)
+}
+
 func TestRPostWSBroadcast(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	app.delData("sa", "test", "")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
@@ -334,7 +384,7 @@ func TestRPostWSBroadcast(t *testing.T) {
 
 func TestWSBroadcast(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 	app.delData("mo", "test", "MOtest")
 	app.delData("mo", "test", "123")
@@ -411,9 +461,22 @@ func TestWSBroadcast(t *testing.T) {
 	require.Equal(t, got1, "["+got2+"]")
 }
 
+func TestBadSocketRequest(t *testing.T) {
+	app := Server{}
+	app.Start("localhost:9889", "test/db", '/')
+	defer app.Close(os.Interrupt)
+
+	req := httptest.NewRequest("GET", "/sa/test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, 400, resp.StatusCode)
+}
+
 func TestGetStats(t *testing.T) {
 	app := Server{}
-	app.Start("localhost:9889", "test/db", "/")
+	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 
 	req := httptest.NewRequest("GET", "/", nil)
