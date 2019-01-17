@@ -231,7 +231,8 @@ func TestHttpRGet(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
 
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -274,7 +275,7 @@ func TestRPostWSBroadcast(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	wrote := false
+	started := false
 	got := ""
 
 	go func() {
@@ -287,24 +288,31 @@ func TestRPostWSBroadcast(t *testing.T) {
 			data, err := Decode(message)
 			require.NoError(t, err)
 			app.console.log("read c", data)
-			if wrote {
+			if started {
 				got = data
-				_ = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				err = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				require.NoError(t, err)
 			}
+			started = true
 		}
 	}()
 
+	tryes := 0
+	for !started && tryes < 10000 {
+		tryes++
+		time.Sleep(2 * time.Millisecond)
+	}
 	var jsonStr = []byte(`{"data":"Buy coffee and bread for breakfast."}`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
-	wrote = true
 	resp := w.Result()
-	body, _ := ioutil.ReadAll(resp.Body)
-	tryes := 0
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	tryes = 0
 	for got == "" && tryes < 10000 {
 		tryes++
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 	}
 	var wsObject Object
 	err = json.Unmarshal([]byte(got), &wsObject)
@@ -331,6 +339,7 @@ func TestWSBroadcast(t *testing.T) {
 	c2, _, err := websocket.DefaultDialer.Dial(u2.String(), nil)
 	require.NoError(t, err)
 	wrote := false
+	started := false
 	got1 := ""
 	got2 := ""
 
@@ -344,12 +353,20 @@ func TestWSBroadcast(t *testing.T) {
 			data, err := Decode(message)
 			require.NoError(t, err)
 			app.console.log("read c1", data)
-			if wrote {
+			if started {
 				got1 = data
-				_ = c1.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				err = c1.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				require.NoError(t, err)
 			}
+			started = true
 		}
 	}()
+
+	tryes := 0
+	for !started && tryes < 10000 {
+		tryes++
+		time.Sleep(2 * time.Millisecond)
+	}
 
 	for {
 		_, message, err := c2.ReadMessage()
@@ -362,10 +379,12 @@ func TestWSBroadcast(t *testing.T) {
 		app.console.log("read c2", data)
 		if wrote {
 			got2 = data
-			_ = c2.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err = c2.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			require.NoError(t, err)
 		} else {
 			app.console.log("writing from c2")
 			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+
+				"\"index\": \"1\","+
 				"\"data\": \"test2\""+
 				"}"))
 			require.NoError(t, err)
@@ -373,10 +392,10 @@ func TestWSBroadcast(t *testing.T) {
 		}
 	}
 
-	tryes := 0
+	tryes = 0
 	for got1 == "" && tryes < 10000 {
 		tryes++
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 	}
 
 	require.Equal(t, got1, "["+got2+"]")

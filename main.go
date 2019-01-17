@@ -2,6 +2,7 @@ package samo
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -661,7 +662,7 @@ func (app *Server) Close(sig os.Signal) {
 		}
 		app.console.err("shutdown", sig)
 		if app.Server != nil {
-			app.Server.Shutdown(nil)
+			app.Server.Shutdown(context.Background())
 		}
 	}
 }
