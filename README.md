@@ -91,14 +91,18 @@ pub/sub and http service for leveldb object storage
 }
 ```
 
-## Data archetypes
+## Data archetypes and Requests audit
 
-Define custom acceptance criteria of data using key glob patterns
+Define custom acceptance criteria of data using key glob patterns and audit requests
 
 ```go
 package main
 
-import "github.com/benitogf/samo"
+import (
+	"net/http"
+
+	"github.com/benitogf/samo"
+)
 
 func main() {
 	app := samo.Server{}
@@ -109,6 +113,9 @@ func main() {
 		"bag": func(data string) bool {
 			return data == "marbles"
 		},
+	}
+	app.Audit = func(r *http.Request) {
+		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
 	}
 	app.Start("localhost:9889", "test/db", "/")
 	app.WaitClose()

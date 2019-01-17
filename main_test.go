@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -160,6 +161,45 @@ func TestRPostEmptyData(t *testing.T) {
 	require.Equal(t, 400, resp.StatusCode)
 }
 
+func TestAudit(t *testing.T) {
+	app := Server{}
+	app.Audit = func(r *http.Request) bool {
+		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET"
+	}
+	app.Start("localhost:9889", "test/db", "/")
+	defer app.Close(os.Interrupt)
+	_, _ = app.setData("sa", "test", "", "", "test")
+	req := httptest.NewRequest("GET", "/r/sa/test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 401, resp.StatusCode)
+
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	require.Nil(t, c)
+	app.console.err(err)
+	require.Error(t, err)
+
+	app.Audit = func(r *http.Request) bool {
+		return r.Method == "GET"
+	}
+
+	var jsonStr = []byte(`{"data":"test"}`)
+	req = httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 401, resp.StatusCode)
+
+	req = httptest.NewRequest("GET", "/r/sa/test", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 200, resp.StatusCode)
+
+}
+
 func TestRPostKey(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", ":")
@@ -169,7 +209,7 @@ func TestRPostKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 204, resp.StatusCode)
+	require.Equal(t, 400, resp.StatusCode)
 }
 
 func TestDoubleShutdown(t *testing.T) {
@@ -198,7 +238,7 @@ func TestHttpRGet(t *testing.T) {
 	require.Equal(t, string(data), string(body))
 }
 
-func TestWSKey(t *testing.T) {
+func TestRequestKey(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", ":")
 	defer app.Close(os.Interrupt)
@@ -218,7 +258,12 @@ func TestWSKey(t *testing.T) {
 	require.Nil(t, c)
 	app.console.err(err)
 	require.Error(t, err)
-	app.Close(os.Interrupt)
+
+	req := httptest.NewRequest("GET", "/r/sa/test::1", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 400, resp.StatusCode)
 }
 
 func TestRPostWSBroadcast(t *testing.T) {
@@ -301,6 +346,7 @@ func TestWSBroadcast(t *testing.T) {
 			app.console.log("read c1", data)
 			if wrote {
 				got1 = data
+				_ = c1.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			}
 		}
 	}()
@@ -317,7 +363,6 @@ func TestWSBroadcast(t *testing.T) {
 		if wrote {
 			got2 = data
 			_ = c2.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			_ = c1.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		} else {
 			app.console.log("writing from c2")
 			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+

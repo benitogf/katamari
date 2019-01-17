@@ -33,6 +33,9 @@ type Pool struct {
 	connections []*websocket.Conn
 }
 
+// Audit : function to provide approval or denial of requests
+type Audit func(r *http.Request) bool
+
 // Archetype : function to check proper key->data covalent bond
 type Archetype func(data string) bool
 
@@ -45,6 +48,7 @@ type Server struct {
 	Router     *mux.Router
 	clients    []*Pool
 	Archetypes Archetypes
+	Audit      Audit
 	storage    string
 	separator  string
 	db         *leveldb.DB
@@ -134,23 +138,30 @@ func (app *Server) checkDb() {
 }
 
 func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
-	app.checkDb()
-	iter := app.db.NewIterator(nil, nil)
-	stats := Stats{}
-	for iter.Next() {
-		stats.Keys = append(stats.Keys, string(iter.Key()))
-	}
-	iter.Release()
-	err := iter.Error()
-	if err == nil {
-		w.Header().Set("Content-Type", "application/json")
-		respJSON, _ := json.Marshal(stats)
-		fmt.Fprintf(w, string(respJSON))
+	if app.Audit(r) {
+		app.checkDb()
+		iter := app.db.NewIterator(nil, nil)
+		stats := Stats{}
+		for iter.Next() {
+			stats.Keys = append(stats.Keys, string(iter.Key()))
+		}
+		iter.Release()
+		err := iter.Error()
+		if err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			respJSON, _ := json.Marshal(stats)
+			fmt.Fprintf(w, string(respJSON))
+			return
+		}
+
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
-	fmt.Fprintf(w, "%s", err)
+	w.WriteHeader(http.StatusUnauthorized)
+	fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+	return
 }
 
 func (app *Server) getData(mode string, key string) []byte {
@@ -437,7 +448,15 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
 		if !app.validKey(key, app.separator) {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
 			app.console.err("socketKeyError", key)
+			return
+		}
+		if !app.Audit(r) {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+			app.console.err("socketConnectionUnauthorized", key)
 			return
 		}
 		client, err := app.newClient(w, r, mode, key)
@@ -462,46 +481,64 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 		key := mux.Vars(r)["key"]
 		var err error
 		if app.validKey(key, app.separator) {
-			var obj Object
-			decoder := json.NewDecoder(r.Body)
-			defer r.Body.Close()
-			err = decoder.Decode(&obj)
-			if err == nil {
-				if obj.Data != "" {
-					index, err := app.setData(mode, key, obj.Index, "R", obj.Data)
-					if err == nil {
-						app.sendData(app.findConnections(mode, key))
-						w.Header().Set("Content-Type", "application/json")
-						fmt.Fprintf(w, "{"+
-							"\"index\": \""+index+"\""+
-							"}")
+			if app.Audit(r) {
+				var obj Object
+				decoder := json.NewDecoder(r.Body)
+				defer r.Body.Close()
+				err = decoder.Decode(&obj)
+				if err == nil {
+					if obj.Data != "" {
+						index, err := app.setData(mode, key, obj.Index, "R", obj.Data)
+						if err == nil {
+							app.sendData(app.findConnections(mode, key))
+							w.Header().Set("Content-Type", "application/json")
+							fmt.Fprintf(w, "{"+
+								"\"index\": \""+index+"\""+
+								"}")
+							return
+						}
+
+						w.WriteHeader(http.StatusExpectationFailed)
+						fmt.Fprintf(w, "%s", err)
 						return
 					}
 
-					w.WriteHeader(http.StatusExpectationFailed)
-					fmt.Fprintf(w, "%s", err)
-					return
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, "%s", errors.New("SAMO: emptyDataError data is empty"))
 				}
 
 				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "%s", errors.New("SAMO: emptyDataError data is empty"))
+				fmt.Fprintf(w, "%s", err)
+				return
 			}
 
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", err)
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
 			return
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
 	}
 }
 
 func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data := string(app.getData(mode, mux.Vars(r)["key"]))
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, data)
+		key := mux.Vars(r)["key"]
+		if app.validKey(key, app.separator) {
+			if app.Audit(r) {
+				data := string(app.getData(mode, key))
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, data)
+				return
+			}
+
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
 	}
 }
 
@@ -566,6 +603,9 @@ func (app *Server) Start(address string, storage string, separator string) {
 	app.separator = separator
 	app.Router = mux.NewRouter()
 	app.closing = false
+	if app.Audit == nil {
+		app.Audit = func(r *http.Request) bool { return true }
+	}
 	app.console = &Console{
 		_err: log.New(os.Stderr, "", 0),
 		_log: log.New(os.Stdout, "", 0),
