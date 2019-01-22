@@ -67,7 +67,7 @@ func TestSASetGetDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	app.delData("sa", "test", "")
+	_ = app.delData("sa", "test", "")
 	index, err := app.setData("sa", "test", "", "", "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
@@ -77,7 +77,8 @@ func TestSASetGetDel(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
-	app.delData("sa", "test", "")
+	err = app.delData("sa", "test", "")
+	require.NoError(t, err)
 	dataDel := string(app.getData("sa", "test"))
 	require.Equal(t, "", dataDel)
 }
@@ -86,9 +87,9 @@ func TestMOSetGetDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	app.delData("mo", "test", "MOtest")
-	app.delData("mo", "test", "123")
-	app.delData("mo", "test", "1")
+	_ = app.delData("mo", "test", "MOtest")
+	_ = app.delData("mo", "test", "123")
+	_ = app.delData("mo", "test", "1")
 	index, err := app.setData("sa", "test/123", "", "", "test")
 	require.NoError(t, err)
 	require.Equal(t, "123", index)
@@ -168,17 +169,31 @@ func TestRPostEmptyData(t *testing.T) {
 func TestAudit(t *testing.T) {
 	app := Server{}
 	app.Audit = func(r *http.Request) bool {
-		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET"
+		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET" && r.Method != "DEL"
 	}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
+
 	index, err := app.setData("sa", "test", "", "", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
+
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
+	require.Equal(t, 401, resp.StatusCode)
+
+	req = httptest.NewRequest("GET", "/", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 401, resp.StatusCode)
+
+	req = httptest.NewRequest("DEL", "/r/test", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
@@ -229,7 +244,7 @@ func TestHttpRGet(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	app.delData("sa", "test", "")
+	_ = app.delData("sa", "test", "")
 	index, err := app.setData("sa", "test", "", "", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
@@ -241,10 +256,39 @@ func TestHttpRGet(t *testing.T) {
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
+
+	req = httptest.NewRequest("GET", "/r/sa/test/notest", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 404, resp.StatusCode)
+}
+
+func TestHttpRDel(t *testing.T) {
+	app := Server{}
+	app.Start("localhost:9889", "test/db", '/')
+	defer app.Close(os.Interrupt)
+	_ = app.delData("sa", "test", "")
+	index, err := app.setData("sa", "test", "", "", "test")
+	require.NoError(t, err)
+	require.Equal(t, "test", index)
+
+	req := httptest.NewRequest("DEL", "/r/test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	data := app.getData("sa", "test")
+	require.Equal(t, 204, resp.StatusCode)
+	require.Empty(t, data)
+
+	req = httptest.NewRequest("DEL", "/r/test", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 404, resp.StatusCode)
 }
 
 func TestRequestKey(t *testing.T) {
@@ -272,6 +316,12 @@ func TestRequestKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
+	require.Equal(t, 400, resp.StatusCode)
+
+	req = httptest.NewRequest("DEL", "/r/test::1", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 }
 
@@ -329,7 +379,7 @@ func TestRPostWSBroadcast(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	app.delData("sa", "test", "")
+	_ = app.delData("sa", "test", "")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
@@ -386,12 +436,17 @@ func TestWSBroadcast(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	app.delData("mo", "test", "MOtest")
-	app.delData("mo", "test", "123")
-	app.delData("mo", "test", "1")
+	_ = app.delData("mo", "test", "MOtest")
+	_ = app.delData("mo", "test", "123")
+	_ = app.delData("mo", "test", "1")
 	index, err := app.setData("sa", "test/1", "", "", "test")
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
+
+	index, err = app.setData("sa", "test/2", "", "", "test")
+	require.NoError(t, err)
+	require.Equal(t, "2", index)
+
 	u1 := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test"}
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1"}
 	c1, _, err := websocket.DefaultDialer.Dial(u1.String(), nil)
@@ -399,7 +454,7 @@ func TestWSBroadcast(t *testing.T) {
 	c2, _, err := websocket.DefaultDialer.Dial(u2.String(), nil)
 	require.NoError(t, err)
 	wrote := false
-	started := false
+	readCount := 0
 	got1 := ""
 	got2 := ""
 
@@ -413,17 +468,24 @@ func TestWSBroadcast(t *testing.T) {
 			data, err := Decode(message)
 			require.NoError(t, err)
 			app.console.log("read c1", data)
-			if started {
+			if readCount == 2 {
 				got1 = data
 				err = c1.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 				require.NoError(t, err)
 			}
-			started = true
+			if readCount == 0 {
+				err = c1.WriteMessage(websocket.TextMessage, []byte("{"+
+					"\"op\": \"DEL\","+
+					"\"index\": \"2\""+
+					"}"))
+				require.NoError(t, err)
+			}
+			readCount++
 		}
 	}()
 
 	tryes := 0
-	for !started && tryes < 10000 {
+	for readCount < 2 && tryes < 10000 {
 		tryes++
 		time.Sleep(2 * time.Millisecond)
 	}

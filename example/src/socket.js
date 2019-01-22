@@ -1,5 +1,6 @@
 // https://github.com/daviddoran/typescript-reconnecting-websocket/blob/master/reconnecting-websocket.ts
 import { Base64 } from 'js-base64'
+import ky from 'ky'
 
 class ReconnectingWebSocket {
     /**
@@ -30,11 +31,11 @@ class ReconnectingWebSocket {
     url;
 
     // Set up the default 'noop' event handlers
-    onopen = (ev) => {};
-    onclose = (ev) => {};
-    onconnecting = (ev) => {};
-    onmessage = (ev) => {};
-    onerror = (ev) => {};
+    onopen = (ev) => { };
+    onclose = (ev) => { };
+    onconnecting = (ev) => { };
+    onmessage = (ev) => { };
+    onerror = (ev) => { };
 
     constructor(url, protocols = []) {
         this.url = url;
@@ -51,13 +52,13 @@ class ReconnectingWebSocket {
 
         var localWs = this.ws;
         var timeout = setTimeout(
-          () => {
-            this.log('ReconnectingWebSocket', 'connection-timeout', this.url);
-            this.timedOut = true;
-            localWs.close();
-            this.timedOut = false;
-          },
-          this.timeoutInterval);
+            () => {
+                this.log('ReconnectingWebSocket', 'connection-timeout', this.url);
+                this.timedOut = true;
+                localWs.close();
+                this.timedOut = false;
+            },
+            this.timeoutInterval);
 
         this.ws.onopen = (event) => {
             clearTimeout(timeout);
@@ -81,10 +82,10 @@ class ReconnectingWebSocket {
                     this.onclose(event);
                 }
                 setTimeout(
-                  () => {
-                    this.connect(true);
-                  },
-                  this.reconnectInterval);
+                    () => {
+                        this.connect(true);
+                    },
+                    this.reconnectInterval);
             }
         };
         this.ws.onmessage = (event) => {
@@ -112,7 +113,7 @@ class ReconnectingWebSocket {
             return this.ws.send(JSON.stringify({
                 op: "DEL",
                 index
-               }));
+            }));
         } else {
             throw new Error('INVALID_STATE_ERR : Pausing to reconnect websocket');
         }
@@ -158,21 +159,35 @@ class ReconnectingWebSocket {
 
     decode(evt) {
         const msg = Base64.decode(JSON.parse(evt.data).data)
-        const data =  msg !== "" ? JSON.parse(msg) : {created:0, updated:0, index: "", data: "e30="}
+        const data = msg !== "" ? JSON.parse(msg) : { created: 0, updated: 0, index: "", data: "e30=" }
         const mode = evt.currentTarget.url.replace("ws://localhost:8800/", "").split("/")[0]
-        return (mode === "sa") ? Object.assign(data, {data: JSON.parse(Base64.decode(data["data"]))}) :
+        return (mode === "sa") ? Object.assign(data, { data: JSON.parse(Base64.decode(data["data"])) }) :
             data.map((obj) => {
-            obj['data'] = JSON.parse(Base64.decode(obj["data"]))
-            return obj
+                obj['data'] = JSON.parse(Base64.decode(obj["data"]))
+                return obj
             })
     }
-      
+
     encode = (data, index) => JSON.stringify({
         data: Base64.encode(JSON.stringify(data)),
         index
     })
 
-    parseTime = (evt) => new Date(parseInt(JSON.parse(evt.data).data)/1000000)
+    post = async (mode, key, data, index) => {
+        const res = await ky.post(
+            'http://localhost:8800/r/' + mode + '/' + key,
+            {
+                json: {
+                    index,
+                    data: Base64.encode(JSON.stringify(data))
+                }
+            }
+        ).json();
+
+        return res.index
+    }
+
+    parseTime = (evt) => parseInt(JSON.parse(evt.data).data)
 
     log(...args) {
         if (this.debug || ReconnectingWebSocket.debugAll) {

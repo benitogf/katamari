@@ -1,119 +1,102 @@
-import React, { Component } from 'react';
+import React, { Component } from 'react'
+import { BrowserRouter as Router, Route } from 'react-router-dom'
 import './App.css';
-import Socket from './socket'
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemText from '@material-ui/core/ListItemText';
-import Paper from '@material-ui/core/Paper';
-import Typography from '@material-ui/core/Typography';
-import Grid from '@material-ui/core/Grid';
 
-const testMode = "mo" // TODO: interactive mode toggle
+import Boxes from './Boxes'
+import Box from './Box'
+import Thing from './Thing'
+
+import moment from 'moment'
+import Socket from './Socket'
+import AppBar from '@material-ui/core/AppBar'
+import Toolbar from '@material-ui/core/Toolbar'
+import Typography from '@material-ui/core/Typography'
+import LinearProgress from '@material-ui/core/LinearProgress'
+import SnackbarContent from '@material-ui/core/SnackbarContent'
+import Button from '@material-ui/core/Button'
+import Paper from '@material-ui/core/Paper'
+import Grid from '@material-ui/core/Grid'
+import IconButton from '@material-ui/core/IconButton'
+import Icon from '@material-ui/core/Icon'
+import { Switch, Link } from 'react-router-dom'
+
+const r404 = () => (<Paper className="paper-container" elevation={1}>
+  <SnackbarContent
+    style={{
+      backgroundColor: '#f1932c',
+      maxWidth: 'unset'
+    }}
+    action={[
+      <IconButton
+        key="close"
+        aria-label="Close"
+        color="inherit"
+        {...{ to: '/' }}
+        component={Link}>
+        <Icon>cancel</Icon>
+      </IconButton>
+    ]}
+    message={(
+      <Typography component="p" style={{ color: 'white' }}>
+        <Icon style={{ verticalAlign: "bottom", color: "#f0cf81" }}>warning</Icon> Could not find this path.
+      </Typography>
+    )}
+  /></Paper>)
 
 class App extends Component {
   constructor(props) {
-    super(props);
+    super(props)
     const socket = new Socket(
-      'ws://localhost:8800/' + testMode + '/test'
-    )
-    const time = new Socket(
       'ws://localhost:8800/time'
     )
     this.state = {
-      list: null,
       time: null,
       socket
     };
-
-    time.onopen = (evt) => {
-      console.info(evt)
-    }
-    time.onclose = (evt) => {
-      console.info(evt)
-    }
-    time.onerror = (evt) => {
-      console.info(evt)
-    }
-    time.onmessage = (evt) => {
+    socket.onerror = (evt) => {
       // console.info(evt)
       this.setState({
-        time: socket.parseTime(evt).toString()
+        time: null
       })
     }
-    
-    socket.onopen = (evt) => {
-      console.info(evt)
-      socket.put({
-        test: 1234
-      })
-    }
-    
-    socket.onclose = (evt) => {
-      console.info(evt)
-    }
-    
-    socket.onerror = (evt) => {
-      console.info(evt)
-    }
-    
     socket.onmessage = (evt) => {
-      console.info(evt)
+      // console.info(evt)
       this.setState({
-        data: socket.decode(evt),
+        time: socket.parseTime(evt)
       })
     }
   }
-
+  componentWillUnmount() {
+    this.state.socket.close()
+  }
   render() {
-    if (!this.state.data || !this.state.time) {
-      return (
-        <div className="App">
-          <header className="App-header">
-            loading...
-          </header>
-        </div>
-      )
-    } else {
-      return (
-        <div className="App">
-          <header className="App-header">
-          <Paper style={{
-             padding: "20px",
-            }} elevation={1}>
-            <Grid 
-              container
-              direction="row"
-              justify="flex-end"
-              alignItems="flex-end"
-              spacing={0}>
-              <Grid item>
-                <Typography component="p">
-                  {this.state.time}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
-          {(() => (Array.isArray(this.state.data)) ?
-              (
-                <List component="nav">
-                {this.state.data.map((event) =>
-                  <ListItem key={event.index} button onClick={()=>
-                    this.state.socket.del(event.index)
-                  }>
-                    <ListItemText primary={event.index} />
-                  </ListItem>
-                )}          
-              </List>
-              ) : (
-                <Typography component="p">
-                  {JSON.stringify(this.state.data)}
-                </Typography>                
-              ))()}
-          </header>
-        </div>
-      );
-    }
+    const { time } = this.state
+    return (!time) ? (<LinearProgress />) : (
+      <div className="App">
+        <AppBar position="sticky" color="default">
+          <Toolbar>
+            <Typography component="p">
+              {moment.unix(time / 1000000000).format('dddd, MMMM Do, Y. LTS')}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Router>
+          <Switch>
+            <Route path="/" exact component={Boxes} />
+            <Route
+              path="/box/:id"
+              render={(props) => <Box {...props} time={this.state.time} />}
+            />
+            <Route
+              path="/thing/:box/:id"
+              render={(props) => <Thing {...props} time={this.state.time} />}
+            />
+            <Route component={r404} />
+          </Switch>
+        </Router>
+      </div>
+    )
   }
 }
 
-export default App;
+export default App
