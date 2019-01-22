@@ -11,7 +11,7 @@ import (
 
 func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	if app.Audit(r) {
-		stats, err := app.getKeys()
+		stats, err := app.storage.getKeys()
 		if err == nil {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, string(stats))
@@ -30,9 +30,9 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 
 func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key := mux.Vars(r)["key"]
+		vkey := mux.Vars(r)["key"]
 		var err error
-		if app.validKey(key, app.separator) {
+		if app.helpers.validKey(vkey, app.separator) {
 			if app.Audit(r) {
 				var obj Object
 				decoder := json.NewDecoder(r.Body)
@@ -40,7 +40,14 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 				err = decoder.Decode(&obj)
 				if err == nil {
 					if obj.Data != "" {
-						index, err := app.setData(mode, key, obj.Index, "R", obj.Data)
+						now, key, index := app.helpers.makeIndexes(mode, vkey, obj.Index, "R", app.separator)
+						if !app.helpers.checkArchetype(key, obj.Data, app.Archetypes) {
+							app.console.err("setError["+mode+"/"+key+"]", "improper data")
+							w.WriteHeader(http.StatusBadRequest)
+							fmt.Fprintf(w, "%s", errors.New("SAMO: dataArchetypeError improper data"))
+							return
+						}
+						index, err := app.storage.setData(mode, key, index, now, obj.Data)
 						if err == nil {
 							app.sendData(app.findConnections(mode, key))
 							w.Header().Set("Content-Type", "application/json")
@@ -50,11 +57,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 							return
 						}
 
-						if err.Error() == "SAMO: dataArchtypeError improper data" {
-							w.WriteHeader(http.StatusBadRequest)
-						} else {
-							w.WriteHeader(http.StatusInternalServerError)
-						}
+						w.WriteHeader(http.StatusInternalServerError)
 						fmt.Fprintf(w, "%s", err)
 						return
 					}
@@ -81,9 +84,9 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if app.validKey(key, app.separator) {
+		if app.helpers.validKey(key, app.separator) {
 			if app.Audit(r) {
-				data := string(app.getData(mode, key))
+				data := string(app.storage.getData(mode, key))
 				if data != "" {
 					w.Header().Set("Content-Type", "application/json")
 					fmt.Fprintf(w, data)
@@ -106,9 +109,9 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 
 func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
-	if app.validKey(key, app.separator) {
+	if app.helpers.validKey(key, app.separator) {
 		if app.Audit(r) {
-			err := app.delData("r", key, "")
+			err := app.storage.delData("r", key, "")
 			if err == nil {
 				app.sendData(app.findConnections("sa", key))
 				w.WriteHeader(http.StatusNoContent)

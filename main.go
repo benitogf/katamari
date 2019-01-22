@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // Pool : mode/key based websocket connections and watcher
@@ -39,11 +38,11 @@ type Server struct {
 	clients    []*Pool
 	Archetypes Archetypes
 	Audit      Audit
-	storage    string
+	storage    *Storage
 	separator  string
-	db         *leveldb.DB
 	address    string
 	console    *Console
+	helpers    *Helpers
 	closing    bool
 }
 
@@ -70,11 +69,11 @@ type Stats struct {
 
 func (app *Server) waitStart() {
 	tryes := 0
-	for (app.Server == nil || app.db == nil) && tryes < 100 {
+	for (app.Server == nil || !app.storage.active) && tryes < 100 {
 		tryes++
 		time.Sleep(100 * time.Millisecond)
 	}
-	if app.Server == nil || app.db == nil {
+	if app.Server == nil || !app.storage.active {
 		log.Fatal("Server start failed")
 	}
 }
@@ -86,9 +85,15 @@ func (app *Server) waitStart() {
 // 	separator : rune to use as key separator '/'
 func (app *Server) Start(address string, storage string, separator rune) {
 	app.address = address
-	app.storage = storage
+	// TODO: other kinds of storage
+	// redis, memory, etc
+	app.storage = &Storage{
+		path:   storage,
+		kind:   "leveldb",
+		active: false}
 	app.separator = string(separator)
 	app.Router = mux.NewRouter()
+	app.helpers = &Helpers{}
 	app.closing = false
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }
@@ -108,7 +113,7 @@ func (app *Server) Start(address string, storage string, separator rune) {
 				color.BRed("]~"))
 			app.console._err.Println(v)
 		}}
-	rr := app.generateRouteRegex(app.separator)
+	rr := app.helpers.makeRouteRegex(app.separator)
 	app.Router.HandleFunc("/", app.getStats)
 	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DEL")
 	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
@@ -121,7 +126,7 @@ func (app *Server) Start(address string, storage string, separator rune) {
 	go func() {
 		var err error
 		app.console.log("starting db")
-		app.db, err = leveldb.OpenFile(app.storage, nil)
+		err = app.storage.start(app.console, app.separator)
 		if err == nil {
 			app.console.log("starting server")
 			app.Server = &http.Server{
@@ -144,9 +149,7 @@ func (app *Server) Start(address string, storage string, separator rune) {
 func (app *Server) Close(sig os.Signal) {
 	if !app.closing {
 		app.closing = true
-		if app.db != nil {
-			app.db.Close()
-		}
+		app.storage.close()
 		app.console.err("shutdown", sig)
 		if app.Server != nil {
 			app.Server.Shutdown(context.Background())

@@ -24,7 +24,7 @@ func (app *Server) writeToClient(client *websocket.Conn, data string) {
 func (app *Server) sendData(clients []int) {
 	if len(clients) > 0 {
 		for _, clientIndex := range clients {
-			data := app.encodeData(app.getData(app.clients[clientIndex].mode, app.clients[clientIndex].key))
+			data := app.helpers.encodeData(app.storage.getData(app.clients[clientIndex].mode, app.clients[clientIndex].key))
 			for _, client := range app.clients[clientIndex].connections {
 				app.writeToClient(client, data)
 			}
@@ -61,7 +61,7 @@ func (app *Server) findConnections(mode string, key string) []int {
 	var res []int
 	for i := range app.clients {
 		if (app.clients[i].key == key && app.clients[i].mode == mode) ||
-			(mode == "sa" && app.clients[i].mode == "mo" && app.isMO(app.clients[i].key, key, app.separator)) {
+			(mode == "sa" && app.clients[i].mode == "mo" && app.helpers.isMO(app.clients[i].key, key, app.separator)) {
 			res = append(res, i)
 		}
 	}
@@ -155,21 +155,24 @@ func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 			app.console.err("jsonUnmarshalMessageError["+mode+"/"+key+"]", err)
 			break
 		}
-		op := app.extractNonNil(wsEvent, "op")
-		index := app.extractNonNil(wsEvent, "index")
-		data := app.extractNonNil(wsEvent, "data")
+		op := app.helpers.extractNonNil(wsEvent, "op")
+		index := app.helpers.extractNonNil(wsEvent, "index")
+		data := app.helpers.extractNonNil(wsEvent, "data")
 
 		switch op {
 		case "":
 			if data != "" {
 				poolIndex := app.findPool(mode, key)
 				clientIndex := app.findClient(poolIndex, client)
-				_, _ = app.setData(mode, key, index, strconv.Itoa(clientIndex), data)
+				now, vkey, vindex := app.helpers.makeIndexes(mode, key, index, strconv.Itoa(clientIndex), app.separator)
+				if app.helpers.checkArchetype(vkey, data, app.Archetypes) {
+					_, _ = app.storage.setData(mode, vkey, vindex, now, data)
+				}
 			}
 			break
 		case "DEL":
 			if index != "" || mode == "sa" {
-				_ = app.delData(mode, key, index)
+				_ = app.storage.delData(mode, key, index)
 			}
 			break
 		}
@@ -184,7 +187,7 @@ func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !app.validKey(key, app.separator) {
+		if !app.helpers.validKey(key, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
 			app.console.err("socketKeyError", key)
@@ -203,7 +206,7 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 		}
 
 		// send initial msg
-		data := app.encodeData(app.getData(mode, key))
+		data := app.helpers.encodeData(app.storage.getData(mode, key))
 		app.writeToClient(client, data)
 
 		// defered client close

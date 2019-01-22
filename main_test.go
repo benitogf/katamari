@@ -25,7 +25,7 @@ func Decode(message []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	decoded, err := base64.StdEncoding.DecodeString(app.extractNonNil(wsEvent, "data"))
+	decoded, err := base64.StdEncoding.DecodeString(app.helpers.extractNonNil(wsEvent, "data"))
 	if err != nil {
 		return "", err
 	}
@@ -35,51 +35,51 @@ func Decode(message []byte) (string, error) {
 func TestRegex(t *testing.T) {
 	app := Server{}
 	separator := "/"
-	rr, _ := regexp.Compile("^" + app.generateRouteRegex(separator) + "$")
+	rr, _ := regexp.Compile("^" + app.helpers.makeRouteRegex(separator) + "$")
 	require.True(t, rr.MatchString("a/b/c"))
 	require.False(t, rr.MatchString("/a/b/c"))
 	require.False(t, rr.MatchString("a/b/c/"))
 	require.False(t, rr.MatchString("a:b/c"))
 	separator = ":"
-	rr, _ = regexp.Compile("^" + app.generateRouteRegex(separator) + "$")
+	rr, _ = regexp.Compile("^" + app.helpers.makeRouteRegex(separator) + "$")
 	require.True(t, rr.MatchString("a:b:c"))
 	require.False(t, rr.MatchString("a:b/c"))
 }
 
 func TestValidKey(t *testing.T) {
 	app := Server{}
-	require.True(t, app.validKey("test", "/"))
-	require.True(t, app.validKey("test/1", "/"))
-	require.False(t, app.validKey("test//1", "/"))
-	require.False(t, app.validKey("test///1", "/"))
+	require.True(t, app.helpers.validKey("test", "/"))
+	require.True(t, app.helpers.validKey("test/1", "/"))
+	require.False(t, app.helpers.validKey("test//1", "/"))
+	require.False(t, app.helpers.validKey("test///1", "/"))
 }
 
 func TestIsMo(t *testing.T) {
 	app := Server{}
-	require.True(t, app.isMO("thing", "thing/123", "/"))
-	require.True(t, app.isMO("thing/123", "thing/123/123", "/"))
-	require.False(t, app.isMO("thing/123", "thing/12", "/"))
-	require.False(t, app.isMO("thing/1", "thing/123", "/"))
-	require.False(t, app.isMO("thing/123", "thing/123/123/123", "/"))
+	require.True(t, app.helpers.isMO("thing", "thing/123", "/"))
+	require.True(t, app.helpers.isMO("thing/123", "thing/123/123", "/"))
+	require.False(t, app.helpers.isMO("thing/123", "thing/12", "/"))
+	require.False(t, app.helpers.isMO("thing/1", "thing/123", "/"))
+	require.False(t, app.helpers.isMO("thing/123", "thing/123/123/123", "/"))
 }
 
 func TestSASetGetDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.delData("sa", "test", "")
-	index, err := app.setData("sa", "test", "", "", "test")
+	_ = app.storage.delData("sa", "test", "")
+	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
-	data := app.getData("sa", "test")
+	data := app.storage.getData("sa", "test")
 	var testObject Object
 	err = json.Unmarshal(data, &testObject)
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
-	err = app.delData("sa", "test", "")
+	err = app.storage.delData("sa", "test", "")
 	require.NoError(t, err)
-	dataDel := string(app.getData("sa", "test"))
+	dataDel := string(app.storage.getData("sa", "test"))
 	require.Equal(t, "", dataDel)
 }
 
@@ -87,16 +87,18 @@ func TestMOSetGetDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.delData("mo", "test", "MOtest")
-	_ = app.delData("mo", "test", "123")
-	_ = app.delData("mo", "test", "1")
-	index, err := app.setData("sa", "test/123", "", "", "test")
+	_ = app.storage.delData("mo", "test", "MOtest")
+	_ = app.storage.delData("mo", "test", "123")
+	_ = app.storage.delData("mo", "test", "1")
+	index, err := app.storage.setData("sa", "test/123", "123", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "123", index)
-	index, err = app.setData("mo", "test", "MOtest", "", "test")
+	index, err = app.storage.setData("mo", "test/MOtest", "MOtest", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "MOtest", index)
-	data := app.getData("mo", "test")
+	_, _, index = app.helpers.makeIndexes("mo", "test", "", "T", app.separator)
+	require.NotEmpty(t, index)
+	data := app.storage.getData("mo", "test")
 	var testObjects []Object
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
@@ -116,24 +118,12 @@ func TestArchetype(t *testing.T) {
 	}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	index, err := app.setData("sa", "test1", "", "", "notest")
-	require.Empty(t, index)
-	require.Error(t, err)
-	index, err = app.setData("sa", "test1", "", "", "test1")
-	require.NotEmpty(t, index)
-	require.NoError(t, err)
-	index, err = app.setData("mo", "test1", "1", "", "notest")
-	require.Empty(t, index)
-	require.Error(t, err)
-	index, err = app.setData("mo", "test1", "1", "", "test")
-	require.NotEmpty(t, index)
-	require.NoError(t, err)
-	index, err = app.setData("sa", "test0/1", "", "", "notest")
-	require.Empty(t, index)
-	require.Error(t, err)
-	index, err = app.setData("sa", "test0/1", "", "", "test")
-	require.NotEmpty(t, index)
-	require.NoError(t, err)
+	require.False(t, app.helpers.checkArchetype("test1", "notest", app.Archetypes))
+	require.True(t, app.helpers.checkArchetype("test1", "test1", app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test1/1", "test1", app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test0/1", "notest", app.Archetypes))
+	require.True(t, app.helpers.checkArchetype("test0/1", "test", app.Archetypes))
+
 	var jsonStr = []byte(`{"data":"notest"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
@@ -174,7 +164,7 @@ func TestAudit(t *testing.T) {
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 
-	index, err := app.setData("sa", "test", "", "", "test")
+	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -244,11 +234,11 @@ func TestHttpRGet(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.delData("sa", "test", "")
-	index, err := app.setData("sa", "test", "", "", "test")
+	_ = app.storage.delData("sa", "test", "")
+	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
-	data := app.getData("sa", "test")
+	data := app.storage.getData("sa", "test")
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
@@ -271,8 +261,8 @@ func TestHttpRDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.delData("sa", "test", "")
-	index, err := app.setData("sa", "test", "", "", "test")
+	_ = app.storage.delData("sa", "test", "")
+	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -280,7 +270,7 @@ func TestHttpRDel(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	data := app.getData("sa", "test")
+	data := app.storage.getData("sa", "test")
 	require.Equal(t, 204, resp.StatusCode)
 	require.Empty(t, data)
 
@@ -379,7 +369,7 @@ func TestRPostWSBroadcast(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.delData("sa", "test", "")
+	_ = app.storage.delData("sa", "test", "")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
@@ -436,14 +426,14 @@ func TestWSBroadcast(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.delData("mo", "test", "MOtest")
-	_ = app.delData("mo", "test", "123")
-	_ = app.delData("mo", "test", "1")
-	index, err := app.setData("sa", "test/1", "", "", "test")
+	_ = app.storage.delData("mo", "test", "MOtest")
+	_ = app.storage.delData("mo", "test", "123")
+	_ = app.storage.delData("mo", "test", "1")
+	index, err := app.storage.setData("sa", "test/1", "1", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
 
-	index, err = app.setData("sa", "test/2", "", "", "test")
+	index, err = app.storage.setData("sa", "test/2", "2", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "2", index)
 
