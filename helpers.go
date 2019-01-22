@@ -9,6 +9,7 @@ import (
 	"gopkg.in/godo.v2/glob"
 )
 
+// Helpers : mixed stateless functions
 type Helpers struct{}
 
 func (helpers *Helpers) validKey(key string, separator string) bool {

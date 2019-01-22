@@ -540,5 +540,5 @@ func TestGetStats(t *testing.T) {
 
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-	require.Equal(t, "{\"keys\":[\"test\",\"test/1\",\"test0/1\",\"test1\",\"test1/1\"]}", string(body))
+	require.Equal(t, "{\"keys\":[\"test\",\"test/1\"]}", string(body))
 }
