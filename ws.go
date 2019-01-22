@@ -24,7 +24,8 @@ func (app *Server) writeToClient(client *websocket.Conn, data string) {
 func (app *Server) sendData(clients []int) {
 	if len(clients) > 0 {
 		for _, clientIndex := range clients {
-			data := app.helpers.encodeData(app.storage.getData(app.clients[clientIndex].mode, app.clients[clientIndex].key))
+			raw, _ := app.storage.getData(app.clients[clientIndex].mode, app.clients[clientIndex].key)
+			data := app.helpers.encodeData(raw)
 			for _, client := range app.clients[clientIndex].connections {
 				app.writeToClient(client, data)
 			}
@@ -57,11 +58,11 @@ func (app *Server) findPool(mode string, key string) int {
 	return poolIndex
 }
 
-func (app *Server) findConnections(mode string, key string) []int {
+func (app *Server) findConnections(key string) []int {
 	var res []int
 	for i := range app.clients {
-		if (app.clients[i].key == key && app.clients[i].mode == mode) ||
-			(mode == "sa" && app.clients[i].mode == "mo" && app.helpers.isMO(app.clients[i].key, key, app.separator)) {
+		if (app.clients[i].key == key && app.clients[i].mode == "sa") ||
+			(app.clients[i].mode == "mo" && app.helpers.isMO(app.clients[i].key, key, app.separator)) {
 			res = append(res, i)
 		}
 	}
@@ -164,22 +165,27 @@ func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 			if data != "" {
 				poolIndex := app.findPool(mode, key)
 				clientIndex := app.findClient(poolIndex, client)
-				now, vkey, vindex := app.helpers.makeIndexes(mode, key, index, strconv.Itoa(clientIndex), app.separator)
-				if app.helpers.checkArchetype(vkey, data, app.Archetypes) {
-					_, _ = app.storage.setData(mode, vkey, vindex, now, data)
+				now, key, vindex := app.helpers.makeIndexes(mode, key, index, strconv.Itoa(clientIndex), app.separator)
+				if app.helpers.checkArchetype(key, data, app.Archetypes) {
+					newIndex, err := app.storage.setData(mode, key, vindex, now, data)
+					if err == nil && newIndex != "" {
+						app.sendData(app.findConnections(key))
+					}
 				}
 			}
 			break
 		case "DEL":
 			if index != "" || mode == "sa" {
-				_ = app.storage.delData(mode, key, index)
+				err := app.storage.delData(mode, key, index)
+				if err == nil {
+					if mode == "mo" {
+						app.sendData(app.findConnections(key + app.separator + index))
+					} else {
+						app.sendData(app.findConnections(key))
+					}
+				}
 			}
 			break
-		}
-		if mode == "mo" && index != "" && (data != "" || op == "DEL") {
-			app.sendData(app.findConnections("sa", key+app.separator+index))
-		} else {
-			app.sendData(app.findConnections(mode, key))
 		}
 	}
 }
@@ -206,7 +212,8 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 		}
 
 		// send initial msg
-		data := app.helpers.encodeData(app.storage.getData(mode, key))
+		raw, _ := app.storage.getData(mode, key)
+		data := app.helpers.encodeData(raw)
 		app.writeToClient(client, data)
 
 		// defered client close

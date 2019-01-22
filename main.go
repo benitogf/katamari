@@ -125,10 +125,8 @@ func (app *Server) Start(address string, storage string, separator rune) {
 	app.Router.HandleFunc("/time", app.timeWs)
 	go func() {
 		var err error
-		app.console.log("starting db")
-		err = app.storage.start(app.console, app.separator)
+		err = app.storage.start(app.separator)
 		if err == nil {
-			app.console.log("starting server")
 			app.Server = &http.Server{
 				Addr:    app.address,
 				Handler: cors.Default().Handler(app.Router)}

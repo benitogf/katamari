@@ -71,7 +71,7 @@ func TestSASetGetDel(t *testing.T) {
 	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
-	data := app.storage.getData("sa", "test")
+	data, _ := app.storage.getData("sa", "test")
 	var testObject Object
 	err = json.Unmarshal(data, &testObject)
 	require.NoError(t, err)
@@ -79,8 +79,9 @@ func TestSASetGetDel(t *testing.T) {
 	require.Equal(t, int64(0), testObject.Updated)
 	err = app.storage.delData("sa", "test", "")
 	require.NoError(t, err)
-	dataDel := string(app.storage.getData("sa", "test"))
-	require.Equal(t, "", dataDel)
+	raw, _ := app.storage.getData("sa", "test")
+	dataDel := string(raw)
+	require.Empty(t, dataDel)
 }
 
 func TestMOSetGetDel(t *testing.T) {
@@ -98,7 +99,7 @@ func TestMOSetGetDel(t *testing.T) {
 	require.Equal(t, "MOtest", index)
 	_, _, index = app.helpers.makeIndexes("mo", "test", "", "T", app.separator)
 	require.NotEmpty(t, index)
-	data := app.storage.getData("mo", "test")
+	data, _ := app.storage.getData("mo", "test")
 	var testObjects []Object
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
@@ -238,7 +239,7 @@ func TestHttpRGet(t *testing.T) {
 	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
-	data := app.storage.getData("sa", "test")
+	data, _ := app.storage.getData("sa", "test")
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
@@ -270,7 +271,7 @@ func TestHttpRDel(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	data := app.storage.getData("sa", "test")
+	data, _ := app.storage.getData("sa", "test")
 	require.Equal(t, 204, resp.StatusCode)
 	require.Empty(t, data)
 
@@ -513,6 +514,48 @@ func TestWSBroadcast(t *testing.T) {
 	require.Equal(t, got1, "["+got2+"]")
 }
 
+func TestWSSADel(t *testing.T) {
+	app := Server{}
+	app.Start("localhost:9889", "test/db", '/')
+	defer app.Close(os.Interrupt)
+	_ = app.storage.delData("sa", "test", "")
+	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	require.NoError(t, err)
+	started := false
+
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			app.console.err("read c", err)
+			break
+		}
+		data, err := Decode(message)
+		require.NoError(t, err)
+		app.console.log("read c", data)
+		if started {
+			err = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			require.NoError(t, err)
+		} else {
+			err = c.WriteMessage(websocket.TextMessage, []byte("{"+
+				"\"op\": \"DEL\""+
+				"}"))
+			require.NoError(t, err)
+			started = true
+		}
+	}
+
+	req := httptest.NewRequest("GET", "/r/sa/test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, 404, resp.StatusCode)
+}
+
 func TestBadSocketRequest(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
@@ -537,8 +580,19 @@ func TestGetStats(t *testing.T) {
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-	require.Equal(t, "{\"keys\":[\"test\",\"test/1\"]}", string(body))
+	require.Equal(t, "{\"keys\":[\"test/1\"]}", string(body))
+
+	_ = app.storage.delData("sa", "test/1", "")
+
+	req = httptest.NewRequest("GET", "/", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	body, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	require.Equal(t, "{\"keys\":[]}", string(body))
 }

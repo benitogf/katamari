@@ -3,6 +3,7 @@ package samo
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -14,16 +15,14 @@ type Storage struct {
 	lvldb     *leveldb.DB
 	path      string
 	active    bool
-	console   *Console
-	helpers   *Helpers
 	separator string
 }
 
-func (db *Storage) start(console *Console, separator string) error {
+func (db *Storage) start(separator string) error {
 	var err error
-	db.console = console
 	db.separator = separator
-	db.helpers = &Helpers{}
+	// TODO: other kinds of storage
+	// redis, memory, etc
 	db.lvldb, err = leveldb.OpenFile(db.path, nil)
 	if err == nil {
 		db.active = true
@@ -46,52 +45,58 @@ func (db *Storage) getKeys() ([]byte, error) {
 	}
 	iter.Release()
 	err := iter.Error()
-	if err == nil {
-		if stats.Keys == nil {
-			stats.Keys = []string{}
-		}
-		respJSON, err := json.Marshal(stats)
-		if err == nil {
-			return respJSON, nil
-		}
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, err
+	if stats.Keys == nil {
+		stats.Keys = []string{}
+	}
+	resp, err := json.Marshal(stats)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
-func (db *Storage) getData(mode string, key string) []byte {
+func (db *Storage) getData(mode string, key string) ([]byte, error) {
+	var err error
 	switch mode {
 	case "sa":
 		data, err := db.lvldb.Get([]byte(key), nil)
-		if err == nil {
-			return data
+		if err != nil {
+			return []byte(""), err
 		}
-		db.console.err("getError["+mode+"/"+key+"]", err)
+
+		return data, nil
 	case "mo":
 		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.separator)), nil)
 		res := []Object{}
 		for iter.Next() {
-			if db.helpers.isMO(key, string(iter.Key()), db.separator) {
+			if (&Helpers{}).isMO(key, string(iter.Key()), db.separator) {
 				var newObject Object
 				err := json.Unmarshal(iter.Value(), &newObject)
 				if err == nil {
 					res = append(res, newObject)
-				} else {
-					db.console.err("getError["+mode+"/"+key+"]", err)
 				}
 			}
 		}
 		iter.Release()
-		err := iter.Error()
-		if err == nil {
-			data, err := json.Marshal(res)
-			if err == nil {
-				return data
-			}
+		err = iter.Error()
+		if err != nil {
+			return []byte(""), err
 		}
-	}
 
-	return []byte("")
+		data, err := json.Marshal(res)
+		if err != nil {
+			return []byte(""), err
+		}
+
+		return data, nil
+	default:
+		return []byte(""), errors.New("SAMO: unrecognized mode: " + mode)
+	}
 }
 
 func (db *Storage) setData(mode string, key string, index string, now int64, data string) (string, error) {
@@ -121,13 +126,12 @@ func (db *Storage) setData(mode string, key string, index string, now int64, dat
 	err = db.lvldb.Put(
 		[]byte(key),
 		dataBytes.Bytes(), nil)
-	if err == nil {
-		db.console.log("set[" + mode + "/" + key + "]")
-		return index, nil
+
+	if err != nil {
+		return "", err
 	}
 
-	db.console.err("setError["+mode+"/"+key+"]", err)
-	return "", err
+	return index, nil
 }
 
 func (db *Storage) delData(mode string, key string, index string) error {
@@ -136,14 +140,9 @@ func (db *Storage) delData(mode string, key string, index string) error {
 	}
 
 	_, err := db.lvldb.Get([]byte(key), nil)
-	if err == nil {
-		err := db.lvldb.Delete([]byte(key), nil)
-		if err == nil {
-			db.console.log("delete[" + mode + "/" + key + "]")
-			return nil
-		}
+	if err != nil {
+		return err
 	}
 
-	db.console.err("deleteError["+mode+"/"+key+"]", err)
-	return err
+	return db.lvldb.Delete([]byte(key), nil)
 }

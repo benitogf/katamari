@@ -52,6 +52,14 @@ will handle the key as key->value
 }
 ```
 
+### del (format expected from client)
+---
+```js
+{
+    op: 'DEL'
+}
+```
+
 ## multiple objects (MO)
 
     will handle the key as a list of every key/[index...] (or key/*), excluding the empty index (key->value)
