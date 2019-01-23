@@ -166,7 +166,7 @@ func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 				poolIndex := app.findPool(mode, key)
 				clientIndex := app.findClient(poolIndex, client)
 				now, key, vindex := app.helpers.makeIndexes(mode, key, index, strconv.Itoa(clientIndex), app.separator)
-				if app.helpers.checkArchetype(key, data, app.Archetypes) {
+				if app.helpers.checkArchetype(key, vindex, data, app.Archetypes) {
 					newIndex, err := app.Storage.Set(key, vindex, now, data)
 					if err == nil && newIndex != "" {
 						app.sendData(app.findConnections(key))

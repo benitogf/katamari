@@ -110,20 +110,20 @@ func TestMOSetGetDel(t *testing.T) {
 func TestArchetype(t *testing.T) {
 	app := Server{}
 	app.Archetypes = Archetypes{
-		"test1": func(data string) bool {
+		"test1": func(index string, data string) bool {
 			return data == "test1"
 		},
-		"test?/*": func(data string) bool {
+		"test?/*": func(index string, data string) bool {
 			return data == "test"
 		},
 	}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	require.False(t, app.helpers.checkArchetype("test1", "notest", app.Archetypes))
-	require.True(t, app.helpers.checkArchetype("test1", "test1", app.Archetypes))
-	require.False(t, app.helpers.checkArchetype("test1/1", "test1", app.Archetypes))
-	require.False(t, app.helpers.checkArchetype("test0/1", "notest", app.Archetypes))
-	require.True(t, app.helpers.checkArchetype("test0/1", "test", app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test1", "test1", "notest", app.Archetypes))
+	require.True(t, app.helpers.checkArchetype("test1", "test1", "test1", app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test1/1", "1", "test1", app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test0/1", "1", "notest", app.Archetypes))
+	require.True(t, app.helpers.checkArchetype("test0/1", "1", "test", app.Archetypes))
 
 	var jsonStr = []byte(`{"data":"notest"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))

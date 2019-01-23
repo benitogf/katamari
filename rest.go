@@ -62,7 +62,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 
 		now, key, index := app.helpers.makeIndexes(mode, vkey, obj.Index, "R", app.separator)
 
-		if !app.helpers.checkArchetype(key, obj.Data, app.Archetypes) {
+		if !app.helpers.checkArchetype(key, index, obj.Data, app.Archetypes) {
 			app.console.err("setError["+mode+"/"+key+"]", "improper data")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("SAMO: dataArchetypeError improper data"))

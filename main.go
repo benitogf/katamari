@@ -27,7 +27,7 @@ type Pool struct {
 type Audit func(r *http.Request) bool
 
 // Archetype : function to check proper key->data covalent bond
-type Archetype func(data string) bool
+type Archetype func(index string, data string) bool
 
 // Archetypes : a map that allows structure and content formalization of key->data
 type Archetypes map[string]Archetype

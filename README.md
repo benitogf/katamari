@@ -127,10 +127,10 @@ import (
 func main() {
 	app := samo.Server{}
 	app.Archetypes = samo.Archetypes{
-		"things/*": func(data string) bool {
+		"things/*": func(index string, data string) bool {
 			return data == "object"
 		},
-		"bag": func(data string) bool {
+		"bag": func(index string, data string) bool {
 			return data == "marbles"
 		},
 	}
