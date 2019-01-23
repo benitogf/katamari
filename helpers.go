@@ -21,7 +21,8 @@ func (helpers *Helpers) extractMoIndex(index string, separator string) string {
 	return index[strings.LastIndexAny(index, separator)+1:]
 }
 
-func (helpers *Helpers) isMO(key string, index string, separator string) bool {
+// IsMO : checks if the index is part of the key MO
+func (helpers *Helpers) IsMO(key string, index string, separator string) bool {
 	moIndex := strings.Split(strings.Replace(index, key+separator, "", 1), separator)
 	return len(moIndex) == 1 && moIndex[0] != key
 }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,30 +57,30 @@ func TestValidKey(t *testing.T) {
 
 func TestIsMo(t *testing.T) {
 	app := Server{}
-	require.True(t, app.helpers.isMO("thing", "thing/123", "/"))
-	require.True(t, app.helpers.isMO("thing/123", "thing/123/123", "/"))
-	require.False(t, app.helpers.isMO("thing/123", "thing/12", "/"))
-	require.False(t, app.helpers.isMO("thing/1", "thing/123", "/"))
-	require.False(t, app.helpers.isMO("thing/123", "thing/123/123/123", "/"))
+	require.True(t, app.helpers.IsMO("thing", "thing/123", "/"))
+	require.True(t, app.helpers.IsMO("thing/123", "thing/123/123", "/"))
+	require.False(t, app.helpers.IsMO("thing/123", "thing/12", "/"))
+	require.False(t, app.helpers.IsMO("thing/1", "thing/123", "/"))
+	require.False(t, app.helpers.IsMO("thing/123", "thing/123/123/123", "/"))
 }
 
 func TestSASetGetDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("sa", "test", "")
-	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
+	_ = app.Storage.Del("test")
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
-	data, _ := app.storage.getData("sa", "test")
+	data, _ := app.Storage.Get("sa", "test")
 	var testObject Object
 	err = json.Unmarshal(data, &testObject)
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
-	err = app.storage.delData("sa", "test", "")
+	err = app.Storage.Del("test")
 	require.NoError(t, err)
-	raw, _ := app.storage.getData("sa", "test")
+	raw, _ := app.Storage.Get("sa", "test")
 	dataDel := string(raw)
 	require.Empty(t, dataDel)
 }
@@ -88,18 +89,18 @@ func TestMOSetGetDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("mo", "test", "MOtest")
-	_ = app.storage.delData("mo", "test", "123")
-	_ = app.storage.delData("mo", "test", "1")
-	index, err := app.storage.setData("sa", "test/123", "123", time.Now().UTC().UnixNano(), "test")
+	_ = app.Storage.Del("test/MOtest")
+	_ = app.Storage.Del("test/123")
+	_ = app.Storage.Del("test/1")
+	index, err := app.Storage.Set("test/123", "123", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "123", index)
-	index, err = app.storage.setData("mo", "test/MOtest", "MOtest", time.Now().UTC().UnixNano(), "test")
+	index, err = app.Storage.Set("test/MOtest", "MOtest", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "MOtest", index)
 	_, _, index = app.helpers.makeIndexes("mo", "test", "", "T", app.separator)
 	require.NotEmpty(t, index)
-	data, _ := app.storage.getData("mo", "test")
+	data, _ := app.Storage.Get("mo", "test")
 	var testObjects []Object
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
@@ -165,7 +166,7 @@ func TestAudit(t *testing.T) {
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
 
-	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -235,11 +236,11 @@ func TestHttpRGet(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("sa", "test", "")
-	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
+	_ = app.Storage.Del("test")
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
-	data, _ := app.storage.getData("sa", "test")
+	data, _ := app.Storage.Get("sa", "test")
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
@@ -262,8 +263,8 @@ func TestHttpRDel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("sa", "test", "")
-	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
+	_ = app.Storage.Del("test")
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -271,7 +272,7 @@ func TestHttpRDel(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	data, _ := app.storage.getData("sa", "test")
+	data, _ := app.Storage.Get("sa", "test")
 	require.Equal(t, 204, resp.StatusCode)
 	require.Empty(t, data)
 
@@ -370,7 +371,7 @@ func TestRPostWSBroadcast(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("sa", "test", "")
+	_ = app.Storage.Del("test")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
@@ -427,14 +428,14 @@ func TestWSBroadcast(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("mo", "test", "MOtest")
-	_ = app.storage.delData("mo", "test", "123")
-	_ = app.storage.delData("mo", "test", "1")
-	index, err := app.storage.setData("sa", "test/1", "1", time.Now().UTC().UnixNano(), "test")
+	_ = app.Storage.Del("test/MOtest")
+	_ = app.Storage.Del("test/123")
+	_ = app.Storage.Del("test/1")
+	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
 
-	index, err = app.storage.setData("sa", "test/2", "2", time.Now().UTC().UnixNano(), "test")
+	index, err = app.Storage.Set("test/2", "2", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "2", index)
 
@@ -518,8 +519,8 @@ func TestWSSADel(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
 	defer app.Close(os.Interrupt)
-	_ = app.storage.delData("sa", "test", "")
-	index, err := app.storage.setData("sa", "test", "test", time.Now().UTC().UnixNano(), "test")
+	_ = app.Storage.Del("test")
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
@@ -556,6 +557,52 @@ func TestWSSADel(t *testing.T) {
 	require.Equal(t, 404, resp.StatusCode)
 }
 
+func TestMemoryStorage(t *testing.T) {
+	app := Server{}
+	app.Storage = &MemoryStorage{
+		Memdb:   make(map[string][]byte),
+		Lock:    sync.RWMutex{},
+		Storage: &Storage{Active: false}}
+	app.Start("localhost:9889", "test/db", '/')
+	defer app.Close(os.Interrupt)
+
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+
+	index, err = app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test0")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+
+	index, err = app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), "test1")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+
+	req := httptest.NewRequest("GET", "/r/sa/test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 200, resp.StatusCode)
+
+	req = httptest.NewRequest("GET", "/r/mo/test", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 200, resp.StatusCode)
+
+	req = httptest.NewRequest("DEL", "/r/sa/test", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 204, resp.StatusCode)
+
+	req = httptest.NewRequest("GET", "/", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, 200, resp.StatusCode)
+}
+
 func TestBadSocketRequest(t *testing.T) {
 	app := Server{}
 	app.Start("localhost:9889", "test/db", '/')
@@ -584,7 +631,7 @@ func TestGetStats(t *testing.T) {
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, "{\"keys\":[\"test/1\"]}", string(body))
 
-	_ = app.storage.delData("sa", "test/1", "")
+	_ = app.Storage.Del("test/1")
 
 	req = httptest.NewRequest("GET", "/", nil)
 	w = httptest.NewRecorder()

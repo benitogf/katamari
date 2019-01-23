@@ -31,6 +31,24 @@ type Archetype func(data string) bool
 // Archetypes : a map that allows structure and content formalization of key->data
 type Archetypes map[string]Archetype
 
+// Database : methods of the persistent data layer
+type Database interface {
+	Active() bool
+	Start(separator string) error
+	Close()
+	Keys() ([]byte, error)
+	Get(mode string, key string) ([]byte, error)
+	Set(key string, index string, now int64, data string) (string, error)
+	Del(key string) error
+}
+
+// Storage : abstraction of persistent data layer
+type Storage struct {
+	Active    bool
+	Separator string
+	Db        Database
+}
+
 // Server : SAMO application server
 type Server struct {
 	Server     *http.Server
@@ -38,7 +56,7 @@ type Server struct {
 	clients    []*Pool
 	Archetypes Archetypes
 	Audit      Audit
-	storage    *Storage
+	Storage    Database
 	separator  string
 	address    string
 	console    *Console
@@ -69,11 +87,11 @@ type Stats struct {
 
 func (app *Server) waitStart() {
 	tryes := 0
-	for (app.Server == nil || !app.storage.active) && tryes < 100 {
+	for (app.Server == nil || !app.Storage.Active()) && tryes < 100 {
 		tryes++
 		time.Sleep(100 * time.Millisecond)
 	}
-	if app.Server == nil || !app.storage.active {
+	if app.Server == nil || !app.Storage.Active() {
 		log.Fatal("Server start failed")
 	}
 }
@@ -84,20 +102,11 @@ func (app *Server) waitStart() {
 // 	storage : path to the storage folder "data/db"
 // 	separator : rune to use as key separator '/'
 func (app *Server) Start(address string, storage string, separator rune) {
+	app.closing = false
 	app.address = address
-	// TODO: other kinds of storage
-	// redis, memory, etc
-	app.storage = &Storage{
-		path:   storage,
-		kind:   "leveldb",
-		active: false}
+	app.helpers = &Helpers{}
 	app.separator = string(separator)
 	app.Router = mux.NewRouter()
-	app.helpers = &Helpers{}
-	app.closing = false
-	if app.Audit == nil {
-		app.Audit = func(r *http.Request) bool { return true }
-	}
 	app.console = &Console{
 		_err: log.New(os.Stderr, "", 0),
 		_log: log.New(os.Stdout, "", 0),
@@ -113,6 +122,15 @@ func (app *Server) Start(address string, storage string, separator rune) {
 				color.BRed("]~"))
 			app.console._err.Println(v)
 		}}
+	if app.Storage == nil {
+		app.Storage = &LevelDbStorage{
+			Path:    storage,
+			lvldb:   nil,
+			Storage: &Storage{Active: false}}
+	}
+	if app.Audit == nil {
+		app.Audit = func(r *http.Request) bool { return true }
+	}
 	rr := app.helpers.makeRouteRegex(app.separator)
 	app.Router.HandleFunc("/", app.getStats)
 	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DEL")
@@ -125,7 +143,7 @@ func (app *Server) Start(address string, storage string, separator rune) {
 	app.Router.HandleFunc("/time", app.timeWs)
 	go func() {
 		var err error
-		err = app.storage.start(app.separator)
+		err = app.Storage.Start(app.separator)
 		if err == nil {
 			app.Server = &http.Server{
 				Addr:    app.address,
@@ -147,7 +165,7 @@ func (app *Server) Start(address string, storage string, separator rune) {
 func (app *Server) Close(sig os.Signal) {
 	if !app.closing {
 		app.closing = true
-		app.storage.close()
+		app.Storage.Close()
 		app.console.err("shutdown", sig)
 		if app.Server != nil {
 			app.Server.Shutdown(context.Background())

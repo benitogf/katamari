@@ -16,7 +16,7 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := app.storage.getKeys()
+	stats, err := app.Storage.Keys()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "%s", err)
@@ -69,7 +69,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		index, err = app.storage.setData(mode, key, index, now, obj.Data)
+		index, err = app.Storage.Set(key, index, now, obj.Data)
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -100,7 +100,10 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		raw, _ := app.storage.getData(mode, key)
+		raw, err := app.Storage.Get(mode, key)
+		if err != nil {
+			app.console.err(err)
+		}
 		data := string(raw)
 		if data == "" {
 			w.WriteHeader(http.StatusNotFound)
@@ -127,7 +130,7 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := app.storage.delData("r", key, "")
+	err := app.Storage.Del(key)
 
 	if err != nil {
 		if err.Error() == "leveldb: not found" {

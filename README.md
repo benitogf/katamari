@@ -6,7 +6,7 @@
 [build-url]: https://travis-ci.org/benitogf/samo
 [build-image]: https://api.travis-ci.org/benitogf/samo.svg?branch=master&style=flat-square
 
-pub/sub (websocket) and http service for leveldb storage
+pub/sub (websocket) and http service for leveldb or memory storage
 
 | method | description | url    |
 | ------------- |:-------------:| -----:|
@@ -105,7 +105,7 @@ will handle the key as key->value
 }
 ```
 
-## Data archetypes and audit
+## archetypes and audit
 
     Define ad lib custom acceptance criteria of data using key glob patterns and audit middleware
 
@@ -132,6 +132,95 @@ func main() {
 		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
 	}
 	app.Start("localhost:8800", "data/db", '/')
+	app.WaitClose()
+}
+```
+
+## data persistence layer
+
+    Use alternate storages
+
+```go
+package main
+
+import (
+	"sync"
+
+	"github.com/benitogf/samo"
+)
+
+func main() {
+	app := samo.Server{}
+	app.Storage = &samo.MemoryStorage{
+		Memdb:   make(map[string][]byte),
+		Lock:    sync.RWMutex{},
+		Storage: &samo.Storage{Active: false}}
+	app.Start("localhost:8800", "memory", '/')
+	app.WaitClose()
+}
+```
+
+    Define alternate storages
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/benitogf/samo"
+)
+
+type customStorage struct {
+	*samo.Storage
+}
+
+// Active  :
+func (db *customStorage) Active() bool {
+	return db.Storage.Active
+}
+
+// Start  :
+func (db *customStorage) Start(separator string) error {
+	db.Storage.Separator = separator
+	db.Storage.Active = true
+	return nil
+}
+
+// Close  :
+func (db *customStorage) Close() {
+	db.Storage.Active = false
+}
+
+// Keys  :
+func (db *customStorage) Keys() ([]byte, error) {
+	fmt.Println("keys")
+	return []byte(""), errors.New("not implemented")
+}
+
+// Get :
+func (db *customStorage) Get(mode string, key string) ([]byte, error) {
+	fmt.Println("get")
+	return []byte(""), errors.New("not implemented")
+}
+
+// Set  :
+func (db *customStorage) Set(key string, index string, now int64, data string) (string, error) {
+	fmt.Println("set")
+	return "", errors.New("not implemented")
+}
+
+// Del  :
+func (db *customStorage) Del(key string) error {
+	fmt.Println("del")
+	return errors.New("not implemented")
+}
+
+func main() {
+	app := samo.Server{}
+	app.Storage = &customStorage{&samo.Storage{Active: false}}
+	app.Start("localhost:8800", "printonly", '/')
 	app.WaitClose()
 }
 ```

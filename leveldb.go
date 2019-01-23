@@ -9,35 +9,39 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// Storage : abstraction of persistent data layer
-type Storage struct {
-	kind      string
-	lvldb     *leveldb.DB
-	path      string
-	active    bool
-	separator string
+// LevelDbStorage : composition of storage
+type LevelDbStorage struct {
+	Path  string
+	lvldb *leveldb.DB
+	*Storage
 }
 
-func (db *Storage) start(separator string) error {
+// Active  :
+func (db *LevelDbStorage) Active() bool {
+	return db.Storage.Active
+}
+
+// Start  :
+func (db *LevelDbStorage) Start(separator string) error {
 	var err error
-	db.separator = separator
-	// TODO: other kinds of storage
-	// redis, memory, etc
-	db.lvldb, err = leveldb.OpenFile(db.path, nil)
+	db.Storage.Separator = separator
+	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
-		db.active = true
+		db.Storage.Active = true
 	}
 	return err
 }
 
-func (db *Storage) close() {
+// Close  :
+func (db *LevelDbStorage) Close() {
 	if db.lvldb != nil {
-		db.active = false
+		db.Storage.Active = false
 		db.lvldb.Close()
 	}
 }
 
-func (db *Storage) getKeys() ([]byte, error) {
+// Keys  :
+func (db *LevelDbStorage) Keys() ([]byte, error) {
 	iter := db.lvldb.NewIterator(nil, nil)
 	stats := Stats{}
 	for iter.Next() {
@@ -60,7 +64,8 @@ func (db *Storage) getKeys() ([]byte, error) {
 	return resp, nil
 }
 
-func (db *Storage) getData(mode string, key string) ([]byte, error) {
+// Get  :
+func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 	var err error
 	switch mode {
 	case "sa":
@@ -71,10 +76,10 @@ func (db *Storage) getData(mode string, key string) ([]byte, error) {
 
 		return data, nil
 	case "mo":
-		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.separator)), nil)
+		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.Storage.Separator)), nil)
 		res := []Object{}
 		for iter.Next() {
-			if (&Helpers{}).isMO(key, string(iter.Key()), db.separator) {
+			if (&Helpers{}).IsMO(key, string(iter.Key()), db.Storage.Separator) {
 				var newObject Object
 				err := json.Unmarshal(iter.Value(), &newObject)
 				if err == nil {
@@ -99,7 +104,8 @@ func (db *Storage) getData(mode string, key string) ([]byte, error) {
 	}
 }
 
-func (db *Storage) setData(mode string, key string, index string, now int64, data string) (string, error) {
+// Set  :
+func (db *LevelDbStorage) Set(key string, index string, now int64, data string) (string, error) {
 	updated := now
 	created := now
 	previous, err := db.lvldb.Get([]byte(key), nil)
@@ -134,11 +140,8 @@ func (db *Storage) setData(mode string, key string, index string, now int64, dat
 	return index, nil
 }
 
-func (db *Storage) delData(mode string, key string, index string) error {
-	if mode == "mo" {
-		key += db.separator + index
-	}
-
+// Del  :
+func (db *LevelDbStorage) Del(key string) error {
 	_, err := db.lvldb.Get([]byte(key), nil)
 	if err != nil {
 		return err
