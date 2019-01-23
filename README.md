@@ -6,7 +6,13 @@
 [build-url]: https://travis-ci.org/benitogf/samo
 [build-image]: https://api.travis-ci.org/benitogf/samo.svg?branch=master&style=flat-square
 
-pub/sub (websocket) and http service for leveldb or memory storage
+Websocket and restfull http service with data persistence, it allows quick prototyping of realtime applications providing a dynamic interface with no fixed data structure or access regulation, but capable of defining those layers too if necessary.
+
+Theres an [example client](https://github.com/benitogf/samo/tree/master/example).
+
+A very nice article with some [similar solutions](https://medium.com/@brenda.clark/firebase-alternative-3-open-source-ways-to-follow-e45d9347bc8c).
+
+# Documentation:
 
 | method | description | url    |
 | ------------- |:-------------:| -----:|
@@ -131,14 +137,14 @@ func main() {
 	app.Audit = func(r *http.Request) bool {
 		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
 	}
-	app.Start("localhost:8800", "data/db", '/')
+	app.Start("localhost:8800")
 	app.WaitClose()
 }
 ```
 
 ## data persistence layer
 
-    Use alternate storages
+    Use alternative storages, the default is memory
 
 ```go
 package main
@@ -151,16 +157,16 @@ import (
 
 func main() {
 	app := samo.Server{}
-	app.Storage = &samo.MemoryStorage{
-		Memdb:   make(map[string][]byte),
-		Lock:    sync.RWMutex{},
-		Storage: &samo.Storage{Active: false}}
-	app.Start("localhost:8800", "memory", '/')
+	app.Storage = &samo.LevelDbStorage{
+			Path:    "data/db",
+			lvldb:   nil,
+			Storage: &samo.Storage{Active: false}}
+	app.Start("localhost:8800")
 	app.WaitClose()
 }
 ```
 
-    Define alternate storages
+    Define alternative storages
 
 ```go
 package main
@@ -201,26 +207,27 @@ func (db *customStorage) Keys() ([]byte, error) {
 
 // Get :
 func (db *customStorage) Get(mode string, key string) ([]byte, error) {
-	fmt.Println("get")
+	fmt.Println("get", mode, key)
 	return []byte(""), errors.New("not implemented")
 }
 
 // Set  :
 func (db *customStorage) Set(key string, index string, now int64, data string) (string, error) {
-	fmt.Println("set")
+	fmt.Println("set", key, index, now, data)
 	return "", errors.New("not implemented")
 }
 
 // Del  :
 func (db *customStorage) Del(key string) error {
-	fmt.Println("del")
+	fmt.Println("del", key)
 	return errors.New("not implemented")
 }
 
 func main() {
 	app := samo.Server{}
 	app.Storage = &customStorage{&samo.Storage{Active: false}}
-	app.Start("localhost:8800", "printonly", '/')
+	app.Start("localhost:8800")
 	app.WaitClose()
 }
+
 ```

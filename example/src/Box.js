@@ -8,11 +8,13 @@ import ListItemText from '@material-ui/core/ListItemText'
 import Paper from '@material-ui/core/Paper'
 import { Link } from 'react-router-dom'
 
+const address = 'localhost:8800'
+
 class Box extends Component {
     constructor(props) {
         super(props)
         const socket = new Socket(
-            'ws://localhost:8800/mo/boxes/' + props.match.params.id
+            address + '/mo/boxes/' + props.match.params.id
         )
         this.state = {
             things: null,
@@ -34,7 +36,7 @@ class Box extends Component {
         socket.onmessage = (evt) => {
             // console.info(evt)
             this.setState({
-                things: socket.decode(evt)
+                things: socket.samo.decode(evt)
             })
         }
     }

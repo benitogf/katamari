@@ -4,11 +4,13 @@ import LinearProgress from '@material-ui/core/LinearProgress'
 import Typography from '@material-ui/core/Typography'
 import Paper from '@material-ui/core/Paper'
 
-class App extends Component {
+const address = 'localhost:8800'
+
+class Thing extends Component {
     constructor(props) {
         super(props)
         const socket = new Socket(
-            'ws://localhost:8800/sa/boxes/' + props.match.params.box + '/' + props.match.params.id
+            address + '/sa/boxes/' + props.match.params.box + '/' + props.match.params.id
         )
         this.state = {
             thing: null,
@@ -24,7 +26,7 @@ class App extends Component {
         socket.onmessage = (evt) => {
             // console.info(evt)
             this.setState({
-                thing: socket.decode(evt)
+                thing: socket.samo.decode(evt)
             })
         }
     }
@@ -43,4 +45,4 @@ class App extends Component {
     }
 }
 
-export default App
+export default Thing

@@ -1,7 +1,5 @@
 // https://github.com/daviddoran/typescript-reconnecting-websocket/blob/master/reconnecting-websocket.ts
-import { Base64 } from 'js-base64'
-import ky from 'ky'
-
+import Samo from "./Samo"
 class ReconnectingWebSocket {
     /**
      * Setting this to true is the equivalent of setting all instances of ReconnectingWebSocket.debug to true.
@@ -37,8 +35,9 @@ class ReconnectingWebSocket {
     onmessage = (ev) => { };
     onerror = (ev) => { };
 
-    constructor(url, protocols = []) {
-        this.url = url;
+    constructor(address, protocols = []) {
+        this.url = 'ws://' + address;
+        this.samo = new Samo(address.split('/')[0])
         this.protocols = protocols;
         this.readyState = WebSocket.CONNECTING;
         this.connect(false);
@@ -122,7 +121,7 @@ class ReconnectingWebSocket {
     put(data, index) {
         if (this.ws) {
             this.log('ReconnectingWebSocket', 'put', this.url, data);
-            return this.ws.send(this.encode(data, index));
+            return this.ws.send(this.samo.encode(data, index));
         } else {
             throw new Error('INVALID_STATE_ERR : Pausing to reconnect websocket');
         }
@@ -156,38 +155,6 @@ class ReconnectingWebSocket {
         }
         return false;
     }
-
-    decode(evt) {
-        const msg = Base64.decode(JSON.parse(evt.data).data)
-        const data = msg !== "" ? JSON.parse(msg) : { created: 0, updated: 0, index: "", data: "e30=" }
-        const mode = evt.currentTarget.url.replace("ws://localhost:8800/", "").split("/")[0]
-        return (mode === "sa") ? Object.assign(data, { data: JSON.parse(Base64.decode(data["data"])) }) :
-            data.map((obj) => {
-                obj['data'] = JSON.parse(Base64.decode(obj["data"]))
-                return obj
-            })
-    }
-
-    encode = (data, index) => JSON.stringify({
-        data: Base64.encode(JSON.stringify(data)),
-        index
-    })
-
-    post = async (mode, key, data, index) => {
-        const res = await ky.post(
-            'http://localhost:8800/r/' + mode + '/' + key,
-            {
-                json: {
-                    index,
-                    data: Base64.encode(JSON.stringify(data))
-                }
-            }
-        ).json();
-
-        return res.index
-    }
-
-    parseTime = (evt) => parseInt(JSON.parse(evt.data).data)
 
     log(...args) {
         if (this.debug || ReconnectingWebSocket.debugAll) {

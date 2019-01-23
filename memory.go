@@ -121,6 +121,9 @@ func (db *MemoryStorage) Set(key string, index string, now int64, data string) (
 func (db *MemoryStorage) Del(key string) error {
 	db.Lock.Lock()
 	defer db.Lock.Unlock()
+	if db.Memdb[key] == nil {
+		return errors.New("SAMO: not found")
+	}
 	delete(db.Memdb, key)
 	return nil
 }

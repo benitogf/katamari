@@ -133,7 +133,8 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 	err := app.Storage.Del(key)
 
 	if err != nil {
-		if err.Error() == "leveldb: not found" {
+		app.console.err(err.Error())
+		if err.Error() == "leveldb: not found" || err.Error() == "SAMO: not found" {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -101,31 +102,33 @@ func (app *Server) waitStart() {
 //  host : service host "localhost"
 // 	storage : path to the storage folder "data/db"
 // 	separator : rune to use as key separator '/'
-func (app *Server) Start(address string, storage string, separator rune) {
+func (app *Server) Start(address string) {
 	app.closing = false
 	app.address = address
 	app.helpers = &Helpers{}
-	app.separator = string(separator)
+	if app.separator == "" || len(app.separator) > 1 {
+		app.separator = "/"
+	}
 	app.Router = mux.NewRouter()
 	app.console = &Console{
 		_err: log.New(os.Stderr, "", 0),
 		_log: log.New(os.Stdout, "", 0),
 		log: func(v ...interface{}) {
-			app.console._log.SetPrefix(color.BBlue("["+storage+"]~[") +
+			app.console._log.SetPrefix(color.BBlue("["+app.address+"]~[") +
 				color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
 				color.BBlue("]~"))
 			app.console._log.Println(v)
 		},
 		err: func(v ...interface{}) {
-			app.console._err.SetPrefix(color.BRed("["+storage+"]~[") +
+			app.console._err.SetPrefix(color.BRed("["+app.address+"]~[") +
 				color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
 				color.BRed("]~"))
 			app.console._err.Println(v)
 		}}
 	if app.Storage == nil {
-		app.Storage = &LevelDbStorage{
-			Path:    storage,
-			lvldb:   nil,
+		app.Storage = &MemoryStorage{
+			Memdb:   make(map[string][]byte),
+			Lock:    sync.RWMutex{},
 			Storage: &Storage{Active: false}}
 	}
 	if app.Audit == nil {

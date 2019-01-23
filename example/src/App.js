@@ -13,12 +13,12 @@ import Toolbar from '@material-ui/core/Toolbar'
 import Typography from '@material-ui/core/Typography'
 import LinearProgress from '@material-ui/core/LinearProgress'
 import SnackbarContent from '@material-ui/core/SnackbarContent'
-import Button from '@material-ui/core/Button'
 import Paper from '@material-ui/core/Paper'
-import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import Icon from '@material-ui/core/Icon'
 import { Switch, Link } from 'react-router-dom'
+
+const address = 'localhost:8800'
 
 const r404 = () => (<Paper className="paper-container" elevation={1}>
   <SnackbarContent
@@ -47,7 +47,7 @@ class App extends Component {
   constructor(props) {
     super(props)
     const socket = new Socket(
-      'ws://localhost:8800/time'
+      address + '/time'
     )
     this.state = {
       time: null,
@@ -62,7 +62,7 @@ class App extends Component {
     socket.onmessage = (evt) => {
       // console.info(evt)
       this.setState({
-        time: socket.parseTime(evt)
+        time: socket.samo.parseTime(evt)
       })
     }
   }
