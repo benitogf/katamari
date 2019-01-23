@@ -23,6 +23,7 @@ func (db *MemoryStorage) Active() bool {
 func (db *MemoryStorage) Start(separator string) error {
 	db.Storage.Separator = separator
 	db.Storage.Active = true
+	db.Lock = sync.RWMutex{}
 	return nil
 }
 

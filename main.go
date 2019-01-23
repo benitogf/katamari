@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -128,7 +127,6 @@ func (app *Server) Start(address string) {
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
 			Memdb:   make(map[string][]byte),
-			Lock:    sync.RWMutex{},
 			Storage: &Storage{Active: false}}
 	}
 	if app.Audit == nil {
