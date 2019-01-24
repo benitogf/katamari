@@ -62,6 +62,7 @@ type Server struct {
 	console    *Console
 	helpers    *Helpers
 	closing    bool
+	silence    bool
 }
 
 // Object : data structure of elements
@@ -109,21 +110,27 @@ func (app *Server) Start(address string) {
 		app.separator = "/"
 	}
 	app.Router = mux.NewRouter()
-	app.console = &Console{
-		_err: log.New(os.Stderr, "", 0),
-		_log: log.New(os.Stdout, "", 0),
-		log: func(v ...interface{}) {
-			app.console._log.SetPrefix(color.BBlue("["+app.address+"]~[") +
-				color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
-				color.BBlue("]~"))
-			app.console._log.Println(v)
-		},
-		err: func(v ...interface{}) {
-			app.console._err.SetPrefix(color.BRed("["+app.address+"]~[") +
-				color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
-				color.BRed("]~"))
-			app.console._err.Println(v)
-		}}
+	if app.silence {
+		app.console = &Console{
+			log: func(v ...interface{}) {},
+			err: func(v ...interface{}) {}}
+	} else {
+		app.console = &Console{
+			_err: log.New(os.Stderr, "", 0),
+			_log: log.New(os.Stdout, "", 0),
+			log: func(v ...interface{}) {
+				app.console._log.SetPrefix(color.BBlue("["+app.address+"]~[") +
+					color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
+					color.BBlue("]~"))
+				app.console._log.Println(v)
+			},
+			err: func(v ...interface{}) {
+				app.console._err.SetPrefix(color.BRed("["+app.address+"]~[") +
+					color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
+					color.BRed("]~"))
+				app.console._err.Println(v)
+			}}
+	}
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
 			Memdb:   make(map[string][]byte),

@@ -2,6 +2,7 @@ package samo
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -77,4 +78,18 @@ func (helpers *Helpers) encodeData(raw []byte) string {
 	}
 
 	return data
+}
+
+// Decode : reads base64 encoded ws message
+func (helpers *Helpers) Decode(message []byte) (string, error) {
+	var wsEvent map[string]interface{}
+	err := json.Unmarshal(message, &wsEvent)
+	if err != nil {
+		return "", err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(helpers.extractNonNil(wsEvent, "data"))
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(string(decoded), "\n"), nil
 }

@@ -121,7 +121,6 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 
 func (app *Server) closeClient(client *websocket.Conn, mode string, key string) {
 	// remove the client before closing
-	app.console.err("socketClientClosing[" + mode + "/" + key + "]")
 	poolIndex := app.findPool(mode, key)
 
 	// auxiliar clients array
