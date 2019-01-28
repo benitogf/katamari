@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -44,6 +46,9 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 	if stats.Keys == nil {
 		stats.Keys = []string{}
 	}
+	sort.Slice(stats.Keys, func(i, j int) bool {
+		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
+	})
 
 	resp, err := json.Marshal(stats)
 	if err != nil {

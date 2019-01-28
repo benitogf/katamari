@@ -49,7 +49,7 @@ go run main.go
 | method | description | url    |
 | ------------- |:-------------:| -----:|
 | GET | key list | http://{host}:{port} |
-| DEL | del | http://{host}:{port}/r/{key} |
+| DELETE | del | http://{host}:{port}/r/{key} |
 
 ## time
 
