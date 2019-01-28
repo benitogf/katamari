@@ -14,9 +14,9 @@ A very nice article with some [similar solutions](https://medium.com/@brenda.cla
 
 ## client
 
-Theres a [js client library](https://github.com/benitogf/samo-js-client/tree/master/example).
+There's a [js client library](https://www.npmjs.com/package/samo-js-client).
 
-also a [react client application example](https://github.com/benitogf/samo/tree/master/example).
+also a [react application example](https://github.com/benitogf/samo/tree/master/example).
 
 ## server
 
