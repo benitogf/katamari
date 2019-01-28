@@ -16,7 +16,7 @@ import (
 
 func TestWsTime(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
@@ -32,11 +32,11 @@ func TestWsTime(t *testing.T) {
 		for {
 			_, message, err := c1.ReadMessage()
 			if err != nil {
-				app.console.err("read c1", err)
+				app.console.Err("read c1", err)
 				break
 			}
 			c1time = string(message)
-			app.console.log("time c1", c1time)
+			app.console.Log("time c1", c1time)
 			count++
 		}
 	}()
@@ -44,11 +44,11 @@ func TestWsTime(t *testing.T) {
 	for {
 		_, message, err := c2.ReadMessage()
 		if err != nil {
-			app.console.err("read c2", err)
+			app.console.Err("read c2", err)
 			break
 		}
 		c2time = string(message)
-		app.console.log("time c2", c2time)
+		app.console.Log("time c2", c2time)
 		err = c2.Close()
 		require.NoError(t, err)
 	}
@@ -67,7 +67,7 @@ func TestWsTime(t *testing.T) {
 
 func TestWsRestPostBroadcast(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
@@ -81,12 +81,12 @@ func TestWsRestPostBroadcast(t *testing.T) {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				app.console.err("read c", err)
+				app.console.Err("read c", err)
 				break
 			}
 			data, err := (&Helpers{}).Decode(message)
 			require.NoError(t, err)
-			app.console.log("read c", data)
+			app.console.Log("read c", data)
 			if started {
 				got = data
 				err = c.Close()
@@ -125,7 +125,7 @@ func TestWsRestPostBroadcast(t *testing.T) {
 
 func TestWsBroadcast(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test/MOtest")
@@ -154,12 +154,12 @@ func TestWsBroadcast(t *testing.T) {
 		for {
 			_, message, err := c1.ReadMessage()
 			if err != nil {
-				app.console.err("read c1", err)
+				app.console.Err("read c1", err)
 				break
 			}
 			data, err := (&Helpers{}).Decode(message)
 			require.NoError(t, err)
-			app.console.log("read c1", data)
+			app.console.Log("read c1", data)
 			if readCount == 2 {
 				got1 = data
 				err = c1.Close()
@@ -167,7 +167,7 @@ func TestWsBroadcast(t *testing.T) {
 			}
 			if readCount == 0 {
 				err = c1.WriteMessage(websocket.TextMessage, []byte("{"+
-					"\"op\": \"DEL\","+
+					"\"op\": \"del\","+
 					"\"index\": \"2\""+
 					"}"))
 				require.NoError(t, err)
@@ -185,18 +185,18 @@ func TestWsBroadcast(t *testing.T) {
 	for {
 		_, message, err := c2.ReadMessage()
 		if err != nil {
-			app.console.err("read", err)
+			app.console.Err("read", err)
 			break
 		}
 		data, err := (&Helpers{}).Decode(message)
 		require.NoError(t, err)
-		app.console.log("read c2", data)
+		app.console.Log("read c2", data)
 		if wrote {
 			got2 = data
 			err = c2.Close()
 			require.NoError(t, err)
 		} else {
-			app.console.log("writing from c2")
+			app.console.Log("writing from c2")
 			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+
 				"\"index\": \"1\","+
 				"\"data\": \"test2\""+
@@ -217,7 +217,7 @@ func TestWsBroadcast(t *testing.T) {
 
 func TestWsDel(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
@@ -232,18 +232,18 @@ func TestWsDel(t *testing.T) {
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			app.console.err("read c", err)
+			app.console.Err("read c", err)
 			break
 		}
 		data, err := (&Helpers{}).Decode(message)
 		require.NoError(t, err)
-		app.console.log("read c", data)
+		app.console.Log("read c", data)
 		if started {
 			err = c.Close()
 			require.NoError(t, err)
 		} else {
 			err = c.WriteMessage(websocket.TextMessage, []byte("{"+
-				"\"op\": \"DEL\""+
+				"\"op\": \"del\""+
 				"}"))
 			require.NoError(t, err)
 			started = true
@@ -260,7 +260,7 @@ func TestWsDel(t *testing.T) {
 
 func TestWsBadRequest(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 

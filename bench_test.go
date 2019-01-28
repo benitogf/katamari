@@ -12,7 +12,7 @@ func BenchmarkLevelDbStorageSetGet(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
 	os.RemoveAll("test")
-	app.silence = true
+	app.Silence = true
 	app.Storage = &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,
@@ -31,7 +31,7 @@ func BenchmarkLevelDbStoragePost(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
 	os.RemoveAll("test")
-	app.silence = true
+	app.Silence = true
 	app.Storage = &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,
@@ -54,7 +54,7 @@ func BenchmarkLevelDbStoragePost(b *testing.B) {
 func BenchmarkMemoryStorageSetGet(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	b.ResetTimer()
@@ -68,7 +68,7 @@ func BenchmarkMemoryStorageSetGet(b *testing.B) {
 func BenchmarkMemoryStoragePost(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	b.ResetTimer()

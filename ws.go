@@ -17,7 +17,7 @@ func (app *Server) writeToClient(client *websocket.Conn, data string) {
 		"\"data\": \""+data+"\""+
 		"}"))
 	if err != nil {
-		app.console.err("sendError", err)
+		app.console.Err("sendError", err)
 	}
 }
 
@@ -41,7 +41,7 @@ func (app *Server) sendTime(clients []*websocket.Conn) {
 			"\"data\": \""+data+"\""+
 			"}"))
 		if err != nil {
-			app.console.err("sendTimeError", err)
+			app.console.Err("sendTimeError", err)
 		}
 	}
 }
@@ -93,7 +93,7 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 	client, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		app.console.err("socketUpgradeError["+mode+"/"+key+"]", err)
+		app.console.Err("socketUpgradeError["+mode+"/"+key+"]", err)
 		return nil, err
 	}
 
@@ -115,7 +115,7 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 			client)
 	}
 
-	app.console.log("socketClients["+mode+"/"+key+"]", len(app.clients[poolIndex].connections))
+	app.console.Log("socketClients["+mode+"/"+key+"]", len(app.clients[poolIndex].connections))
 	return client, nil
 }
 
@@ -145,14 +145,14 @@ func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 		_, message, err := client.ReadMessage()
 
 		if err != nil {
-			app.console.err("readSocketError["+mode+"/"+key+"]", err)
+			app.console.Err("readSocketError["+mode+"/"+key+"]", err)
 			break
 		}
 
 		var wsEvent map[string]interface{}
 		err = json.Unmarshal(message, &wsEvent)
 		if err != nil {
-			app.console.err("jsonUnmarshalMessageError["+mode+"/"+key+"]", err)
+			app.console.Err("jsonUnmarshalMessageError["+mode+"/"+key+"]", err)
 			break
 		}
 		op := app.helpers.extractNonNil(wsEvent, "op")
@@ -160,27 +160,30 @@ func (app *Server) readClient(client *websocket.Conn, mode string, key string) {
 		data := app.helpers.extractNonNil(wsEvent, "data")
 
 		switch op {
-		case "":
-			if data != "" {
-				poolIndex := app.findPool(mode, key)
-				clientIndex := app.findClient(poolIndex, client)
-				now, key, vindex := app.helpers.makeIndexes(mode, key, index, strconv.Itoa(clientIndex), app.separator)
-				if app.helpers.checkArchetype(key, vindex, data, app.Archetypes) {
-					newIndex, err := app.Storage.Set(key, vindex, now, data)
-					if err == nil && newIndex != "" {
-						app.sendData(app.findConnections(key))
-					}
+		case "del":
+			if index != "" || mode == "sa" {
+				delKey := key
+				if mode == "mo" {
+					delKey = key + app.separator + index
+				}
+				app.console.Log("del", delKey)
+				err := app.Storage.Del(delKey)
+				if err == nil {
+					app.sendData(app.findConnections(delKey))
 				}
 			}
 			break
-		case "DEL":
-			if index != "" || mode == "sa" {
-				if mode == "mo" {
-					key = key + app.separator + index
-				}
-				err := app.Storage.Del(key)
-				if err == nil {
-					app.sendData(app.findConnections(key))
+		default:
+			if data != "" {
+				poolIndex := app.findPool(mode, key)
+				clientIndex := app.findClient(poolIndex, client)
+				now, setKey, setIndex := app.helpers.makeIndexes(mode, key, index, strconv.Itoa(clientIndex), app.separator)
+				if app.helpers.checkArchetype(setKey, setIndex, data, app.Static, app.Archetypes) {
+					app.console.Log("set", setKey, setIndex)
+					newIndex, err := app.Storage.Set(setKey, setIndex, now, data)
+					if err == nil && newIndex != "" {
+						app.sendData(app.findConnections(setKey))
+					}
 				}
 			}
 			break
@@ -194,13 +197,13 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 		if !app.helpers.validKey(key, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
-			app.console.err("socketKeyError", key)
+			app.console.Err("socketKeyError", key)
 			return
 		}
 		if !app.Audit(r) {
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
-			app.console.err("socketConnectionUnauthorized", key)
+			app.console.Err("socketConnectionUnauthorized", key)
 			return
 		}
 		client, err := app.newClient(w, r, mode, key)
@@ -236,7 +239,7 @@ func (app *Server) timeWs(w http.ResponseWriter, r *http.Request) {
 		_, _, err := client.ReadMessage()
 
 		if err != nil {
-			app.console.err("readSocketError["+mode+"/"+key+"]", err)
+			app.console.Err("readSocketError["+mode+"/"+key+"]", err)
 			break
 		}
 	}

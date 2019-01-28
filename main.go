@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bclicn/color"
+	"github.com/benitogf/coat"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
@@ -59,10 +59,11 @@ type Server struct {
 	Storage    Database
 	separator  string
 	address    string
-	console    *Console
+	console    *coat.Console
 	helpers    *Helpers
 	closing    bool
-	silence    bool
+	Silence    bool
+	Static     bool
 }
 
 // Object : data structure of elements
@@ -71,14 +72,6 @@ type Object struct {
 	Updated int64  `json:"updated"`
 	Index   string `json:"index"`
 	Data    string `json:"data"`
-}
-
-// Console : interface to formated terminal output
-type Console struct {
-	_log *log.Logger
-	_err *log.Logger
-	log  func(v ...interface{})
-	err  func(v ...interface{})
 }
 
 // Stats : data structure of global keys
@@ -110,27 +103,7 @@ func (app *Server) Start(address string) {
 		app.separator = "/"
 	}
 	app.Router = mux.NewRouter()
-	if app.silence {
-		app.console = &Console{
-			log: func(v ...interface{}) {},
-			err: func(v ...interface{}) {}}
-	} else {
-		app.console = &Console{
-			_err: log.New(os.Stderr, "", 0),
-			_log: log.New(os.Stdout, "", 0),
-			log: func(v ...interface{}) {
-				app.console._log.SetPrefix(color.BBlue("["+app.address+"]~[") +
-					color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
-					color.BBlue("]~"))
-				app.console._log.Println(v)
-			},
-			err: func(v ...interface{}) {
-				app.console._err.SetPrefix(color.BRed("["+app.address+"]~[") +
-					color.BPurple(time.Now().Format("2006-01-02 15:04:05.000000")) +
-					color.BRed("]~"))
-				app.console._err.Println(v)
-			}}
-	}
+	app.console = coat.NewConsole(app.address, app.Silence)
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
 			Memdb:   make(map[string][]byte),
@@ -141,21 +114,26 @@ func (app *Server) Start(address string) {
 	}
 	rr := app.helpers.makeRouteRegex(app.separator)
 	app.Router.HandleFunc("/", app.getStats)
-	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DEL")
+	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
+	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
+	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
+	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
+	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
 	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
 	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
-	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
-	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
-	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
-	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
 	app.Router.HandleFunc("/time", app.timeWs)
 	go func() {
 		var err error
 		err = app.Storage.Start(app.separator)
 		if err == nil {
 			app.Server = &http.Server{
-				Addr:    app.address,
-				Handler: cors.Default().Handler(app.Router)}
+				Addr: app.address,
+				Handler: cors.New(cors.Options{
+					AllowedMethods: []string{"GET", "POST", "DELETE"},
+					// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
+					// AllowCredentials: true,
+					// Debug: true,
+				}).Handler(app.Router)}
 			err = app.Server.ListenAndServe()
 			if !app.closing {
 				log.Fatal(err)
@@ -165,7 +143,7 @@ func (app *Server) Start(address string) {
 		}
 	}()
 	app.waitStart()
-	app.console.log("glad to serve[" + app.address + "]")
+	app.console.Log("glad to serve[" + app.address + "]")
 	go app.timer()
 }
 
@@ -174,7 +152,7 @@ func (app *Server) Close(sig os.Signal) {
 	if !app.closing {
 		app.closing = true
 		app.Storage.Close()
-		app.console.err("shutdown", sig)
+		app.console.Err("shutdown", sig)
 		if app.Server != nil {
 			app.Server.Shutdown(context.Background())
 		}

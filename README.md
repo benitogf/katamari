@@ -1,4 +1,4 @@
-# SAMO
+# samo
 
 [![Build Status][build-image]][build-url]
 
@@ -6,13 +6,45 @@
 [build-url]: https://travis-ci.org/benitogf/samo
 [build-image]: https://api.travis-ci.org/benitogf/samo.svg?branch=master&style=flat-square
 
-Websocket and restfull http service with data persistence, it allows quick prototyping of realtime applications providing a dynamic interface with no fixed data structure or access regulation, but capable of defining those layers too if necessary.
-
-Theres an [example client](https://github.com/benitogf/samo/tree/master/example).
+Dynamic websocket and restful http service with a data persistence layer, it allows quick prototyping of realtime applications providing an interface with no fixed data structure or access regulations, but capable of [defining them](https://github.com/benitogf/samo#archetypes-and-audit) if necessary.
 
 A very nice article with some [similar solutions](https://medium.com/@brenda.clark/firebase-alternative-3-open-source-ways-to-follow-e45d9347bc8c).
 
-# Documentation:
+# quickstart
+
+## client
+
+Theres a [js client library](https://github.com/benitogf/samo-js-client/tree/master/example).
+
+also a [react client application example](https://github.com/benitogf/samo/tree/master/example).
+
+## server
+
+with [golang installed](https://golang.org/doc/install) from a terminal get the library:
+
+```bash
+go get github.com/benitogf/samo
+```
+
+then create a file `main.go` with the code:
+```golang
+package main
+
+import "github.com/benitogf/samo"
+
+func main() {
+	app := samo.Server{}
+	app.Start("localhost:8800")
+	app.WaitClose()
+}
+```
+
+finally run the service with:
+```bash
+go run main.go
+```
+
+# Specs
 
 | method | description | url    |
 | ------------- |:-------------:| -----:|
@@ -27,16 +59,15 @@ server side time ticker. will send a new timestamp per second
 | ------------- |:-------------:| -----:|
 | websocket| time ticker | ws://{host}:{port}/time |
 
-## single allocation (SA)
+## single allocation (sa)
 
 will handle the key as key->value
 
 | method | description | url    |
 | ------------- |:-------------:| -----:|
 | websocket| key data events: update, delete | ws://{host}:{port}/sa/{key} |
-| POST | create/update | http://{host}:{port}/r/sa |
+| POST | create/update | http://{host}:{port}/r/sa/{key} |
 | GET | get object | http://{host}:{port}/r/sa/{key} |
-
 ### websocket
 
 ### get (sent after handshake and on each new/update/delete event)
@@ -62,11 +93,11 @@ will handle the key as key->value
 ---
 ```js
 {
-    op: 'DEL'
+    op: 'del'
 }
 ```
 
-## multiple objects (MO)
+## multiple objects (mo)
 
     will handle the key as a list of every key/[index...] (or key/*), excluding the empty index (key->value)
 
@@ -106,7 +137,7 @@ will handle the key as key->value
 ---
 ```js
 {
-    op: 'DEL',
+    op: 'del',
     index: 'test'
 }
 ```
@@ -126,6 +157,7 @@ import (
 
 func main() {
 	app := samo.Server{}
+	app.Static = true // limit to defined archetypes only
 	app.Archetypes = samo.Archetypes{
 		"things/*": func(index string, data string) bool {
 			return data == "object"

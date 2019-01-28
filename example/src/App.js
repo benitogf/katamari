@@ -7,7 +7,7 @@ import Box from './Box'
 import Thing from './Thing'
 
 import moment from 'moment'
-import Socket from './Socket'
+import Samo from 'samo-js-client'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Typography from '@material-ui/core/Typography'
@@ -46,28 +46,28 @@ const r404 = () => (<Paper className="paper-container" elevation={1}>
 class App extends Component {
   constructor(props) {
     super(props)
-    const socket = new Socket(
+    const samo = new Samo(
       address + '/time'
     )
     this.state = {
       time: null,
-      socket
+      samo
     };
-    socket.onerror = (evt) => {
+    samo.onerror = (evt) => {
       // console.info(evt)
       this.setState({
         time: null
       })
     }
-    socket.onmessage = (evt) => {
+    samo.onmessage = (evt) => {
       // console.info(evt)
       this.setState({
-        time: socket.samo.parseTime(evt)
+        time: samo.parseTime(evt)
       })
     }
   }
   componentWillUnmount() {
-    this.state.socket.close()
+    this.state.samo.close()
   }
   render() {
     const { time } = this.state

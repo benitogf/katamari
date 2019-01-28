@@ -15,7 +15,7 @@ import (
 
 func TestArchetype(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Archetypes = Archetypes{
 		"test1": func(index string, data string) bool {
 			return data == "test1"
@@ -26,11 +26,11 @@ func TestArchetype(t *testing.T) {
 	}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	require.False(t, app.helpers.checkArchetype("test1", "test1", "notest", app.Archetypes))
-	require.True(t, app.helpers.checkArchetype("test1", "test1", "test1", app.Archetypes))
-	require.False(t, app.helpers.checkArchetype("test1/1", "1", "test1", app.Archetypes))
-	require.False(t, app.helpers.checkArchetype("test0/1", "1", "notest", app.Archetypes))
-	require.True(t, app.helpers.checkArchetype("test0/1", "1", "test", app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test1", "test1", "notest", app.Static, app.Archetypes))
+	require.True(t, app.helpers.checkArchetype("test1", "test1", "test1", app.Static, app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test1/1", "1", "test1", app.Static, app.Archetypes))
+	require.False(t, app.helpers.checkArchetype("test0/1", "1", "notest", app.Static, app.Archetypes))
+	require.True(t, app.helpers.checkArchetype("test0/1", "1", "test", app.Static, app.Archetypes))
 
 	var jsonStr = []byte(`{"data":"notest"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
@@ -42,9 +42,9 @@ func TestArchetype(t *testing.T) {
 
 func TestAudit(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Audit = func(r *http.Request) bool {
-		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET" && r.Method != "DEL"
+		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET" && r.Method != "DELETE"
 	}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -65,7 +65,7 @@ func TestAudit(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
-	req = httptest.NewRequest("DEL", "/r/test", nil)
+	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
@@ -74,7 +74,7 @@ func TestAudit(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.err(err)
+	app.console.Err(err)
 	require.Error(t, err)
 
 	app.Audit = func(r *http.Request) bool {
@@ -98,7 +98,7 @@ func TestAudit(t *testing.T) {
 
 func TestDoubleShutdown(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -107,7 +107,7 @@ func TestDoubleShutdown(t *testing.T) {
 
 func TestInvalidKey(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -115,17 +115,17 @@ func TestInvalidKey(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.err(err)
+	app.console.Err(err)
 	require.Error(t, err)
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test::1"}
 	c, _, err = websocket.DefaultDialer.Dial(u2.String(), nil)
 	require.Nil(t, c)
-	app.console.err(err)
+	app.console.Err(err)
 	require.Error(t, err)
 	u3 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1:"}
 	c, _, err = websocket.DefaultDialer.Dial(u3.String(), nil)
 	require.Nil(t, c)
-	app.console.err(err)
+	app.console.Err(err)
 	require.Error(t, err)
 
 	req := httptest.NewRequest("GET", "/r/sa/test::1", nil)
@@ -134,7 +134,7 @@ func TestInvalidKey(t *testing.T) {
 	resp := w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 
-	req = httptest.NewRequest("DEL", "/r/test::1", nil)
+	req = httptest.NewRequest("DELETE", "/r/test::1", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()

@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import Socket from './Socket'
+import Samo from 'samo-js-client'
 import Typography from '@material-ui/core/Typography'
 import LinearProgress from '@material-ui/core/LinearProgress'
 import List from '@material-ui/core/List'
@@ -13,30 +13,30 @@ const address = 'localhost:8800'
 class Boxes extends Component {
     constructor(props) {
         super(props)
-        const socket = new Socket(
+        const boxes = new Samo(
             address + '/mo/boxes'
         )
         this.state = {
             boxes: null,
-            socket
+            socket: boxes
         }
 
-        socket.onopen = (evt) => {
+        boxes.onopen = (evt) => {
             // console.info(evt)
-            socket.put({
+            boxes.set({
                 name: "a box"
             })
         }
-        socket.onerror = (evt) => {
+        boxes.onerror = (evt) => {
             // console.info(evt)
             this.setState({
                 boxes: null
             })
         }
-        socket.onmessage = (evt) => {
+        boxes.onmessage = (evt) => {
             // console.info(evt)
             this.setState({
-                boxes: socket.samo.decode(evt)
+                boxes: boxes.decode(evt)
             })
         }
     }

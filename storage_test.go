@@ -53,7 +53,7 @@ func StorageMO(app *Server, t *testing.T) {
 
 func TestStorageMemory(t *testing.T) {
 	app := &Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	StorageMO(app, t)
@@ -63,7 +63,7 @@ func TestStorageMemory(t *testing.T) {
 func TestStorageLeveldb(t *testing.T) {
 	os.RemoveAll("test")
 	app := &Server{}
-	app.silence = true
+	app.Silence = true
 	app.Storage = &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,

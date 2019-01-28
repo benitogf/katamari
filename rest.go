@@ -62,8 +62,8 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 
 		now, key, index := app.helpers.makeIndexes(mode, vkey, obj.Index, "R", app.separator)
 
-		if !app.helpers.checkArchetype(key, index, obj.Data, app.Archetypes) {
-			app.console.err("setError["+mode+"/"+key+"]", "improper data")
+		if !app.helpers.checkArchetype(key, index, obj.Data, app.Static, app.Archetypes) {
+			app.console.Err("setError["+mode+"/"+key+"]", "improper data")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("SAMO: dataArchetypeError improper data"))
 			return
@@ -102,7 +102,7 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 
 		raw, err := app.Storage.Get(mode, key)
 		if err != nil {
-			app.console.err(err)
+			app.console.Err(err)
 		}
 		data := string(raw)
 		if data == "" {
@@ -133,7 +133,7 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 	err := app.Storage.Del(key)
 
 	if err != nil {
-		app.console.err(err.Error())
+		app.console.Err(err.Error())
 		if err.Error() == "leveldb: not found" || err.Error() == "SAMO: not found" {
 			w.WriteHeader(http.StatusNotFound)
 		} else {

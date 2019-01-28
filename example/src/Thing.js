@@ -1,32 +1,32 @@
 import React, { Component } from 'react'
-import Socket from './Socket'
 import LinearProgress from '@material-ui/core/LinearProgress'
 import Typography from '@material-ui/core/Typography'
 import Paper from '@material-ui/core/Paper'
+import Samo from 'samo-js-client'
 
 const address = 'localhost:8800'
 
 class Thing extends Component {
     constructor(props) {
         super(props)
-        const socket = new Socket(
+        const thing = new Samo(
             address + '/sa/boxes/' + props.match.params.box + '/' + props.match.params.id
         )
         this.state = {
             thing: null,
-            socket
+            socket: thing
         }
 
-        socket.onerror = (evt) => {
+        thing.onerror = (evt) => {
             // console.info(evt)
             this.setState({
                 thing: null
             })
         }
-        socket.onmessage = (evt) => {
+        thing.onmessage = (evt) => {
             // console.info(evt)
             this.setState({
-                thing: socket.samo.decode(evt)
+                thing: thing.decode(evt)
             })
         }
     }

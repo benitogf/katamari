@@ -57,7 +57,7 @@ func (helpers *Helpers) makeIndexes(mode string, key string, index string, subIn
 	return now, key, index
 }
 
-func (helpers *Helpers) checkArchetype(key string, index string, data string, archetypes Archetypes) bool {
+func (helpers *Helpers) checkArchetype(key string, index string, data string, static bool, archetypes Archetypes) bool {
 	found := ""
 	for ar := range archetypes {
 		if glob.Globexp(ar).MatchString(key) {
@@ -68,7 +68,7 @@ func (helpers *Helpers) checkArchetype(key string, index string, data string, ar
 		return archetypes[found](index, data)
 	}
 
-	return true
+	return !static
 }
 
 func (helpers *Helpers) encodeData(raw []byte) string {

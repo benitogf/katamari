@@ -13,7 +13,7 @@ import (
 
 func TestRestPostNonObject(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`non object`)
@@ -26,7 +26,7 @@ func TestRestPostNonObject(t *testing.T) {
 
 func TestRestPostEmptyData(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":""}`)
@@ -39,7 +39,7 @@ func TestRestPostEmptyData(t *testing.T) {
 
 func TestRestPostKey(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -53,7 +53,7 @@ func TestRestPostKey(t *testing.T) {
 
 func TestRestDel(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
@@ -61,7 +61,7 @@ func TestRestDel(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
-	req := httptest.NewRequest("DEL", "/r/test", nil)
+	req := httptest.NewRequest("DELETE", "/r/test", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
@@ -69,7 +69,7 @@ func TestRestDel(t *testing.T) {
 	require.Equal(t, 204, resp.StatusCode)
 	require.Empty(t, data)
 
-	req = httptest.NewRequest("DEL", "/r/test", nil)
+	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
@@ -78,7 +78,7 @@ func TestRestDel(t *testing.T) {
 
 func TestRestGet(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
@@ -106,7 +106,7 @@ func TestRestGet(t *testing.T) {
 
 func TestRestStats(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 
@@ -139,7 +139,7 @@ func TestRestStats(t *testing.T) {
 
 func TestRestResponseCode(t *testing.T) {
 	app := Server{}
-	app.silence = true
+	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 
@@ -167,13 +167,13 @@ func TestRestResponseCode(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, 200, resp.StatusCode)
 
-	req = httptest.NewRequest("DEL", "/r/test", nil)
+	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 204, resp.StatusCode)
 
-	req = httptest.NewRequest("DEL", "/r/test/1", nil)
+	req = httptest.NewRequest("DELETE", "/r/test/1", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
