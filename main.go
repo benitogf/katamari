@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -51,8 +52,9 @@ type Storage struct {
 
 // Server : SAMO application server
 type Server struct {
-	Server     *http.Server
-	Router     *mux.Router
+	mutex      sync.Mutex
+	server     *http.Server
+	router     *mux.Router
 	clients    []*Pool
 	Archetypes Archetypes
 	Audit      Audit
@@ -79,13 +81,43 @@ type Stats struct {
 	Keys []string `json:"keys"`
 }
 
+func (app *Server) waitListen() {
+	app.console.Log("block listen")
+	app.mutex.Lock()
+	var err error
+	err = app.Storage.Start(app.separator)
+	if err == nil {
+		app.server = &http.Server{
+			Addr: app.address,
+			Handler: cors.New(cors.Options{
+				AllowedMethods: []string{"GET", "POST", "DELETE"},
+				// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
+				// AllowCredentials: true,
+				// Debug: true,
+			}).Handler(app.router)}
+		app.mutex.Unlock()
+		app.console.Log("unblock")
+		err = app.server.ListenAndServe()
+		if !app.closing {
+			log.Fatal(err)
+		}
+	} else {
+		log.Fatal(err)
+	}
+}
+
 func (app *Server) waitStart() {
 	tryes := 0
-	for (app.Server == nil || !app.Storage.Active()) && tryes < 100 {
+	app.mutex.Lock()
+	for (app.server == nil || !app.Storage.Active()) && tryes < 100 {
 		tryes++
-		time.Sleep(100 * time.Millisecond)
+		app.mutex.Unlock()
+		app.console.Log("wait unblock")
+		time.Sleep(1000 * time.Millisecond)
+		app.mutex.Lock()
 	}
-	if app.Server == nil || !app.Storage.Active() {
+	app.mutex.Unlock()
+	if app.server == nil || !app.Storage.Active() {
 		log.Fatal("Server start failed")
 	}
 }
@@ -102,7 +134,7 @@ func (app *Server) Start(address string) {
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"
 	}
-	app.Router = mux.NewRouter()
+	app.router = mux.NewRouter()
 	app.console = coat.NewConsole(app.address, app.Silence)
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
@@ -113,35 +145,17 @@ func (app *Server) Start(address string) {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
 	rr := app.helpers.makeRouteRegex(app.separator)
-	app.Router.HandleFunc("/", app.getStats)
-	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
-	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
-	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
-	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
-	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
-	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
-	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
-	app.Router.HandleFunc("/time", app.timeWs)
-	go func() {
-		var err error
-		err = app.Storage.Start(app.separator)
-		if err == nil {
-			app.Server = &http.Server{
-				Addr: app.address,
-				Handler: cors.New(cors.Options{
-					AllowedMethods: []string{"GET", "POST", "DELETE"},
-					// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
-					// AllowCredentials: true,
-					// Debug: true,
-				}).Handler(app.Router)}
-			err = app.Server.ListenAndServe()
-			if !app.closing {
-				log.Fatal(err)
-			}
-		} else {
-			log.Fatal(err)
-		}
-	}()
+	app.router.HandleFunc("/", app.getStats)
+	app.router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
+	app.router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
+	app.router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
+	app.router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
+	app.router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
+	app.router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
+	app.router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
+	app.router.HandleFunc("/time", app.timeWs)
+	app.console.Log("before listen")
+	go app.waitListen()
 	app.waitStart()
 	app.console.Log("glad to serve[" + app.address + "]")
 	go app.timer()
@@ -153,8 +167,8 @@ func (app *Server) Close(sig os.Signal) {
 		app.closing = true
 		app.Storage.Close()
 		app.console.Err("shutdown", sig)
-		if app.Server != nil {
-			app.Server.Shutdown(context.Background())
+		if app.server != nil {
+			app.server.Shutdown(context.Background())
 		}
 	}
 }

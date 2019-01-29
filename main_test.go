@@ -35,7 +35,7 @@ func TestArchetype(t *testing.T) {
 	var jsonStr = []byte(`{"data":"notest"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp := w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 }
@@ -55,19 +55,19 @@ func TestAudit(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp := w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/", nil)
 	w = httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
@@ -84,13 +84,13 @@ func TestAudit(t *testing.T) {
 	var jsonStr = []byte(`{"data":"test"}`)
 	req = httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w = httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/r/sa/test", nil)
 	w = httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 200, resp.StatusCode)
 
@@ -111,7 +111,6 @@ func TestInvalidKey(t *testing.T) {
 	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	require.NotEmpty(t, app.Server)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
@@ -130,13 +129,13 @@ func TestInvalidKey(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/r/sa/test::1", nil)
 	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp := w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 
 	req = httptest.NewRequest("DELETE", "/r/test::1", nil)
 	w = httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 }

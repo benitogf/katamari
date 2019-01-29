@@ -36,6 +36,7 @@ func (app *Server) sendData(clients []int) {
 func (app *Server) sendTime(clients []*websocket.Conn) {
 	now := time.Now().UTC().UnixNano()
 	data := strconv.FormatInt(now, 10)
+	app.mutex.Lock()
 	for _, client := range clients {
 		err := client.WriteMessage(1, []byte("{"+
 			"\"data\": \""+data+"\""+
@@ -44,40 +45,47 @@ func (app *Server) sendTime(clients []*websocket.Conn) {
 			app.console.Err("sendTimeError", err)
 		}
 	}
+	app.mutex.Unlock()
 }
 
 func (app *Server) findPool(mode string, key string) int {
 	poolIndex := -1
+	app.mutex.Lock()
 	for i := range app.clients {
 		if app.clients[i].key == key && app.clients[i].mode == mode {
 			poolIndex = i
 			break
 		}
 	}
+	app.mutex.Unlock()
 
 	return poolIndex
 }
 
 func (app *Server) findConnections(key string) []int {
 	var res []int
+	app.mutex.Lock()
 	for i := range app.clients {
 		if (app.clients[i].key == key && app.clients[i].mode == "sa") ||
 			(app.clients[i].mode == "mo" && app.helpers.IsMO(app.clients[i].key, key, app.separator)) {
 			res = append(res, i)
 		}
 	}
+	app.mutex.Unlock()
 
 	return res
 }
 
 func (app *Server) findClient(poolIndex int, client *websocket.Conn) int {
 	clientIndex := -1
+	app.mutex.Lock()
 	for i := range app.clients[poolIndex].connections {
 		if app.clients[poolIndex].connections[i] == client {
 			clientIndex = i
 			break
 		}
 	}
+	app.mutex.Unlock()
 
 	return clientIndex
 }
@@ -99,6 +107,7 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 
 	poolIndex := app.findPool(mode, key)
 
+	app.mutex.Lock()
 	if poolIndex == -1 {
 		// create a pool
 		app.clients = append(
@@ -114,6 +123,7 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 			app.clients[poolIndex].connections,
 			client)
 	}
+	app.mutex.Unlock()
 
 	app.console.Log("socketClients["+mode+"/"+key+"]", len(app.clients[poolIndex].connections))
 	return client, nil
@@ -127,6 +137,7 @@ func (app *Server) closeClient(client *websocket.Conn, mode string, key string) 
 	na := []*websocket.Conn{}
 
 	// loop to remove this client
+	app.mutex.Lock()
 	for _, v := range app.clients[poolIndex].connections {
 		if v == client {
 			continue
@@ -137,6 +148,7 @@ func (app *Server) closeClient(client *websocket.Conn, mode string, key string) 
 
 	// replace clients array with the auxiliar
 	app.clients[poolIndex].connections = na
+	app.mutex.Unlock()
 	client.Close()
 }
 

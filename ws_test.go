@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -68,6 +69,7 @@ func TestWsTime(t *testing.T) {
 func TestWsRestPostBroadcast(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
@@ -88,31 +90,43 @@ func TestWsRestPostBroadcast(t *testing.T) {
 			require.NoError(t, err)
 			app.console.Log("read c", data)
 			if started {
+				mutex.Lock()
 				got = data
+				mutex.Unlock()
 				err = c.Close()
 				require.NoError(t, err)
 			}
+			mutex.Lock()
 			started = true
+			mutex.Unlock()
 		}
 	}()
 
 	tryes := 0
+	mutex.Lock()
 	for !started && tryes < 10000 {
 		tryes++
-		time.Sleep(2 * time.Millisecond)
+		mutex.Unlock()
+		time.Sleep(200 * time.Millisecond)
+		mutex.Lock()
 	}
+	mutex.Unlock()
 	var jsonStr = []byte(`{"data":"Buy coffee and bread for breakfast."}`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	tryes = 0
+	mutex.Lock()
 	for got == "" && tryes < 10000 {
 		tryes++
-		time.Sleep(2 * time.Millisecond)
+		mutex.Unlock()
+		time.Sleep(200 * time.Millisecond)
+		mutex.Lock()
 	}
+	mutex.Unlock()
 	var wsObject Object
 	err = json.Unmarshal([]byte(got), &wsObject)
 	require.NoError(t, err)
@@ -126,6 +140,7 @@ func TestWsRestPostBroadcast(t *testing.T) {
 func TestWsBroadcast(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test/MOtest")
@@ -160,6 +175,7 @@ func TestWsBroadcast(t *testing.T) {
 			data, err := (&Helpers{}).Decode(message)
 			require.NoError(t, err)
 			app.console.Log("read c1", data)
+			mutex.Lock()
 			if readCount == 2 {
 				got1 = data
 				err = c1.Close()
@@ -173,14 +189,19 @@ func TestWsBroadcast(t *testing.T) {
 				require.NoError(t, err)
 			}
 			readCount++
+			mutex.Unlock()
 		}
 	}()
 
 	tryes := 0
+	mutex.Lock()
 	for readCount < 2 && tryes < 10000 {
 		tryes++
-		time.Sleep(2 * time.Millisecond)
+		mutex.Unlock()
+		time.Sleep(200 * time.Millisecond)
+		mutex.Lock()
 	}
+	mutex.Unlock()
 
 	for {
 		_, message, err := c2.ReadMessage()
@@ -191,6 +212,7 @@ func TestWsBroadcast(t *testing.T) {
 		data, err := (&Helpers{}).Decode(message)
 		require.NoError(t, err)
 		app.console.Log("read c2", data)
+		mutex.Lock()
 		if wrote {
 			got2 = data
 			err = c2.Close()
@@ -204,13 +226,18 @@ func TestWsBroadcast(t *testing.T) {
 			require.NoError(t, err)
 			wrote = true
 		}
+		mutex.Unlock()
 	}
 
 	tryes = 0
+	mutex.Lock()
 	for got1 == "" && tryes < 10000 {
 		tryes++
+		mutex.Unlock()
 		time.Sleep(2 * time.Millisecond)
+		mutex.Lock()
 	}
+	mutex.Unlock()
 
 	require.Equal(t, got1, "["+got2+"]")
 }
@@ -252,7 +279,7 @@ func TestWsDel(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp := w.Result()
 
 	require.Equal(t, 404, resp.StatusCode)
@@ -266,7 +293,7 @@ func TestWsBadRequest(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/sa/test", nil)
 	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
+	app.router.ServeHTTP(w, req)
 	resp := w.Result()
 
 	require.Equal(t, 400, resp.StatusCode)

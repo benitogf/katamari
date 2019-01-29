@@ -47,7 +47,7 @@ func BenchmarkLevelDbStoragePost(b *testing.B) {
 			),
 		)
 		w := httptest.NewRecorder()
-		app.Router.ServeHTTP(w, req)
+		app.router.ServeHTTP(w, req)
 	}
 }
 
@@ -80,6 +80,6 @@ func BenchmarkMemoryStoragePost(b *testing.B) {
 			),
 		)
 		w := httptest.NewRecorder()
-		app.Router.ServeHTTP(w, req)
+		app.router.ServeHTTP(w, req)
 	}
 }

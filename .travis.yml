@@ -15,4 +15,4 @@ install:
   - go get gopkg.in/godo.v2/glob
   - go get golang.org/x/tools/cmd/cover
 
-script: go test -v -coverprofile cover.out -count 1 -failfast -bench .
+script: go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
