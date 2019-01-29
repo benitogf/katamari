@@ -82,7 +82,6 @@ type Stats struct {
 }
 
 func (app *Server) waitListen() {
-	app.console.Log("block listen")
 	app.mutex.Lock()
 	var err error
 	err = app.Storage.Start(app.separator)
@@ -96,7 +95,6 @@ func (app *Server) waitListen() {
 				// Debug: true,
 			}).Handler(app.router)}
 		app.mutex.Unlock()
-		app.console.Log("unblock")
 		err = app.server.ListenAndServe()
 		if !app.closing {
 			log.Fatal(err)
@@ -112,7 +110,6 @@ func (app *Server) waitStart() {
 	for (app.server == nil || !app.Storage.Active()) && tryes < 100 {
 		tryes++
 		app.mutex.Unlock()
-		app.console.Log("wait unblock")
 		time.Sleep(1000 * time.Millisecond)
 		app.mutex.Lock()
 	}
@@ -154,7 +151,6 @@ func (app *Server) Start(address string) {
 	app.router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
 	app.router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
 	app.router.HandleFunc("/time", app.timeWs)
-	app.console.Log("before listen")
 	go app.waitListen()
 	app.waitStart()
 	app.console.Log("glad to serve[" + app.address + "]")

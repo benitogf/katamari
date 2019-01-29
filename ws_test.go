@@ -18,6 +18,7 @@ import (
 func TestWsTime(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
@@ -36,9 +37,11 @@ func TestWsTime(t *testing.T) {
 				app.console.Err("read c1", err)
 				break
 			}
+			mutex.Lock()
 			c1time = string(message)
 			app.console.Log("time c1", c1time)
 			count++
+			mutex.Unlock()
 		}
 	}()
 
@@ -48,17 +51,23 @@ func TestWsTime(t *testing.T) {
 			app.console.Err("read c2", err)
 			break
 		}
+		mutex.Lock()
 		c2time = string(message)
 		app.console.Log("time c2", c2time)
+		mutex.Unlock()
 		err = c2.Close()
 		require.NoError(t, err)
 	}
 
 	tryes := 0
+	mutex.Lock()
 	for count < 3 && tryes < 10000 {
 		tryes++
-		time.Sleep(2 * time.Millisecond)
+		mutex.Unlock()
+		time.Sleep(200 * time.Millisecond)
+		mutex.Lock()
 	}
+	mutex.Unlock()
 
 	err = c1.Close()
 	require.NoError(t, err)
@@ -89,14 +98,12 @@ func TestWsRestPostBroadcast(t *testing.T) {
 			data, err := (&Helpers{}).Decode(message)
 			require.NoError(t, err)
 			app.console.Log("read c", data)
+			mutex.Lock()
 			if started {
-				mutex.Lock()
 				got = data
-				mutex.Unlock()
 				err = c.Close()
 				require.NoError(t, err)
 			}
-			mutex.Lock()
 			started = true
 			mutex.Unlock()
 		}

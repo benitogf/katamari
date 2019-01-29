@@ -13,9 +13,11 @@ import (
 )
 
 func (app *Server) writeToClient(client *websocket.Conn, data string) {
+	app.mutex.Lock()
 	err := client.WriteMessage(websocket.TextMessage, []byte("{"+
 		"\"data\": \""+data+"\""+
 		"}"))
+	app.mutex.Unlock()
 	if err != nil {
 		app.console.Err("sendError", err)
 	}
@@ -123,9 +125,9 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 			app.clients[poolIndex].connections,
 			client)
 	}
-	app.mutex.Unlock()
 
 	app.console.Log("socketClients["+mode+"/"+key+"]", len(app.clients[poolIndex].connections))
+	app.mutex.Unlock()
 	return client, nil
 }
 
