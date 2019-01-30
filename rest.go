@@ -12,7 +12,7 @@ import (
 func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
 		return
 	}
 
@@ -33,13 +33,13 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 
 		if !app.helpers.validKey(vkey, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
+			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			return
 		}
 
 		if !app.Audit(r) {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+			fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
 			return
 		}
 
@@ -56,16 +56,16 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 
 		if obj.Data == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: emptyDataError data is empty"))
+			fmt.Fprintf(w, "%s", errors.New("samo: emptyDataError data is empty"))
 			return
 		}
 
-		now, key, index := app.helpers.makeIndexes(mode, vkey, obj.Index, "R", app.separator)
+		key, index, now := app.helpers.makeKey(mode, vkey, obj.Index, "R", app.separator)
 
 		if !app.helpers.checkArchetype(key, index, obj.Data, app.Static, app.Archetypes) {
 			app.console.Err("setError["+mode+"/"+key+"]", "improper data")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: dataArchetypeError improper data"))
+			fmt.Fprintf(w, "%s", errors.New("samo: dataArchetypeError improper data"))
 			return
 		}
 
@@ -77,7 +77,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		app.sendData(app.findConnections(key))
+		go app.sendData(app.findConnections(key))
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "{"+
 			"\"index\": \""+index+"\""+
@@ -90,13 +90,13 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 		key := mux.Vars(r)["key"]
 		if !app.helpers.validKey(key, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
+			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			return
 		}
 
 		if !app.Audit(r) {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+			fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
 			return
 		}
 
@@ -107,7 +107,7 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 		data := string(raw)
 		if data == "" {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "%s", errors.New("SAMO: empty key"))
+			fmt.Fprintf(w, "%s", errors.New("samo: empty key"))
 			return
 		}
 
@@ -120,13 +120,13 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	if !app.helpers.validKey(key, app.separator) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s", errors.New("SAMO: pathKeyError key is not valid"))
+		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
 	}
 
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("SAMO: this request is not authorized"))
+		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
 		return
 	}
 
@@ -134,7 +134,7 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		app.console.Err(err.Error())
-		if err.Error() == "leveldb: not found" || err.Error() == "SAMO: not found" {
+		if err.Error() == "leveldb: not found" || err.Error() == "samo: not found" {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -143,7 +143,7 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.sendData(app.findConnections(key))
+	go app.sendData(app.findConnections(key))
 	w.WriteHeader(http.StatusNoContent)
 	fmt.Fprintf(w, "deleted "+key)
 }

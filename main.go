@@ -16,11 +16,18 @@ import (
 	"github.com/rs/cors"
 )
 
+// Conn extends the websocket connection with a mutex
+// https://godoc.org/github.com/gorilla/websocket#hdr-Concurrency
+type Conn struct {
+	conn  *websocket.Conn
+	mutex sync.Mutex
+}
+
 // Pool : mode/key based websocket connections and watcher
 type Pool struct {
 	key         string
 	mode        string
-	connections []*websocket.Conn
+	connections []*Conn
 }
 
 // Audit : function to provide approval or denial of requests
@@ -52,20 +59,21 @@ type Storage struct {
 
 // Server : SAMO application server
 type Server struct {
-	mutex      sync.Mutex
-	server     *http.Server
-	router     *mux.Router
-	clients    []*Pool
-	Archetypes Archetypes
-	Audit      Audit
-	Storage    Database
-	separator  string
-	address    string
-	console    *coat.Console
-	helpers    *Helpers
-	closing    bool
-	Silence    bool
-	Static     bool
+	mutex        sync.RWMutex
+	mutexClients sync.RWMutex
+	server       *http.Server
+	router       *mux.Router
+	clients      []*Pool
+	Archetypes   Archetypes
+	Audit        Audit
+	Storage      Database
+	separator    string
+	address      string
+	console      *coat.Console
+	helpers      *Helpers
+	closing      bool
+	Silence      bool
+	Static       bool
 }
 
 // Object : data structure of elements
@@ -82,10 +90,10 @@ type Stats struct {
 }
 
 func (app *Server) waitListen() {
-	app.mutex.Lock()
 	var err error
 	err = app.Storage.Start(app.separator)
 	if err == nil {
+		app.mutex.Lock()
 		app.server = &http.Server{
 			Addr: app.address,
 			Handler: cors.New(cors.Options{
@@ -99,24 +107,26 @@ func (app *Server) waitListen() {
 		if !app.closing {
 			log.Fatal(err)
 		}
-	} else {
-		log.Fatal(err)
+		return
 	}
+
+	log.Fatal(err)
 }
 
 func (app *Server) waitStart() {
 	tryes := 0
-	app.mutex.Lock()
-	for (app.server == nil || !app.Storage.Active()) && tryes < 100 {
+	app.mutex.RLock()
+	for (app.server == nil || !app.Storage.Active()) && tryes < 1000 {
 		tryes++
-		app.mutex.Unlock()
-		time.Sleep(1000 * time.Millisecond)
-		app.mutex.Lock()
+		app.mutex.RUnlock()
+		time.Sleep(10 * time.Millisecond)
+		app.mutex.RLock()
 	}
-	app.mutex.Unlock()
+	app.mutex.RUnlock()
 	if app.server == nil || !app.Storage.Active() {
 		log.Fatal("Server start failed")
 	}
+	app.console.Log("glad to serve[" + app.address + "]")
 }
 
 // Start : initialize and start the http server and database connection
@@ -153,11 +163,10 @@ func (app *Server) Start(address string) {
 	app.router.HandleFunc("/time", app.timeWs)
 	go app.waitListen()
 	app.waitStart()
-	app.console.Log("glad to serve[" + app.address + "]")
 	go app.timer()
 }
 
-// Close : shutdowns the http server and database connection
+// Close : shutdown the http server and database connection
 func (app *Server) Close(sig os.Signal) {
 	if !app.closing {
 		app.closing = true

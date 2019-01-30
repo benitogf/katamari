@@ -41,11 +41,19 @@ func (helpers *Helpers) makeRouteRegex(separator string) string {
 	return "[a-zA-Z\\d][a-zA-Z\\d\\" + separator + "]+[a-zA-Z\\d]"
 }
 
-func (helpers *Helpers) makeIndexes(mode string, key string, index string, subIndex string, separator string) (int64, string, string) {
+func (helpers *Helpers) accessKey(mode string, key string, index string, separator string) string {
+	if mode == "mo" {
+		key += separator + index
+	}
+	return key
+}
+
+func (helpers *Helpers) makeKey(mode string, key string, index string, subIndex string, separator string) (string, string, int64) {
 	now := time.Now().UTC().UnixNano()
 
 	if mode == "sa" {
 		index = helpers.extractMoIndex(key, separator)
+		return key, index, now
 	}
 	if mode == "mo" {
 		if index == "" {
@@ -54,7 +62,7 @@ func (helpers *Helpers) makeIndexes(mode string, key string, index string, subIn
 		key += separator + index
 	}
 
-	return now, key, index
+	return key, index, now
 }
 
 func (helpers *Helpers) checkArchetype(key string, index string, data string, static bool, archetypes Archetypes) bool {

@@ -11,15 +11,11 @@ import { Link } from 'react-router-dom'
 const address = 'localhost:8800'
 
 class Boxes extends Component {
-    constructor(props) {
-        super(props)
+    isComponentMounted = false
+    componentWillMount() {
         const boxes = new Samo(
             address + '/mo/boxes'
         )
-        this.state = {
-            boxes: null,
-            socket: boxes
-        }
 
         boxes.onopen = (evt) => {
             // console.info(evt)
@@ -29,18 +25,35 @@ class Boxes extends Component {
         }
         boxes.onerror = (evt) => {
             // console.info(evt)
-            this.setState({
-                boxes: null
-            })
+            if (this.isComponentMounted) {
+                this.setState({
+                    boxes: null
+                })
+            } else {
+                this.state.socket.close()
+            }
         }
         boxes.onmessage = (evt) => {
             // console.info(evt)
-            this.setState({
-                boxes: boxes.decode(evt)
-            })
+            if (this.isComponentMounted) {
+                this.setState({
+                    boxes: boxes.decode(evt)
+                })
+            } else {
+                this.state.socket.close()
+            }
         }
+
+        this.setState({
+            boxes: null,
+            socket: boxes
+        })
+    }
+    componentDidMount() {
+        this.isComponentMounted = true
     }
     componentWillUnmount() {
+        this.isComponentMounted = false
         this.state.socket.close()
     }
     render() {

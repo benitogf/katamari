@@ -1,5 +1,7 @@
 language: go
-dist: xenial
+os:
+  - linux
+  - windows
 
 go:
   - 1.11.x
@@ -7,7 +9,6 @@ go:
 install:
   - go get github.com/gorilla/mux
   - go get github.com/gorilla/websocket
-  - go get github.com/bclicn/color
   - go get github.com/rs/cors
   - go get github.com/syndtr/goleveldb/leveldb
   - go get github.com/benitogf/coat
@@ -15,4 +16,7 @@ install:
   - go get gopkg.in/godo.v2/glob
   - go get golang.org/x/tools/cmd/cover
 
-script: go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
+script:
+  - go vet ./...
+  - diff -u <(echo -n) <(gofmt -d .)
+  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .

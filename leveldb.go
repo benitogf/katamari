@@ -66,16 +66,16 @@ func (db *LevelDbStorage) Keys() ([]byte, error) {
 
 // Get  :
 func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
-	var err error
-	switch mode {
-	case "sa":
+	if mode == "sa" {
 		data, err := db.lvldb.Get([]byte(key), nil)
 		if err != nil {
 			return []byte(""), err
 		}
 
 		return data, nil
-	case "mo":
+	}
+
+	if mode == "mo" {
 		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.Storage.Separator)), nil)
 		res := []Object{}
 		for iter.Next() {
@@ -88,7 +88,7 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 			}
 		}
 		iter.Release()
-		err = iter.Error()
+		err := iter.Error()
 		if err != nil {
 			return []byte(""), err
 		}
@@ -99,9 +99,9 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 		}
 
 		return data, nil
-	default:
-		return []byte(""), errors.New("SAMO: unrecognized mode: " + mode)
 	}
+
+	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
 }
 
 // Set  :

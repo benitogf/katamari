@@ -25,7 +25,7 @@ func (db *MemoryStorage) Active() bool {
 func (db *MemoryStorage) Start(separator string) error {
 	db.Storage.Separator = separator
 	db.Storage.Active = true
-	db.Lock = sync.RWMutex{}
+	// db.Lock = sync.RWMutex{}
 	return nil
 }
 
@@ -63,15 +63,16 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 	db.Lock.RLock()
 	defer db.Lock.RUnlock()
 	var err error
-	switch mode {
-	case "sa":
+	if mode == "sa" {
 		data := db.Memdb[key]
 		if data == nil {
 			return []byte(""), err
 		}
 
 		return data, nil
-	case "mo":
+	}
+
+	if mode == "mo" {
 		res := []Object{}
 		for k := range db.Memdb {
 			if (&Helpers{}).IsMO(key, k, db.Storage.Separator) {
@@ -89,9 +90,9 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 		}
 
 		return data, nil
-	default:
-		return []byte(""), errors.New("SAMO: unrecognized mode: " + mode)
 	}
+
+	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
 }
 
 // Set  :
@@ -128,7 +129,7 @@ func (db *MemoryStorage) Del(key string) error {
 	db.Lock.Lock()
 	defer db.Lock.Unlock()
 	if db.Memdb[key] == nil {
-		return errors.New("SAMO: not found")
+		return errors.New("samo: not found")
 	}
 	delete(db.Memdb, key)
 	return nil
