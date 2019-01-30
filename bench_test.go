@@ -169,5 +169,5 @@ func Benchmark100Msgs100ClientBroadcast(b *testing.B) {
 }
 
 func Benchmark30Msgs1000ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(30, 1000, 3000, b)
+	multipleClientBroadcast(30, 300, 3000, b)
 }

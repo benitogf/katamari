@@ -18,5 +18,4 @@ install:
 
 script:
   - go vet ./...
-  - diff -u <(echo -n) <(gofmt -d .)
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
