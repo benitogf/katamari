@@ -11,7 +11,6 @@ import (
 type LevelDbStorage struct {
 	Path  string
 	lvldb *leveldb.DB
-	*Objects
 	*Storage
 }
 
@@ -24,7 +23,6 @@ func (db *LevelDbStorage) Active() bool {
 func (db *LevelDbStorage) Start(separator string) error {
 	var err error
 	db.Storage.Separator = separator
-	db.Objects = &Objects{&Keys{}}
 	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
 		db.Storage.Active = true
@@ -57,7 +55,7 @@ func (db *LevelDbStorage) Keys() ([]byte, error) {
 		stats.Keys = []string{}
 	}
 
-	return db.Objects.encode(stats)
+	return db.Storage.Objects.encode(stats)
 }
 
 // Get  :
@@ -75,8 +73,8 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.Storage.Separator)), nil)
 		res := []Object{}
 		for iter.Next() {
-			if db.Objects.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
-				newObject, err := db.Objects.read(iter.Value())
+			if db.Storage.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
+				newObject, err := db.Storage.Objects.read(iter.Value())
 				if err == nil {
 					res = append(res, newObject)
 				}
@@ -88,7 +86,7 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 			return []byte(""), err
 		}
 
-		return db.Objects.encode(res)
+		return db.Storage.Objects.encode(res)
 	}
 
 	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
@@ -96,29 +94,29 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 
 // Peek :
 func (db *LevelDbStorage) Peek(key string, now int64) (int64, int64) {
-	updated := now
-	created := now
 	previous, err := db.lvldb.Get([]byte(key), nil)
 	if err != nil && err.Error() == "leveldb: not found" {
-		updated = 0
+		return now, 0
 	}
 
-	if err == nil {
-		oldObject, err := db.Objects.read(previous)
-		if err == nil {
-			created = oldObject.Created
-		}
+	if err != nil {
+		return now, 0
 	}
 
-	return updated, created
+	oldObject, err := db.Storage.Objects.read(previous)
+	if err != nil {
+		return now, 0
+	}
+
+	return oldObject.Created, now
 }
 
 // Set  :
 func (db *LevelDbStorage) Set(key string, index string, now int64, data string) (string, error) {
-	updated, created := db.Peek(key, now)
+	created, updated := db.Peek(key, now)
 	err := db.lvldb.Put(
 		[]byte(key),
-		db.Objects.write(&Object{
+		db.Storage.Objects.write(&Object{
 			Created: created,
 			Updated: updated,
 			Index:   index,

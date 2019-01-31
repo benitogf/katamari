@@ -26,11 +26,11 @@ func TestArchetype(t *testing.T) {
 	}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	require.False(t, app.checkArchetype("test1", "test1", "notest"))
-	require.True(t, app.checkArchetype("test1", "test1", "test1"))
-	require.False(t, app.checkArchetype("test1/1", "1", "test1"))
-	require.False(t, app.checkArchetype("test0/1", "1", "notest"))
-	require.True(t, app.checkArchetype("test0/1", "1", "test"))
+	require.False(t, app.Archetypes.check("test1", "test1", "notest", false))
+	require.True(t, app.Archetypes.check("test1", "test1", "test1", false))
+	require.False(t, app.Archetypes.check("test1/1", "1", "test1", false))
+	require.False(t, app.Archetypes.check("test0/1", "1", "notest", false))
+	require.True(t, app.Archetypes.check("test0/1", "1", "test", false))
 
 	var jsonStr = []byte(`{"data":"notest"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))

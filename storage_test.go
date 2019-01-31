@@ -10,15 +10,24 @@ import (
 
 func StorageSA(app *Server, t *testing.T) {
 	_ = app.Storage.Del("test")
-	index, err := app.Storage.Set("test", "test", 0, "test")
+	index, err := app.Storage.Set("test", "test", 1, "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, _ := app.Storage.Get("sa", "test")
-	var testObject Object
-	err = json.Unmarshal(data, &testObject)
+	testObject, err := app.objects.read(data)
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
+	require.Equal(t, int64(1), testObject.Created)
+	index, err = app.Storage.Set("test", "test", 2, "test_update")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+	data, _ = app.Storage.Get("sa", "test")
+	testObject, err = app.objects.read(data)
+	require.NoError(t, err)
+	require.Equal(t, "test_update", testObject.Data)
+	require.Equal(t, int64(2), testObject.Updated)
+	require.Equal(t, int64(1), testObject.Created)
 	err = app.Storage.Del("test")
 	require.NoError(t, err)
 	raw, _ := app.Storage.Get("sa", "test")
@@ -46,7 +55,6 @@ func StorageMO(app *Server, t *testing.T) {
 	keys, err := app.Storage.Keys()
 	require.NoError(t, err)
 	require.Equal(t, "{\"keys\":[\"test/123\",\"test/MOtest\"]}", string(keys))
-
 }
 
 func TestStorageMemory(t *testing.T) {

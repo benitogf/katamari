@@ -71,7 +71,7 @@ func (app *Server) findConnections(key string) []int {
 	for i := range app.clients {
 		if (app.clients[i].key == key && app.clients[i].mode == "sa") ||
 			(app.clients[i].mode == "mo" &&
-				app.objects.Keys.isSub(app.clients[i].key, key, app.separator)) {
+				app.keys.isSub(app.clients[i].key, key, app.separator)) {
 			res = append(res, i)
 		}
 	}
@@ -161,7 +161,7 @@ func (app *Server) closeClient(client *conn, mode string, key string) {
 }
 
 func (app *Server) processDel(mode string, key string, index string) {
-	delKey := app.objects.Keys.get(mode, key, index, app.separator)
+	delKey := app.keys.get(mode, key, index, app.separator)
 	app.console.Log("del", delKey)
 	err := app.Storage.Del(delKey)
 	if err == nil {
@@ -172,15 +172,15 @@ func (app *Server) processDel(mode string, key string, index string) {
 func (app *Server) processSet(mode string, key string, index string, data string, client *conn) {
 	poolIndex := app.findPool(mode, key)
 	clientIndex := strconv.Itoa(app.findClient(poolIndex, client))
-	setKey, setIndex, now := app.objects.Keys.build(
+	setKey, setIndex, now := app.keys.build(
 		mode,
 		key,
 		index,
 		clientIndex,
 		app.separator,
 	)
-	if app.checkArchetype(setKey, setIndex, data) {
-		app.console.Log("set", setKey, setIndex)
+	if app.Archetypes.check(setKey, setIndex, data, app.Static) {
+		app.console.Log("set", setKey)
 		newIndex, err := app.Storage.Set(setKey, setIndex, now, data)
 		if err == nil && newIndex != "" {
 			go app.sendData(app.findConnections(setKey))
@@ -225,7 +225,7 @@ func (app *Server) readClient(client *conn, mode string, key string) {
 func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !app.objects.Keys.isValid(key, app.separator) {
+		if !app.keys.isValid(key, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			app.console.Err("socketKeyError", key)

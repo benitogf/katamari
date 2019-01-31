@@ -14,7 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
-	"gopkg.in/godo.v2/glob"
 )
 
 // conn extends the websocket connection with a mutex
@@ -34,12 +33,6 @@ type pool struct {
 // Audit : function to provide approval or denial of requests
 type Audit func(r *http.Request) bool
 
-// Archetype : function to check proper key->data covalent bond
-type Archetype func(index string, data string) bool
-
-// Archetypes : a map that allows structure and content formalization of key->data
-type Archetypes map[string]Archetype
-
 // Database : methods of the persistent data layer
 type Database interface {
 	Active() bool
@@ -57,6 +50,8 @@ type Storage struct {
 	Active    bool
 	Separator string
 	Db        Database
+	*Objects
+	*Keys
 }
 
 // Server : SAMO application server
@@ -76,6 +71,7 @@ type Server struct {
 	Static       bool
 	console      *coat.Console
 	objects      *Objects
+	keys         *Keys
 	messages     *Messages
 }
 
@@ -94,20 +90,6 @@ type Stats struct {
 
 func (app *Server) makeRouteRegex() string {
 	return "[a-zA-Z\\d][a-zA-Z\\d\\" + app.separator + "]+[a-zA-Z\\d]"
-}
-
-func (app *Server) checkArchetype(key string, index string, data string) bool {
-	found := ""
-	for ar := range app.Archetypes {
-		if glob.Globexp(ar).MatchString(key) {
-			found = ar
-		}
-	}
-	if found != "" {
-		return app.Archetypes[found](index, data)
-	}
-
-	return !app.Static
 }
 
 func (app *Server) waitListen() {
@@ -157,7 +139,7 @@ func (app *Server) waitStart() {
 // 	separator : rune to use as key separator '/'
 func (app *Server) Start(address string) {
 	app.closing = false
-	app.objects = &Objects{&Keys{}}
+	// app.objects = &Objects{&Keys{}}
 	app.address = address
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"

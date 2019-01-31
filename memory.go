@@ -11,7 +11,6 @@ import (
 type MemoryStorage struct {
 	Memdb map[string][]byte
 	Lock  sync.RWMutex
-	*Objects
 	*Storage
 }
 
@@ -24,8 +23,6 @@ func (db *MemoryStorage) Active() bool {
 func (db *MemoryStorage) Start(separator string) error {
 	db.Storage.Separator = separator
 	db.Storage.Active = true
-	// db.Lock = sync.RWMutex{}
-	db.Objects = &Objects{&Keys{}}
 	return nil
 }
 
@@ -50,7 +47,7 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
 	})
 
-	return db.Objects.encode(stats)
+	return db.Storage.Objects.encode(stats)
 }
 
 // Get :
@@ -70,15 +67,15 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 	if mode == "mo" {
 		res := []Object{}
 		for k := range db.Memdb {
-			if db.Objects.Keys.isSub(key, k, db.Storage.Separator) {
-				newObject, err := db.Objects.read(db.Memdb[k])
+			if db.Storage.Keys.isSub(key, k, db.Storage.Separator) {
+				newObject, err := db.Storage.Objects.read(db.Memdb[k])
 				if err == nil {
 					res = append(res, newObject)
 				}
 			}
 		}
 
-		return db.Objects.encode(res)
+		return db.Storage.Objects.encode(res)
 	}
 
 	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
@@ -86,27 +83,25 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 
 // Peek will check the object stored in the key if any, returns created and updated times acordingly
 func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
-	updated := now
-	created := now
 	previous := db.Memdb[key]
 	if previous == nil {
-		updated = 0
-	} else {
-		oldObject, err := db.Objects.read(previous)
-		if err == nil {
-			created = oldObject.Created
-		}
+		return now, 0
 	}
 
-	return created, updated
+	oldObject, err := db.Storage.Objects.read(previous)
+	if err != nil {
+		return now, 0
+	}
+
+	return oldObject.Created, now
 }
 
 // Set  :
 func (db *MemoryStorage) Set(key string, index string, now int64, data string) (string, error) {
 	db.Lock.Lock()
 	defer db.Lock.Unlock()
-	updated, created := db.Peek(key, now)
-	db.Memdb[key] = db.Objects.write(&Object{
+	created, updated := db.Peek(key, now)
+	db.Memdb[key] = db.Storage.Objects.write(&Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,

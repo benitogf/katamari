@@ -6,9 +6,7 @@ import (
 )
 
 // Objects provide methods to read from bytes and write to bytes
-type Objects struct {
-	*Keys
-}
+type Objects struct{}
 
 func (o *Objects) encode(v interface{}) ([]byte, error) {
 	data, err := json.Marshal(v)
