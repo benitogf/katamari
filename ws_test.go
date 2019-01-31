@@ -95,7 +95,7 @@ func TestWsRestPostBroadcast(t *testing.T) {
 				app.console.Err("read c", err)
 				break
 			}
-			data, err := (&Helpers{}).Decode(message)
+			data, err := app.messages.read(message)
 			require.NoError(t, err)
 			app.console.Log("read c", data)
 			mutex.Lock()
@@ -179,7 +179,7 @@ func TestWsBroadcast(t *testing.T) {
 				app.console.Err("read c1", err)
 				break
 			}
-			data, err := (&Helpers{}).Decode(message)
+			data, err := app.messages.read(message)
 			require.NoError(t, err)
 			app.console.Log("read c1", data)
 			mutex.Lock()
@@ -216,7 +216,7 @@ func TestWsBroadcast(t *testing.T) {
 			app.console.Err("read", err)
 			break
 		}
-		data, err := (&Helpers{}).Decode(message)
+		data, err := app.messages.read(message)
 		require.NoError(t, err)
 		app.console.Log("read c2", data)
 		mutex.Lock()
@@ -269,7 +269,7 @@ func TestWsDel(t *testing.T) {
 			app.console.Err("read c", err)
 			break
 		}
-		data, err := (&Helpers{}).Decode(message)
+		data, err := app.messages.read(message)
 		require.NoError(t, err)
 		app.console.Log("read c", data)
 		if started {

@@ -117,7 +117,7 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 						break
 					}
 					go func(message []byte) {
-						data, err := (&Helpers{}).Decode(message)
+						data, err := app.messages.read(message)
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -161,13 +161,13 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 }
 
 func Benchmark300Msgs10ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(300, 10, 3000, b)
+	multipleClientBroadcast(300, 30, 3000, b)
 }
 
 func Benchmark100Msgs100ClientBroadcast(b *testing.B) {
 	multipleClientBroadcast(100, 100, 3000, b)
 }
 
-func Benchmark30Msgs1000ClientBroadcast(b *testing.B) {
+func Benchmark30Msgs300ClientBroadcast(b *testing.B) {
 	multipleClientBroadcast(30, 300, 3000, b)
 }

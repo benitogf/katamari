@@ -36,8 +36,6 @@ func StorageMO(app *Server, t *testing.T) {
 	index, err = app.Storage.Set("test/MOtest", "MOtest", 0, "test")
 	require.NoError(t, err)
 	require.Equal(t, "MOtest", index)
-	_, index, _ = app.helpers.makeKey("mo", "test", "", "T", app.separator)
-	require.NotEmpty(t, index)
 	data, err := app.Storage.Get("mo", "test")
 	require.NoError(t, err)
 	var testObjects []Object

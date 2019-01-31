@@ -1,8 +1,6 @@
 package samo
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -13,6 +11,7 @@ import (
 type LevelDbStorage struct {
 	Path  string
 	lvldb *leveldb.DB
+	*Objects
 	*Storage
 }
 
@@ -25,6 +24,7 @@ func (db *LevelDbStorage) Active() bool {
 func (db *LevelDbStorage) Start(separator string) error {
 	var err error
 	db.Storage.Separator = separator
+	db.Objects = &Objects{&Keys{}}
 	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
 		db.Storage.Active = true
@@ -56,12 +56,8 @@ func (db *LevelDbStorage) Keys() ([]byte, error) {
 	if stats.Keys == nil {
 		stats.Keys = []string{}
 	}
-	resp, err := json.Marshal(stats)
-	if err != nil {
-		return nil, err
-	}
 
-	return resp, nil
+	return db.Objects.encode(stats)
 }
 
 // Get  :
@@ -79,9 +75,8 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.Storage.Separator)), nil)
 		res := []Object{}
 		for iter.Next() {
-			if (&Helpers{}).IsMO(key, string(iter.Key()), db.Storage.Separator) {
-				var newObject Object
-				err := json.Unmarshal(iter.Value(), &newObject)
+			if db.Objects.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
+				newObject, err := db.Objects.read(iter.Value())
 				if err == nil {
 					res = append(res, newObject)
 				}
@@ -93,19 +88,14 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 			return []byte(""), err
 		}
 
-		data, err := json.Marshal(res)
-		if err != nil {
-			return []byte(""), err
-		}
-
-		return data, nil
+		return db.Objects.encode(res)
 	}
 
 	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
 }
 
-// Set  :
-func (db *LevelDbStorage) Set(key string, index string, now int64, data string) (string, error) {
+// Peek :
+func (db *LevelDbStorage) Peek(key string, now int64) (int64, int64) {
 	updated := now
 	created := now
 	previous, err := db.lvldb.Get([]byte(key), nil)
@@ -114,24 +104,26 @@ func (db *LevelDbStorage) Set(key string, index string, now int64, data string) 
 	}
 
 	if err == nil {
-		var oldObject Object
-		err = json.Unmarshal(previous, &oldObject)
+		oldObject, err := db.Objects.read(previous)
 		if err == nil {
 			created = oldObject.Created
 		}
 	}
 
-	dataBytes := new(bytes.Buffer)
-	json.NewEncoder(dataBytes).Encode(Object{
-		Created: created,
-		Updated: updated,
-		Index:   index,
-		Data:    data,
-	})
+	return updated, created
+}
 
-	err = db.lvldb.Put(
+// Set  :
+func (db *LevelDbStorage) Set(key string, index string, now int64, data string) (string, error) {
+	updated, created := db.Peek(key, now)
+	err := db.lvldb.Put(
 		[]byte(key),
-		dataBytes.Bytes(), nil)
+		db.Objects.write(&Object{
+			Created: created,
+			Updated: updated,
+			Index:   index,
+			Data:    data,
+		}), nil)
 
 	if err != nil {
 		return "", err

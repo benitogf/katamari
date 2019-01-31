@@ -16,7 +16,7 @@ A very nice article with some [similar solutions](https://medium.com/@brenda.cla
 
 There's a [js client library](https://www.npmjs.com/package/samo-js-client).
 
-also a [react application example](https://github.com/benitogf/samo/tree/master/example).
+also a [react application example](https://github.com/benitogf/samo-js-client-example).
 
 ## server
 
@@ -243,6 +243,12 @@ func (db *customStorage) Get(mode string, key string) ([]byte, error) {
 	return []byte(""), errors.New("not implemented")
 }
 
+// Peek  :
+func (db *customStorage) Peek(key string, now int64) (int64, int64) {
+	fmt.Println("peek", key, now)
+	return 0, 0
+}
+
 // Set  :
 func (db *customStorage) Set(key string, index string, now int64, data string) (string, error) {
 	fmt.Println("set", key, index, now, data)
@@ -261,5 +267,6 @@ func main() {
 	app.Start("localhost:8800")
 	app.WaitClose()
 }
+
 
 ```

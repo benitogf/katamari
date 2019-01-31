@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func (app *Server) writeToClient(client *Conn, data string) {
+func (app *Server) writeToClient(client *conn, data string) {
 	client.mutex.Lock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte("{"+
 		"\"data\": \""+data+"\""+
@@ -28,7 +28,7 @@ func (app *Server) sendData(clients []int) {
 	if len(clients) > 0 {
 		for _, clientIndex := range clients {
 			raw, _ := app.Storage.Get(app.clients[clientIndex].mode, app.clients[clientIndex].key)
-			data := app.helpers.encodeData(raw)
+			data := app.messages.write(raw)
 			for _, client := range app.clients[clientIndex].connections {
 				go app.writeToClient(client, data)
 			}
@@ -36,7 +36,7 @@ func (app *Server) sendData(clients []int) {
 	}
 }
 
-func (app *Server) sendTime(clients []*Conn) {
+func (app *Server) sendTime(clients []*conn) {
 	now := time.Now().UTC().UnixNano()
 	data := strconv.FormatInt(now, 10)
 	for _, client := range clients {
@@ -71,7 +71,7 @@ func (app *Server) findConnections(key string) []int {
 	for i := range app.clients {
 		if (app.clients[i].key == key && app.clients[i].mode == "sa") ||
 			(app.clients[i].mode == "mo" &&
-				app.helpers.IsMO(app.clients[i].key, key, app.separator)) {
+				app.objects.Keys.isSub(app.clients[i].key, key, app.separator)) {
 			res = append(res, i)
 		}
 	}
@@ -80,7 +80,7 @@ func (app *Server) findConnections(key string) []int {
 	return res
 }
 
-func (app *Server) findClient(poolIndex int, client *Conn) int {
+func (app *Server) findClient(poolIndex int, client *conn) int {
 	clientIndex := -1
 	app.mutexClients.RLock()
 	for i := range app.clients[poolIndex].connections {
@@ -94,7 +94,7 @@ func (app *Server) findClient(poolIndex int, client *Conn) int {
 	return clientIndex
 }
 
-func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string, key string) (*Conn, error) {
+func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string, key string) (*conn, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -110,7 +110,7 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 	}
 
 	poolIndex := app.findPool(mode, key)
-	client := &Conn{
+	client := &conn{
 		conn:  wsClient,
 		mutex: sync.Mutex{},
 	}
@@ -120,10 +120,10 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 		// create a pool
 		app.clients = append(
 			app.clients,
-			&Pool{
+			&pool{
 				key:         key,
 				mode:        mode,
-				connections: []*Conn{client}})
+				connections: []*conn{client}})
 		poolIndex = len(app.clients) - 1
 	} else {
 		// use existing pool
@@ -137,12 +137,12 @@ func (app *Server) newClient(w http.ResponseWriter, r *http.Request, mode string
 	return client, nil
 }
 
-func (app *Server) closeClient(client *Conn, mode string, key string) {
+func (app *Server) closeClient(client *conn, mode string, key string) {
 	// remove the client before closing
 	poolIndex := app.findPool(mode, key)
 
 	// auxiliar clients array
-	na := []*Conn{}
+	na := []*conn{}
 
 	// loop to remove this client
 	app.mutexClients.Lock()
@@ -161,7 +161,7 @@ func (app *Server) closeClient(client *Conn, mode string, key string) {
 }
 
 func (app *Server) processDel(mode string, key string, index string) {
-	delKey := app.helpers.accessKey(mode, key, index, app.separator)
+	delKey := app.objects.Keys.get(mode, key, index, app.separator)
 	app.console.Log("del", delKey)
 	err := app.Storage.Del(delKey)
 	if err == nil {
@@ -169,17 +169,17 @@ func (app *Server) processDel(mode string, key string, index string) {
 	}
 }
 
-func (app *Server) processSet(mode string, key string, index string, data string, client *Conn) {
+func (app *Server) processSet(mode string, key string, index string, data string, client *conn) {
 	poolIndex := app.findPool(mode, key)
 	clientIndex := strconv.Itoa(app.findClient(poolIndex, client))
-	setKey, setIndex, now := app.helpers.makeKey(
+	setKey, setIndex, now := app.objects.Keys.build(
 		mode,
 		key,
 		index,
 		clientIndex,
 		app.separator,
 	)
-	if app.helpers.checkArchetype(setKey, setIndex, data, app.Static, app.Archetypes) {
+	if app.checkArchetype(setKey, setIndex, data) {
 		app.console.Log("set", setKey, setIndex)
 		newIndex, err := app.Storage.Set(setKey, setIndex, now, data)
 		if err == nil && newIndex != "" {
@@ -188,16 +188,16 @@ func (app *Server) processSet(mode string, key string, index string, data string
 	}
 }
 
-func (app *Server) processMessage(mode string, key string, message []byte, client *Conn) {
+func (app *Server) processMessage(mode string, key string, message []byte, client *conn) {
 	var wsEvent map[string]interface{}
 	err := json.Unmarshal(message, &wsEvent)
 	if err != nil {
 		app.console.Err("jsonUnmarshalMessageError["+mode+"/"+key+"]", err)
 		return
 	}
-	op := app.helpers.extractNonNil(wsEvent, "op")
-	index := app.helpers.extractNonNil(wsEvent, "index")
-	data := app.helpers.extractNonNil(wsEvent, "data")
+	op := app.messages.extract(wsEvent, "op")
+	index := app.messages.extract(wsEvent, "index")
+	data := app.messages.extract(wsEvent, "data")
 
 	if op == "del" && (index != "" || mode == "sa") {
 		go app.processDel(mode, key, index)
@@ -209,7 +209,7 @@ func (app *Server) processMessage(mode string, key string, message []byte, clien
 	}
 }
 
-func (app *Server) readClient(client *Conn, mode string, key string) {
+func (app *Server) readClient(client *conn, mode string, key string) {
 	for {
 		_, message, err := client.conn.ReadMessage()
 
@@ -225,7 +225,7 @@ func (app *Server) readClient(client *Conn, mode string, key string) {
 func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !app.helpers.validKey(key, app.separator) {
+		if !app.objects.Keys.isValid(key, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			app.console.Err("socketKeyError", key)
@@ -245,8 +245,7 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 
 		// send initial msg
 		raw, _ := app.Storage.Get(mode, key)
-		data := app.helpers.encodeData(raw)
-		app.writeToClient(client, data)
+		app.writeToClient(client, app.messages.write(raw))
 
 		// defered client close
 		defer app.closeClient(client, mode, key)
@@ -275,7 +274,7 @@ func (app *Server) timeWs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	app.sendTime([]*Conn{client})
+	app.sendTime([]*conn{client})
 }
 
 func (app *Server) timer() {

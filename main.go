@@ -14,20 +14,21 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
+	"gopkg.in/godo.v2/glob"
 )
 
-// Conn extends the websocket connection with a mutex
+// conn extends the websocket connection with a mutex
 // https://godoc.org/github.com/gorilla/websocket#hdr-Concurrency
-type Conn struct {
+type conn struct {
 	conn  *websocket.Conn
 	mutex sync.Mutex
 }
 
-// Pool : mode/key based websocket connections and watcher
-type Pool struct {
+// pool of mode/key filtered websocket connections
+type pool struct {
 	key         string
 	mode        string
-	connections []*Conn
+	connections []*conn
 }
 
 // Audit : function to provide approval or denial of requests
@@ -48,6 +49,7 @@ type Database interface {
 	Get(mode string, key string) ([]byte, error)
 	Set(key string, index string, now int64, data string) (string, error)
 	Del(key string) error
+	Peek(key string, now int64) (int64, int64)
 }
 
 // Storage : abstraction of persistent data layer
@@ -63,17 +65,18 @@ type Server struct {
 	mutexClients sync.RWMutex
 	server       *http.Server
 	router       *mux.Router
-	clients      []*Pool
+	clients      []*pool
 	Archetypes   Archetypes
 	Audit        Audit
 	Storage      Database
 	separator    string
 	address      string
-	console      *coat.Console
-	helpers      *Helpers
 	closing      bool
 	Silence      bool
 	Static       bool
+	console      *coat.Console
+	objects      *Objects
+	messages     *Messages
 }
 
 // Object : data structure of elements
@@ -87,6 +90,24 @@ type Object struct {
 // Stats : data structure of global keys
 type Stats struct {
 	Keys []string `json:"keys"`
+}
+
+func (app *Server) makeRouteRegex() string {
+	return "[a-zA-Z\\d][a-zA-Z\\d\\" + app.separator + "]+[a-zA-Z\\d]"
+}
+
+func (app *Server) checkArchetype(key string, index string, data string) bool {
+	found := ""
+	for ar := range app.Archetypes {
+		if glob.Globexp(ar).MatchString(key) {
+			found = ar
+		}
+	}
+	if found != "" {
+		return app.Archetypes[found](index, data)
+	}
+
+	return !app.Static
 }
 
 func (app *Server) waitListen() {
@@ -136,8 +157,8 @@ func (app *Server) waitStart() {
 // 	separator : rune to use as key separator '/'
 func (app *Server) Start(address string) {
 	app.closing = false
+	app.objects = &Objects{&Keys{}}
 	app.address = address
-	app.helpers = &Helpers{}
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"
 	}
@@ -151,7 +172,7 @@ func (app *Server) Start(address string) {
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
-	rr := app.helpers.makeRouteRegex(app.separator)
+	rr := app.makeRouteRegex()
 	app.router.HandleFunc("/", app.getStats)
 	app.router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
 	app.router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")

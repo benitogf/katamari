@@ -31,7 +31,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 	return func(w http.ResponseWriter, r *http.Request) {
 		vkey := mux.Vars(r)["key"]
 
-		if !app.helpers.validKey(vkey, app.separator) {
+		if !app.objects.Keys.isValid(vkey, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			return
@@ -60,9 +60,9 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		key, index, now := app.helpers.makeKey(mode, vkey, obj.Index, "R", app.separator)
+		key, index, now := app.objects.Keys.build(mode, vkey, obj.Index, "R", app.separator)
 
-		if !app.helpers.checkArchetype(key, index, obj.Data, app.Static, app.Archetypes) {
+		if !app.checkArchetype(key, index, obj.Data) {
 			app.console.Err("setError["+mode+"/"+key+"]", "improper data")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: dataArchetypeError improper data"))
@@ -88,7 +88,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !app.helpers.validKey(key, app.separator) {
+		if !app.objects.Keys.isValid(key, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			return
@@ -118,7 +118,7 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 
 func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
-	if !app.helpers.validKey(key, app.separator) {
+	if !app.objects.Keys.isValid(key, app.separator) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
