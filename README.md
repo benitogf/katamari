@@ -158,6 +158,13 @@ import (
 func main() {
 	app := samo.Server{}
 	app.Static = true // limit to filtered paths
+
+	// Audit requests
+	app.Audit = func(r *http.Request) bool {
+		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
+	}
+
+	// Filters
 	app.ReceiveFilter("things/*", func(index string, data []byte) ([]byte, error) {
 		if string(data) != "object" {
 			return nil, errors.New("filtered")
@@ -165,7 +172,6 @@ func main() {
 
 		return data, nil
 	})
-
 	app.ReceiveFilter("bag", func(index string, data []byte) ([]byte, error) {
 		if string(data) != "marbles" {
 			return nil, errors.New("filtered")
@@ -173,10 +179,10 @@ func main() {
 
 		return data, nil
 	})
-
 	app.SendFilter("bag/1", func(index string, data []byte) ([]byte, error) {
 		return []byte("intercepted"), nil
 	})
+	// Serve
 	app.Start("localhost:8800")
 	app.WaitClose()
 }
