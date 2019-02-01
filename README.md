@@ -6,7 +6,7 @@
 [build-url]: https://travis-ci.org/benitogf/samo
 [build-image]: https://api.travis-ci.org/benitogf/samo.svg?branch=master&style=flat-square
 
-Dynamic websocket and restful http service with a data persistence layer, it allows quick prototyping of realtime applications providing an interface with no fixed data structure or access regulations, but capable of [defining them](https://github.com/benitogf/samo#archetypes-and-audit) if necessary.
+Dynamic websocket and restful http service with a data persistence layer, it allows quick prototyping of realtime applications providing an interface with no fixed data structure or access regulations, but capable of [defining them](https://github.com/benitogf/samo#filters-and-audit) if necessary.
 
 A very nice article with some [similar solutions](https://medium.com/@brenda.clark/firebase-alternative-3-open-source-ways-to-follow-e45d9347bc8c).
 
@@ -142,7 +142,7 @@ will handle the key as key->value
 }
 ```
 
-## archetypes and audit
+## filters and audit
 
     Define ad lib custom acceptance criteria of data using key glob patterns and audit middleware
 
@@ -157,7 +157,7 @@ import (
 
 func main() {
 	app := samo.Server{}
-	app.Static = true // limit to defined archetypes only
+	app.Static = true // limit to filtered paths
 	app.ReceiveFilter("things/*", func(index string, data []byte) ([]byte, error) {
 		if string(data) != "object" {
 			return nil, errors.New("filtered")
