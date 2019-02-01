@@ -142,17 +142,20 @@ will handle the key as key->value
 }
 ```
 
-## filters and audit
+## filters, audit and extra routes
 
-    Define ad lib custom acceptance criteria of data using key glob patterns and audit middleware
+    Define ad lib receive and send filter criteria using key glob patterns, audit middleware and extra routes
 
 ```go
 package main
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
 
 	"github.com/benitogf/samo"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -182,7 +185,19 @@ func main() {
 	app.SendFilter("bag/1", func(index string, data []byte) ([]byte, error) {
 		return []byte("intercepted"), nil
 	})
-	// Serve
+
+	// Extend routes
+	app.Router = mux.NewRouter()
+	app.Router.HandleFunc("/extras", func(w http.ResponseWriter, r *http.Request) {
+		data, err := app.Storage.Get("mo", "extras")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "%s", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, string(data))
+	})
 	app.Start("localhost:8800")
 	app.WaitClose()
 }

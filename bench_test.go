@@ -55,7 +55,7 @@ func BenchmarkLevelDbStoragePost(b *testing.B) {
 			),
 		)
 		w := httptest.NewRecorder()
-		app.router.ServeHTTP(w, req)
+		app.Router.ServeHTTP(w, req)
 	}
 }
 
@@ -88,7 +88,7 @@ func BenchmarkMemoryStoragePost(b *testing.B) {
 			),
 		)
 		w := httptest.NewRecorder()
-		app.router.ServeHTTP(w, req)
+		app.Router.ServeHTTP(w, req)
 	}
 }
 
@@ -144,7 +144,7 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 	for i := 2; i <= numberOfMsgs; i++ {
 		req := httptest.NewRequest("POST", "/r/mo/test", bytes.NewBuffer(jsonStr))
 		w := httptest.NewRecorder()
-		app.router.ServeHTTP(w, req)
+		app.Router.ServeHTTP(w, req)
 		resp := w.Result()
 		_, err := ioutil.ReadAll(resp.Body)
 		if err != nil {

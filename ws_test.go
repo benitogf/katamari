@@ -121,7 +121,7 @@ func TestWsRestPostBroadcast(t *testing.T) {
 	var jsonStr = []byte(`{"data":"Buy coffee and bread for breakfast."}`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -286,7 +286,7 @@ func TestWsDel(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 
 	require.Equal(t, 404, resp.StatusCode)
@@ -300,7 +300,7 @@ func TestWsBadRequest(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/sa/test", nil)
 	w := httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 
 	require.Equal(t, 400, resp.StatusCode)

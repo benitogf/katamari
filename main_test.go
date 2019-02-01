@@ -28,19 +28,19 @@ func TestAudit(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/r/sa/test", nil)
 	w := httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/", nil)
 	w = httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
@@ -57,13 +57,13 @@ func TestAudit(t *testing.T) {
 	var jsonStr = []byte(`{"data":"test"}`)
 	req = httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w = httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/r/sa/test", nil)
 	w = httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 200, resp.StatusCode)
 
@@ -102,13 +102,13 @@ func TestInvalidKey(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/r/sa/test::1", nil)
 	w := httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 
 	req = httptest.NewRequest("DELETE", "/r/test::1", nil)
 	w = httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
+	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 }

@@ -59,7 +59,7 @@ type Server struct {
 	mutex        sync.RWMutex
 	mutexClients sync.RWMutex
 	server       *http.Server
-	router       *mux.Router
+	Router       *mux.Router
 	clients      []*pool
 	Filters      Filters
 	Audit        Audit
@@ -104,7 +104,7 @@ func (app *Server) waitListen() {
 				// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
 				// AllowCredentials: true,
 				// Debug: true,
-			}).Handler(app.router)}
+			}).Handler(app.Router)}
 		app.mutex.Unlock()
 		err = app.server.ListenAndServe()
 		if !app.closing {
@@ -144,7 +144,9 @@ func (app *Server) Start(address string) {
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"
 	}
-	app.router = mux.NewRouter()
+	if app.Router == nil {
+		app.Router = mux.NewRouter()
+	}
 	app.console = coat.NewConsole(app.address, app.Silence)
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
@@ -155,15 +157,15 @@ func (app *Server) Start(address string) {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
 	rr := app.makeRouteRegex()
-	app.router.HandleFunc("/", app.getStats)
-	app.router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
-	app.router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
-	app.router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
-	app.router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
-	app.router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
-	app.router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
-	app.router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
-	app.router.HandleFunc("/time", app.timeWs)
+	app.Router.HandleFunc("/", app.getStats)
+	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
+	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
+	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
+	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
+	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
+	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
+	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
+	app.Router.HandleFunc("/time", app.timeWs)
 	go app.waitListen()
 	app.waitStart()
 	go app.timer()
