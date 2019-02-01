@@ -13,33 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestArchetype(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.Archetypes = Archetypes{
-		"test1": func(index string, data string) bool {
-			return data == "test1"
-		},
-		"test?/*": func(index string, data string) bool {
-			return data == "test"
-		},
-	}
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	require.False(t, app.Archetypes.check("test1", "test1", "notest", false))
-	require.True(t, app.Archetypes.check("test1", "test1", "test1", false))
-	require.False(t, app.Archetypes.check("test1/1", "1", "test1", false))
-	require.False(t, app.Archetypes.check("test0/1", "1", "notest", false))
-	require.True(t, app.Archetypes.check("test0/1", "1", "test", false))
-
-	var jsonStr = []byte(`{"data":"notest"}`)
-	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
-	w := httptest.NewRecorder()
-	app.router.ServeHTTP(w, req)
-	resp := w.Result()
-	require.Equal(t, 400, resp.StatusCode)
-}
-
 func TestAudit(t *testing.T) {
 	app := Server{}
 	app.Silence = true

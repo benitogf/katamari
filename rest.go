@@ -62,14 +62,15 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 
 		key, index, now := app.keys.build(mode, vkey, obj.Index, "R", app.separator)
 
-		if !app.Archetypes.check(key, index, obj.Data, app.Static) {
-			app.console.Err("setError["+mode+"/"+key+"]", "improper data")
+		data, err := app.Filters.Receive.check(key, index, []byte(obj.Data), app.Static)
+		if err != nil {
+			app.console.Err("setError["+mode+"/"+key+"]", err)
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("samo: dataArchetypeError improper data"))
+			fmt.Fprintf(w, "%s", err)
 			return
 		}
 
-		index, err = app.Storage.Set(key, index, now, obj.Data)
+		index, err = app.Storage.Set(key, index, now, string(data))
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -104,7 +105,12 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 		if err != nil {
 			app.console.Err(err)
 		}
-		data := string(raw)
+		filteredData, err := app.Filters.Send.check(key, "", raw, app.Static)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s", err)
+		}
+		data := string(filteredData)
 		if data == "" {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "%s", errors.New("samo: empty key"))

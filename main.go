@@ -61,7 +61,7 @@ type Server struct {
 	server       *http.Server
 	router       *mux.Router
 	clients      []*pool
-	Archetypes   Archetypes
+	Filters      Filters
 	Audit        Audit
 	Storage      Database
 	separator    string

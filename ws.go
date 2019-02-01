@@ -27,10 +27,14 @@ func (app *Server) writeToClient(client *conn, data string) {
 func (app *Server) sendData(clients []int) {
 	if len(clients) > 0 {
 		for _, clientIndex := range clients {
-			raw, _ := app.Storage.Get(app.clients[clientIndex].mode, app.clients[clientIndex].key)
-			data := app.messages.write(raw)
-			for _, client := range app.clients[clientIndex].connections {
-				go app.writeToClient(client, data)
+			key := app.clients[clientIndex].key
+			raw, _ := app.Storage.Get(app.clients[clientIndex].mode, key)
+			filteredData, err := app.Filters.Send.check(key, "", raw, app.Static)
+			if err == nil {
+				data := app.messages.write(filteredData)
+				for _, client := range app.clients[clientIndex].connections {
+					go app.writeToClient(client, data)
+				}
 			}
 		}
 	}
@@ -179,9 +183,11 @@ func (app *Server) processSet(mode string, key string, index string, data string
 		clientIndex,
 		app.separator,
 	)
-	if app.Archetypes.check(setKey, setIndex, data, app.Static) {
+
+	filteredData, err := app.Filters.Receive.check(setKey, setIndex, []byte(data), app.Static)
+	if err == nil {
 		app.console.Log("set", setKey)
-		newIndex, err := app.Storage.Set(setKey, setIndex, now, data)
+		newIndex, err := app.Storage.Set(setKey, setIndex, now, string(filteredData))
 		if err == nil && newIndex != "" {
 			go app.sendData(app.findConnections(setKey))
 		}
@@ -245,7 +251,10 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 
 		// send initial msg
 		raw, _ := app.Storage.Get(mode, key)
-		app.writeToClient(client, app.messages.write(raw))
+		filteredData, err := app.Filters.Send.check(key, "", raw, app.Static)
+		if err == nil {
+			app.writeToClient(client, app.messages.write(filteredData))
+		}
 
 		// defered client close
 		defer app.closeClient(client, mode, key)

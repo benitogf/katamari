@@ -150,7 +150,7 @@ will handle the key as key->value
 package main
 
 import (
-	"net/http"
+	"errors"
 
 	"github.com/benitogf/samo"
 )
@@ -158,17 +158,25 @@ import (
 func main() {
 	app := samo.Server{}
 	app.Static = true // limit to defined archetypes only
-	app.Archetypes = samo.Archetypes{
-		"things/*": func(index string, data string) bool {
-			return data == "object"
-		},
-		"bag": func(index string, data string) bool {
-			return data == "marbles"
-		},
-	}
-	app.Audit = func(r *http.Request) bool {
-		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
-	}
+	app.ReceiveFilter("things/*", func(index string, data []byte) ([]byte, error) {
+		if string(data) != "object" {
+			return nil, errors.New("filtered")
+		}
+
+		return data, nil
+	})
+
+	app.ReceiveFilter("bag", func(index string, data []byte) ([]byte, error) {
+		if string(data) != "marbles" {
+			return nil, errors.New("filtered")
+		}
+
+		return data, nil
+	})
+
+	app.SendFilter("bag/1", func(index string, data []byte) ([]byte, error) {
+		return []byte("intercepted"), nil
+	})
 	app.Start("localhost:8800")
 	app.WaitClose()
 }
