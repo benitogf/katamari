@@ -6,6 +6,9 @@ os:
 go:
   - 1.11.x
 
+addons:
+  mariadb: '10.0'
+
 install:
   - go get github.com/gorilla/mux
   - go get github.com/gorilla/websocket
@@ -16,6 +19,9 @@ install:
   - go get gopkg.in/godo.v2/glob
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/go-sql-driver/mysql
+
+before_script:
+  - mysql -u root < samo.sql
 
 script:
   - go vet ./...

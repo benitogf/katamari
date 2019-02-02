@@ -86,17 +86,17 @@ func TestStorageLeveldb(t *testing.T) {
 	StorageSA(app, t, "leveldb")
 }
 
-// func TestStorageMariadb(t *testing.T) {
-// 	os.RemoveAll("test")
-// 	app := &Server{}
-// 	app.Silence = true
-// 	app.Storage = &MariaDbStorage{
-// 		User:     "root",
-// 		Password: "123",
-// 		Name:     "samo",
-// 		Storage:  &Storage{Active: false}}
-// 	app.Start("localhost:9889")
-// 	defer app.Close(os.Interrupt)
-// 	StorageMO(app, t)
-// 	StorageSA(app, t, "mariadb")
-// }
+func TestStorageMariadb(t *testing.T) {
+	os.RemoveAll("test")
+	app := &Server{}
+	app.Silence = true
+	app.Storage = &MariaDbStorage{
+		User:     "root",
+		Password: "",
+		Name:     "samo",
+		Storage:  &Storage{Active: false}}
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	StorageMO(app, t)
+	StorageSA(app, t, "mariadb")
+}
