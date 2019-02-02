@@ -87,7 +87,6 @@ func TestStorageLeveldb(t *testing.T) {
 }
 
 func TestStorageMariadb(t *testing.T) {
-	os.RemoveAll("test")
 	app := &Server{}
 	app.Silence = true
 	app.Storage = &MariaDbStorage{

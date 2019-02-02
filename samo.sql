@@ -19,7 +19,7 @@ USE `samo`;
 -- Dumping structure for procedure samo.del
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `del`(
-	IN `key` VARCHAR(1024)
+	IN `key` VARCHAR(255)
 )
 BEGIN
 	DELETE FROM `keys` WHERE `keys`.`key` = `key`;
@@ -29,7 +29,7 @@ DELIMITER ;
 -- Dumping structure for procedure samo.getMo
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `getMo`(
-	IN `key` VARCHAR(1024)
+	IN `key` VARCHAR(255)
 )
 BEGIN
    SET `key` = CONCAT(`key`, '/');
@@ -44,7 +44,7 @@ DELIMITER ;
 -- Dumping structure for procedure samo.getSa
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `getSa`(
-	IN `key` VARCHAR(1024)
+	IN `key` VARCHAR(255)
 )
 BEGIN
 	SELECT `keys`.`key` AS 'Index', `values`.`data` AS 'Data', `keys`.created AS 'Created', `keys`.updated AS 'Updated'
@@ -65,7 +65,7 @@ DELIMITER ;
 -- Dumping structure for table samo.keys
 CREATE TABLE IF NOT EXISTS `keys` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
-  `key` varchar(1024) NOT NULL,
+  `key` varchar(255) NOT NULL,
   `created` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `updated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`id`),
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `keys` (
 -- Dumping structure for procedure samo.set
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `set`(
-	IN `key` VARCHAR(1024),
+	IN `key` VARCHAR(255),
 	IN `data` VARCHAR(10000)
 )
 BEGIN
