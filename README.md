@@ -211,17 +211,14 @@ func main() {
 package main
 
 import (
-	"sync"
-
 	"github.com/benitogf/samo"
 )
 
 func main() {
 	app := samo.Server{}
 	app.Storage = &samo.LevelDbStorage{
-			Path:    "data/db",
-			lvldb:   nil,
-			Storage: &samo.Storage{Active: false}}
+		Path:    "data/db",
+		Storage: &samo.Storage{Active: false}}
 	app.Start("localhost:8800")
 	app.WaitClose()
 }

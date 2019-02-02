@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func StorageSA(app *Server, t *testing.T) {
+func StorageSA(app *Server, t *testing.T, driver string) {
 	_ = app.Storage.Del("test")
 	index, err := app.Storage.Set("test", "test", 1, "test")
 	require.NoError(t, err)
@@ -18,7 +18,10 @@ func StorageSA(app *Server, t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
-	require.Equal(t, int64(1), testObject.Created)
+	// mariadb handles created/updated so it can't be mocked
+	if driver != "mariadb" {
+		require.Equal(t, int64(1), testObject.Created)
+	}
 	index, err = app.Storage.Set("test", "test", 2, "test_update")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
@@ -26,8 +29,11 @@ func StorageSA(app *Server, t *testing.T) {
 	testObject, err = app.objects.read(data)
 	require.NoError(t, err)
 	require.Equal(t, "test_update", testObject.Data)
-	require.Equal(t, int64(2), testObject.Updated)
-	require.Equal(t, int64(1), testObject.Created)
+	// mariadb handles created/updated so it can't be mocked
+	if driver != "mariadb" {
+		require.Equal(t, int64(2), testObject.Updated)
+		require.Equal(t, int64(1), testObject.Created)
+	}
 	err = app.Storage.Del("test")
 	require.NoError(t, err)
 	raw, _ := app.Storage.Get("sa", "test")
@@ -63,7 +69,7 @@ func TestStorageMemory(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	StorageMO(app, t)
-	StorageSA(app, t)
+	StorageSA(app, t, "memory")
 }
 
 func TestStorageLeveldb(t *testing.T) {
@@ -77,5 +83,20 @@ func TestStorageLeveldb(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	StorageMO(app, t)
-	StorageSA(app, t)
+	StorageSA(app, t, "leveldb")
 }
+
+// func TestStorageMariadb(t *testing.T) {
+// 	os.RemoveAll("test")
+// 	app := &Server{}
+// 	app.Silence = true
+// 	app.Storage = &MariaDbStorage{
+// 		User:     "root",
+// 		Password: "123",
+// 		Name:     "samo",
+// 		Storage:  &Storage{Active: false}}
+// 	app.Start("localhost:9889")
+// 	defer app.Close(os.Interrupt)
+// 	StorageMO(app, t)
+// 	StorageSA(app, t, "mariadb")
+// }

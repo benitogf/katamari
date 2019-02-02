@@ -42,7 +42,6 @@ type Database interface {
 	Get(mode string, key string) ([]byte, error)
 	Set(key string, index string, now int64, data string) (string, error)
 	Del(key string) error
-	Peek(key string, now int64) (int64, int64)
 }
 
 // Storage : abstraction of persistent data layer

@@ -54,11 +54,10 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 	db.Lock.RLock()
 	defer db.Lock.RUnlock()
-	var err error
 	if mode == "sa" {
 		data := db.Memdb[key]
 		if data == nil {
-			return []byte(""), err
+			return []byte(""), errors.New("samo: not found")
 		}
 
 		return data, nil
