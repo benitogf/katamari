@@ -73,13 +73,13 @@ func TestStorageMemory(t *testing.T) {
 }
 
 func TestStorageLeveldb(t *testing.T) {
-	os.RemoveAll("test")
 	app := &Server{}
 	app.Silence = true
 	app.Storage = &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,
 		Storage: &Storage{Active: false}}
+	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	StorageMO(app, t)
@@ -94,6 +94,7 @@ func TestStorageMariadb(t *testing.T) {
 		Password: "",
 		Name:     "samo",
 		Storage:  &Storage{Active: false}}
+	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	StorageMO(app, t)

@@ -27,17 +27,31 @@ func (db *MariaDbStorage) Start(separator string) error {
 	var err error
 	db.Storage.Separator = separator
 	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
-	if err == nil {
-		db.Storage.Active = true
+	if err != nil {
+		return err
 	}
-	return err
+	db.Storage.Active = true
+	db.mysql.Close()
+	return nil
 }
 
 // Close  :
 func (db *MariaDbStorage) Close() {
 	if db.mysql != nil {
 		db.Storage.Active = false
-		db.mysql.Close()
+	}
+}
+
+// Clear  :
+func (db *MariaDbStorage) Clear() {
+	var err error
+	if !db.Storage.Active {
+		db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+		defer db.mysql.Close()
+		if err != nil {
+			return
+		}
+		_, _ = db.mysql.Query("call `clear`();")
 	}
 }
 
@@ -45,6 +59,12 @@ func (db *MariaDbStorage) Close() {
 func (db *MariaDbStorage) Keys() ([]byte, error) {
 	stats := Stats{
 		Keys: []string{},
+	}
+	var err error
+	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+	defer db.mysql.Close()
+	if err != nil {
+		return nil, err
 	}
 	rows, err := db.mysql.Query("call `keys`();")
 	if err != nil {
@@ -97,6 +117,12 @@ func (db *MariaDbStorage) fromRowToObj(rows *sql.Rows) (Object, error) {
 
 // Get  :
 func (db *MariaDbStorage) Get(mode string, key string) ([]byte, error) {
+	var err error
+	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+	defer db.mysql.Close()
+	if err != nil {
+		return nil, err
+	}
 	if mode == "sa" {
 		rows, err := db.mysql.Query("call `getSa`('" + key + "');")
 		if err != nil {
@@ -104,25 +130,24 @@ func (db *MariaDbStorage) Get(mode string, key string) ([]byte, error) {
 		}
 		defer rows.Close()
 		var newObject Object
-		empty := true
-		for rows.Next() {
-			newObject, err = db.fromRowToObj(rows)
-			if err != nil {
-				return nil, err
-			}
-			empty = false
-		}
+		empty := !rows.Next()
 
 		if empty {
 			return []byte(""), errors.New("samo: not found")
 		}
+
+		newObject, err = db.fromRowToObj(rows)
+		if err != nil {
+			return nil, err
+		}
+		empty = false
 
 		return db.Storage.Objects.encode(newObject)
 	}
 
 	if mode == "mo" {
 		res := []Object{}
-		rows, err := db.mysql.Query("call `getMo`('" + key + "');")
+		rows, err := db.mysql.Query("call `getMo`('" + key + "', '" + db.Storage.Separator + "');")
 		if err != nil {
 			return []byte(""), err
 		}
@@ -142,7 +167,13 @@ func (db *MariaDbStorage) Get(mode string, key string) ([]byte, error) {
 
 // Set  :
 func (db *MariaDbStorage) Set(key string, index string, now int64, data string) (string, error) {
-	_, err := db.mysql.Query("call `set`('" + key + "', '" + data + "');")
+	var err error
+	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+	defer db.mysql.Close()
+	if err != nil {
+		return "", err
+	}
+	_, err = db.mysql.Query("call `set`('" + key + "', '" + data + "');")
 	if err != nil {
 		return "", err
 	}
@@ -152,15 +183,21 @@ func (db *MariaDbStorage) Set(key string, index string, now int64, data string) 
 
 // Del  :
 func (db *MariaDbStorage) Del(key string) error {
-	rows, err := db.mysql.Query("call `getSa`('" + key + "');")
-	defer rows.Close()
-	empty := true
-	for rows.Next() {
-		empty = false
+	var err error
+	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+	defer db.mysql.Close()
+	if err != nil {
+		return err
 	}
-	if empty {
+	rows, err := db.mysql.Query("call `getSa`('" + key + "');")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
 		return errors.New("samo: not found")
 	}
+
 	_, err = db.mysql.Query("call `del`('" + key + "');")
 	if err != nil {
 		return err

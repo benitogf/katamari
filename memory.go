@@ -31,6 +31,11 @@ func (db *MemoryStorage) Close() {
 	db.Storage.Active = false
 }
 
+// Clear  :
+func (db *MemoryStorage) Clear() {
+	db.Memdb = make(map[string][]byte)
+}
+
 // Keys  :
 func (db *MemoryStorage) Keys() ([]byte, error) {
 	db.Lock.RLock()

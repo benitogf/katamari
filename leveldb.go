@@ -2,6 +2,7 @@ package samo
 
 import (
 	"errors"
+	"os"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -35,6 +36,13 @@ func (db *LevelDbStorage) Close() {
 	if db.lvldb != nil {
 		db.Storage.Active = false
 		db.lvldb.Close()
+	}
+}
+
+// Clear  :
+func (db *LevelDbStorage) Clear() {
+	if !db.Storage.Active {
+		os.RemoveAll(db.Path)
 	}
 }
 
