@@ -27,8 +27,6 @@ func TestWsTime(t *testing.T) {
 	c2, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
 	count := 0
-	c1time := ""
-	c2time := ""
 
 	go func() {
 		for {
@@ -37,9 +35,8 @@ func TestWsTime(t *testing.T) {
 				app.console.Err("read c1", err)
 				break
 			}
+			app.console.Log("time c1", string(message))
 			mutex.Lock()
-			c1time = string(message)
-			app.console.Log("time c1", c1time)
 			count++
 			mutex.Unlock()
 		}
@@ -51,17 +48,14 @@ func TestWsTime(t *testing.T) {
 			app.console.Err("read c2", err)
 			break
 		}
-		mutex.Lock()
-		c2time = string(message)
-		app.console.Log("time c2", c2time)
-		mutex.Unlock()
+		app.console.Log("time c2", string(message))
 		err = c2.Close()
 		require.NoError(t, err)
 	}
 
 	tryes := 0
 	mutex.Lock()
-	for count < 3 && tryes < 10000 {
+	for count < 2 && tryes < 10000 {
 		tryes++
 		mutex.Unlock()
 		time.Sleep(200 * time.Millisecond)
@@ -71,8 +65,6 @@ func TestWsTime(t *testing.T) {
 
 	err = c1.Close()
 	require.NoError(t, err)
-	require.NotEmpty(t, c1time)
-	require.NotEmpty(t, c2time)
 }
 
 func TestWsRestPostBroadcast(t *testing.T) {
@@ -150,7 +142,7 @@ func TestWsBroadcast(t *testing.T) {
 	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	_ = app.Storage.Del("test/MOtest")
+	_ = app.Storage.Del("test/456")
 	_ = app.Storage.Del("test/123")
 	_ = app.Storage.Del("test/1")
 	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), "test")

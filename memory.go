@@ -85,7 +85,7 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
 }
 
-// Peek will check the object stored in the key if any, returns created and updated times acordingly
+// Peek will check the object stored in the key if any, returns created and updated times accordingly
 func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 	previous := db.Memdb[key]
 	if previous == nil {

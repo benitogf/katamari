@@ -76,6 +76,9 @@ func storageSetGetDel(db Database, b *testing.B) {
 		_, _ = db.Get("sa", "test/"+ci)
 		_ = db.Del("test/" + ci)
 	}
+	tests, err := db.Get("mo", "test")
+	require.NoError(b, err)
+	require.Equal(b, "[]", string(tests))
 }
 
 func BenchmarkMemoryStorageSetGetDel(b *testing.B) {
@@ -184,14 +187,10 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 	require.Equal(b, int64(numberOfClients*numberOfMsgs), atomic.LoadInt64(&ops))
 }
 
-func Benchmark300Msgs10ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(300, 10, 3000, b)
+func Benchmark100Msgs10ClientBroadcast(b *testing.B) {
+	multipleClientBroadcast(100, 10, 3000, b)
 }
 
-func Benchmark100Msgs100ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(100, 100, 3000, b)
-}
-
-func Benchmark10Msgs300ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(10, 300, 3000, b)
+func Benchmark10Msgs100ClientBroadcast(b *testing.B) {
+	multipleClientBroadcast(10, 100, 3000, b)
 }

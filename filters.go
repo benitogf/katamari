@@ -3,15 +3,15 @@ package samo
 import (
 	"errors"
 
-	"gopkg.in/godo.v2/glob"
+	"github.com/gobwas/glob"
 )
 
 // Apply filter function
-type Apply func(index string, data []byte) ([]byte, error)
+type Apply func(key string, data []byte) ([]byte, error)
 
 // Filter path -> match
 type Filter struct {
-	path  string
+	path  glob.Glob
 	apply Apply
 }
 
@@ -24,10 +24,12 @@ type Filters struct {
 	Send    Router
 }
 
+// https://github.com/golang/go/issues/11862
+
 // ReceiveFilter add a filter that triggers on receive
 func (app *Server) ReceiveFilter(path string, apply Apply) {
 	app.Filters.Receive = append(app.Filters.Receive, Filter{
-		path:  path,
+		path:  glob.MustCompile(path),
 		apply: apply,
 	})
 }
@@ -35,15 +37,15 @@ func (app *Server) ReceiveFilter(path string, apply Apply) {
 // SendFilter add a filter that runs before sending
 func (app *Server) SendFilter(path string, apply Apply) {
 	app.Filters.Send = append(app.Filters.Receive, Filter{
-		path:  path,
+		path:  glob.MustCompile(path),
 		apply: apply,
 	})
 }
 
-func (r Router) check(key string, index string, data []byte, static bool) ([]byte, error) {
+func (r Router) check(key string, data []byte, static bool) ([]byte, error) {
 	match := -1
 	for i, filter := range r {
-		if glob.Globexp(filter.path).MatchString(key) {
+		if filter.path.Match(key) {
 			match = i
 			break
 		}
@@ -57,5 +59,5 @@ func (r Router) check(key string, index string, data []byte, static bool) ([]byt
 		return nil, errors.New("route not defined, static mode")
 	}
 
-	return r[match].apply(index, data)
+	return r[match].apply(key, data)
 }

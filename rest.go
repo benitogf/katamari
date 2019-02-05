@@ -62,7 +62,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 
 		key, index, now := app.keys.build(mode, vkey, obj.Index, "R", app.separator)
 
-		data, err := app.Filters.Receive.check(key, index, []byte(obj.Data), app.Static)
+		data, err := app.Filters.Receive.check(key, []byte(obj.Data), app.Static)
 		if err != nil {
 			app.console.Err("setError["+mode+"/"+key+"]", err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -105,7 +105,7 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 		if err != nil {
 			app.console.Err(err)
 		}
-		filteredData, err := app.Filters.Send.check(key, "", raw, app.Static)
+		filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", err)

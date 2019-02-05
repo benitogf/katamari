@@ -89,13 +89,13 @@ func TestInvalidKey(t *testing.T) {
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
-	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test::1"}
-	c, _, err = websocket.DefaultDialer.Dial(u2.String(), nil)
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test::1"}
+	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
-	u3 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1:"}
-	c, _, err = websocket.DefaultDialer.Dial(u3.String(), nil)
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1:"}
+	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)

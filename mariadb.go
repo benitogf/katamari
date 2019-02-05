@@ -140,7 +140,6 @@ func (db *MariaDbStorage) Get(mode string, key string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		empty = false
 
 		return db.Storage.Objects.encode(newObject)
 	}

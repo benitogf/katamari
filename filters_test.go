@@ -14,7 +14,7 @@ import (
 func TestFilters(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ReceiveFilter("test1", func(index string, data []byte) ([]byte, error) {
+	app.ReceiveFilter("test1", func(key string, data []byte) ([]byte, error) {
 		app.console.Log(string(data) != "test1")
 		if string(data) != "test1" {
 			return nil, errors.New("filtered")
@@ -22,25 +22,25 @@ func TestFilters(t *testing.T) {
 
 		return data, nil
 	})
-	app.ReceiveFilter("test?/*", func(index string, data []byte) ([]byte, error) {
+	app.ReceiveFilter("test?/*", func(key string, data []byte) ([]byte, error) {
 		if string(data) != "test" {
 			return nil, errors.New("filtered")
 		}
 
 		return data, nil
 	})
-	app.SendFilter("bag/*", func(index string, data []byte) ([]byte, error) {
-		return []byte("intercepted"), nil
+	app.SendFilter("bag/*", func(key string, data []byte) ([]byte, error) {
+		return []byte("intercepted:" + key), nil
 	})
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	_, err := app.Filters.Receive.check("test1", "test1", []byte("notest"), false)
+	_, err := app.Filters.Receive.check("test1", []byte("notest"), false)
 	require.Error(t, err)
-	_, err = app.Filters.Receive.check("test1", "test1", []byte("test1"), false)
+	_, err = app.Filters.Receive.check("test1", []byte("test1"), false)
 	require.NoError(t, err)
-	data, err := app.Filters.Send.check("bag/1", "1", []byte("test"), false)
+	data, err := app.Filters.Send.check("bag/1", []byte("test"), false)
 	require.NoError(t, err)
-	require.Equal(t, "intercepted", string(data))
+	require.Equal(t, "intercepted:bag/1", string(data))
 
 	var jsonStr = []byte(`{"data":"notest"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
@@ -62,5 +62,5 @@ func TestFilters(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, 200, resp.StatusCode)
-	require.Equal(t, "intercepted", string(body))
+	require.Equal(t, "intercepted:bag/1", string(body))
 }

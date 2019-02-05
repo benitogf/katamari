@@ -29,7 +29,7 @@ func (app *Server) sendData(clients []int) {
 		for _, clientIndex := range clients {
 			key := app.clients[clientIndex].key
 			raw, _ := app.Storage.Get(app.clients[clientIndex].mode, key)
-			filteredData, err := app.Filters.Send.check(key, "", raw, app.Static)
+			filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 			if err == nil {
 				data := app.messages.write(filteredData)
 				for _, client := range app.clients[clientIndex].connections {
@@ -184,7 +184,7 @@ func (app *Server) processSet(mode string, key string, index string, data string
 		app.separator,
 	)
 
-	filteredData, err := app.Filters.Receive.check(setKey, setIndex, []byte(data), app.Static)
+	filteredData, err := app.Filters.Receive.check(setKey, []byte(data), app.Static)
 	if err == nil {
 		app.console.Log("set", setKey)
 		newIndex, err := app.Storage.Set(setKey, setIndex, now, string(filteredData))
@@ -249,15 +249,15 @@ func (app *Server) wss(mode string) func(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		// send initial msg
-		raw, _ := app.Storage.Get(mode, key)
-		filteredData, err := app.Filters.Send.check(key, "", raw, app.Static)
-		if err == nil {
-			app.writeToClient(client, app.messages.write(filteredData))
-		}
-
 		// defered client close
 		defer app.closeClient(client, mode, key)
+
+		// send initial msg
+		raw, _ := app.Storage.Get(mode, key)
+		filteredData, err := app.Filters.Send.check(key, raw, app.Static)
+		if err == nil {
+			go app.writeToClient(client, app.messages.write(filteredData))
+		}
 
 		app.readClient(client, mode, key)
 	}
@@ -273,6 +273,7 @@ func (app *Server) timeWs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer app.closeClient(client, mode, key)
+	app.sendTime([]*conn{client})
 
 	for {
 		_, _, err := client.conn.ReadMessage()
@@ -282,8 +283,6 @@ func (app *Server) timeWs(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-
-	app.sendTime([]*conn{client})
 }
 
 func (app *Server) timer() {

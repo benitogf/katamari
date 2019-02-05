@@ -1,7 +1,9 @@
 package samo
 
 import (
+	"bytes"
 	"encoding/json"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -42,15 +44,15 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 }
 
 func StorageMO(app *Server, t *testing.T) {
-	_ = app.Storage.Del("test/MOtest")
+	_ = app.Storage.Del("test/456")
 	_ = app.Storage.Del("test/123")
 	_ = app.Storage.Del("test/1")
 	index, err := app.Storage.Set("test/123", "123", 0, "test")
 	require.NoError(t, err)
 	require.Equal(t, "123", index)
-	index, err = app.Storage.Set("test/MOtest", "MOtest", 0, "test")
+	index, err = app.Storage.Set("test/456", "456", 0, "test")
 	require.NoError(t, err)
-	require.Equal(t, "MOtest", index)
+	require.Equal(t, "456", index)
 	data, err := app.Storage.Get("mo", "test")
 	require.NoError(t, err)
 	var testObjects []Object
@@ -60,7 +62,21 @@ func StorageMO(app *Server, t *testing.T) {
 	require.Equal(t, "test", testObjects[0].Data)
 	keys, err := app.Storage.Keys()
 	require.NoError(t, err)
-	require.Equal(t, "{\"keys\":[\"test/123\",\"test/MOtest\"]}", string(keys))
+	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))
+
+	req := httptest.NewRequest(
+		"POST", "/r/mo/test",
+		bytes.NewBuffer(
+			[]byte(`{"data":"testauto"}`),
+		),
+	)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	data, err = app.Storage.Get("mo", "test")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(testObjects))
 }
 
 func TestStorageMemory(t *testing.T) {
