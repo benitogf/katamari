@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *testing.B) {
+func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *testing.B, storage string) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(
@@ -28,6 +28,11 @@ func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *te
 		)
 		w := httptest.NewRecorder()
 		ServeHTTP(w, req)
+		resp := w.Result()
+		require.Equal(b, 200, resp.StatusCode)
+		if storage == "mariadb" {
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
 
@@ -37,7 +42,7 @@ func BenchmarkMemorydbStoragePost(b *testing.B) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b)
+	storagePost(app.Router.ServeHTTP, b, "memory")
 }
 
 func BenchmarkLeveldbStoragePost(b *testing.B) {
@@ -51,7 +56,7 @@ func BenchmarkLeveldbStoragePost(b *testing.B) {
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b)
+	storagePost(app.Router.ServeHTTP, b, "leveldb")
 }
 func BenchmarkMariadbStoragePost(b *testing.B) {
 	b.ReportAllocs()
@@ -65,16 +70,20 @@ func BenchmarkMariadbStoragePost(b *testing.B) {
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b)
+	storagePost(app.Router.ServeHTTP, b, "mariadb")
 }
 
-func storageSetGetDel(db Database, b *testing.B) {
+func storageSetGetDel(db Database, b *testing.B, storage string) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		index := strconv.FormatInt(int64(i), 10)
 		ci, _ := db.Set("test/"+index, index, 0, "test"+index)
 		_, _ = db.Get("sa", "test/"+ci)
 		_ = db.Del("test/" + ci)
+		// https://stackoverflow.com/questions/14331032/mysql-error-1040-too-many-connection/34176072
+		if storage == "mariadb" {
+			time.Sleep(80 * time.Millisecond)
+		}
 	}
 	tests, err := db.Get("mo", "test")
 	require.NoError(b, err)
@@ -87,7 +96,7 @@ func BenchmarkMemoryStorageSetGetDel(b *testing.B) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b)
+	storageSetGetDel(app.Storage, b, "memory")
 }
 
 func BenchmarkLevelDbStorageSetGetDel(b *testing.B) {
@@ -101,7 +110,7 @@ func BenchmarkLevelDbStorageSetGetDel(b *testing.B) {
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b)
+	storageSetGetDel(app.Storage, b, "leveldb")
 }
 
 func BenchmarkMariadbStorageSetGetDel(b *testing.B) {
@@ -116,7 +125,7 @@ func BenchmarkMariadbStorageSetGetDel(b *testing.B) {
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b)
+	storageSetGetDel(app.Storage, b, "mariadb")
 }
 
 func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int, b *testing.B) {
@@ -191,6 +200,6 @@ func Benchmark100Msgs10ClientBroadcast(b *testing.B) {
 	multipleClientBroadcast(100, 10, 3000, b)
 }
 
-func Benchmark10Msgs100ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(10, 100, 3000, b)
+func Benchmark100Msgs100ClientBroadcast(b *testing.B) {
+	multipleClientBroadcast(100, 100, 3000, b)
 }
