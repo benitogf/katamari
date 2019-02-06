@@ -34,8 +34,8 @@ func (keys *Keys) get(mode string, key string, index string, separator string) s
 	return key
 }
 
-// build the key but returns the components as well
-func (keys *Keys) build(mode string, key string, index string, subIndex string, separator string) (string, string, int64) {
+// Build the key but returns the components as well
+func (keys *Keys) Build(mode string, key string, index string, subIndex string, separator string) (string, string, int64) {
 	now := time.Now().UTC().UnixNano()
 
 	if mode == "sa" {

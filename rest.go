@@ -60,7 +60,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		key, index, now := app.keys.build(mode, vkey, obj.Index, "R", app.separator)
+		key, index, now := app.keys.Build(mode, vkey, obj.Index, "R", app.separator)
 
 		data, err := app.Filters.Receive.check(key, []byte(obj.Data), app.Static)
 		if err != nil {

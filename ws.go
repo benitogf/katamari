@@ -176,7 +176,7 @@ func (app *Server) processDel(mode string, key string, index string) {
 func (app *Server) processSet(mode string, key string, index string, data string, client *conn) {
 	poolIndex := app.findPool(mode, key)
 	clientIndex := strconv.Itoa(app.findClient(poolIndex, client))
-	setKey, setIndex, now := app.keys.build(
+	setKey, setIndex, now := app.keys.Build(
 		mode,
 		key,
 		index,
