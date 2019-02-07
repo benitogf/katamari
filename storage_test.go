@@ -47,10 +47,12 @@ func StorageMO(app *Server, t *testing.T) {
 	_ = app.Storage.Del("test/456")
 	_ = app.Storage.Del("test/123")
 	_ = app.Storage.Del("test/1")
-	index, err := app.Storage.Set("test/123", "123", 0, "test")
+	testData := `	"\xe4\xef\xf0\xe9\xf9l\x100"
+`
+	index, err := app.Storage.Set("test/123", "123", 0, testData)
 	require.NoError(t, err)
 	require.Equal(t, "123", index)
-	index, err = app.Storage.Set("test/456", "456", 0, "test")
+	index, err = app.Storage.Set("test/456", "456", 0, testData)
 	require.NoError(t, err)
 	require.Equal(t, "456", index)
 	data, err := app.Storage.Get("mo", "test")
@@ -59,7 +61,7 @@ func StorageMO(app *Server, t *testing.T) {
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
-	require.Equal(t, "test", testObjects[0].Data)
+	require.Equal(t, testData, testObjects[0].Data)
 	keys, err := app.Storage.Keys()
 	require.NoError(t, err)
 	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))

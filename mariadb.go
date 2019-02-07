@@ -3,6 +3,8 @@ package samo
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // idk
@@ -110,7 +112,7 @@ func (db *MariaDbStorage) fromRowToObj(rows *sql.Rows) (Object, error) {
 		newObject.Updated = int64(0)
 	}
 	newObject.Created = nC.UnixNano()
-	newObject.Data = Data
+	newObject.Data = fmt.Sprintf(`%s`, strings.Trim(Data, "\""))
 	newObject.Index = Index
 	return newObject, nil
 }
@@ -172,7 +174,7 @@ func (db *MariaDbStorage) Set(key string, index string, now int64, data string) 
 	if err != nil {
 		return "", err
 	}
-	_, err = db.mysql.Query("call `set`('" + key + "', '" + data + "');")
+	_, err = db.mysql.Query("call `set`('" + key + "', '" + fmt.Sprintf("%#v", data) + "');")
 	if err != nil {
 		return "", err
 	}

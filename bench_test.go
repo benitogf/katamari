@@ -74,10 +74,14 @@ func BenchmarkMariadbStoragePost(b *testing.B) {
 }
 
 func storageSetGetDel(db Database, b *testing.B, storage string) {
-	b.ResetTimer()
+	tests := make(map[string]string)
 	for i := 0; i < b.N; i++ {
 		index := strconv.FormatInt(int64(i), 10)
-		ci, _ := db.Set("test/"+index, index, 0, "test"+index)
+		tests["test"+index] = "test" + index
+	}
+	b.ResetTimer()
+	for index := range tests {
+		ci, _ := db.Set("test/"+index, index, 0, tests[index])
 		_, _ = db.Get("sa", "test/"+ci)
 		_ = db.Del("test/" + ci)
 		// https://stackoverflow.com/questions/14331032/mysql-error-1040-too-many-connection/34176072
@@ -85,9 +89,9 @@ func storageSetGetDel(db Database, b *testing.B, storage string) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-	tests, err := db.Get("mo", "test")
+	result, err := db.Get("mo", "test")
 	require.NoError(b, err)
-	require.Equal(b, "[]", string(tests))
+	require.Equal(b, "[]", string(result))
 }
 
 func BenchmarkMemoryStorageSetGetDel(b *testing.B) {

@@ -5,6 +5,14 @@ import (
 	"encoding/json"
 )
 
+// Object : data structure of elements
+type Object struct {
+	Created int64  `json:"created"`
+	Updated int64  `json:"updated"`
+	Index   string `json:"index"`
+	Data    string `json:"data"`
+}
+
 // Objects provide methods to read from bytes and write to bytes
 type Objects struct{}
 

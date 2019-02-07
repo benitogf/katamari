@@ -142,9 +142,6 @@ func TestWsBroadcast(t *testing.T) {
 	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	_ = app.Storage.Del("test/456")
-	_ = app.Storage.Del("test/123")
-	_ = app.Storage.Del("test/1")
 	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
@@ -246,7 +243,6 @@ func TestWsDel(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	_ = app.Storage.Del("test")
 	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)

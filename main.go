@@ -33,27 +33,6 @@ type pool struct {
 // Audit : function to provide approval or denial of requests
 type Audit func(r *http.Request) bool
 
-// Database : methods of the persistent data layer
-type Database interface {
-	Active() bool
-	Start(separator string) error
-	Close()
-	Keys() ([]byte, error)
-	Get(mode string, key string) ([]byte, error)
-	Set(key string, index string, now int64, data string) (string, error)
-	Del(key string) error
-	Clear()
-}
-
-// Storage : abstraction of persistent data layer
-type Storage struct {
-	Active    bool
-	Separator string
-	Db        Database
-	*Objects
-	*Keys
-}
-
 // Server : SAMO application server
 type Server struct {
 	mutex        sync.RWMutex
@@ -73,14 +52,6 @@ type Server struct {
 	objects      *Objects
 	keys         *Keys
 	messages     *Messages
-}
-
-// Object : data structure of elements
-type Object struct {
-	Created int64  `json:"created"`
-	Updated int64  `json:"updated"`
-	Index   string `json:"index"`
-	Data    string `json:"data"`
 }
 
 // Stats : data structure of global keys

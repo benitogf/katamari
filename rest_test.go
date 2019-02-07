@@ -3,6 +3,7 @@ package samo
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -21,7 +22,7 @@ func TestRestPostNonObject(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 400, resp.StatusCode)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestRestPostEmptyData(t *testing.T) {
@@ -34,7 +35,7 @@ func TestRestPostEmptyData(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 400, resp.StatusCode)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestRestPostKey(t *testing.T) {
@@ -48,7 +49,7 @@ func TestRestPostKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 400, resp.StatusCode)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestRestDel(t *testing.T) {
@@ -66,14 +67,14 @@ func TestRestDel(t *testing.T) {
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 	data, _ := app.Storage.Get("sa", "test")
-	require.Equal(t, 204, resp.StatusCode)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	require.Empty(t, data)
 
 	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 404, resp.StatusCode)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestRestGet(t *testing.T) {
@@ -93,7 +94,7 @@ func TestRestGet(t *testing.T) {
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
 
@@ -101,7 +102,7 @@ func TestRestGet(t *testing.T) {
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 404, resp.StatusCode)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestRestStats(t *testing.T) {
@@ -120,7 +121,7 @@ func TestRestStats(t *testing.T) {
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, "{\"keys\":[\"test/1\"]}", string(body))
 
@@ -132,7 +133,7 @@ func TestRestStats(t *testing.T) {
 	resp = w.Result()
 	body, err = ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, "{\"keys\":[]}", string(body))
 }
@@ -159,29 +160,29 @@ func TestRestResponseCode(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/r/mo/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	req = httptest.NewRequest("DELETE", "/r/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 204, resp.StatusCode)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 	req = httptest.NewRequest("DELETE", "/r/test/1", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 204, resp.StatusCode)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
