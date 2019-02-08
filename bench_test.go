@@ -23,7 +23,7 @@ func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *te
 		req := httptest.NewRequest(
 			"POST", "/r/mo/test",
 			bytes.NewBuffer(
-				[]byte(`{"data":"test`+strconv.FormatInt(int64(i), 10)+`"}`),
+				[]byte(`{"data":"test`+(&Messages{}).encode([]byte(strconv.FormatInt(int64(i), 10)))+`"}`),
 			),
 		)
 		w := httptest.NewRecorder()
@@ -157,12 +157,12 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 						break
 					}
 					go func(message []byte) {
-						data, err := app.messages.read(message)
+						event, err := app.messages.decode(message)
 						if err != nil {
 							log.Fatal(err)
 						}
 						atomic.AddInt64(&ops, 1)
-						app.console.Log("read c"+strconv.Itoa(i), data)
+						app.console.Log("read c"+strconv.Itoa(i), event.Data)
 					}(message)
 					count++
 					if count == numberOfMsgs {
@@ -180,7 +180,7 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 		time.Sleep(1 * time.Millisecond)
 	}
 
-	var jsonStr = []byte(`{"data":"test..."}`)
+	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("test...")) + `"}`)
 	for i := 2; i <= numberOfMsgs; i++ {
 		req := httptest.NewRequest("POST", "/r/mo/test", bytes.NewBuffer(jsonStr))
 		w := httptest.NewRecorder()

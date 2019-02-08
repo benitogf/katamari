@@ -70,7 +70,7 @@ func TestWsTime(t *testing.T) {
 func TestWsRestPostBroadcast(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	mutex := sync.Mutex{}
+	mutex := sync.RWMutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
@@ -87,12 +87,12 @@ func TestWsRestPostBroadcast(t *testing.T) {
 				app.console.Err("read c", err)
 				break
 			}
-			data, err := app.messages.read(message)
+			event, err := app.messages.decode(message)
 			require.NoError(t, err)
-			app.console.Log("read c", data)
+			app.console.Log("read c", event.Data)
 			mutex.Lock()
 			if started {
-				got = data
+				got = event.Data
 				err = c.Close()
 				require.NoError(t, err)
 			}
@@ -102,15 +102,15 @@ func TestWsRestPostBroadcast(t *testing.T) {
 	}()
 
 	tryes := 0
-	mutex.Lock()
+	mutex.RLock()
 	for !started && tryes < 10000 {
 		tryes++
-		mutex.Unlock()
+		mutex.RUnlock()
 		time.Sleep(200 * time.Millisecond)
-		mutex.Lock()
+		mutex.RLock()
 	}
-	mutex.Unlock()
-	var jsonStr = []byte(`{"data":"Buy coffee and bread for breakfast."}`)
+	mutex.RUnlock()
+	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("Buy coffee and bread for breakfast.")) + `"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
@@ -118,14 +118,14 @@ func TestWsRestPostBroadcast(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	tryes = 0
-	mutex.Lock()
+	mutex.RLock()
 	for got == "" && tryes < 10000 {
 		tryes++
-		mutex.Unlock()
+		mutex.RUnlock()
 		time.Sleep(200 * time.Millisecond)
-		mutex.Lock()
+		mutex.RLock()
 	}
-	mutex.Unlock()
+	mutex.RUnlock()
 	var wsObject Object
 	err = json.Unmarshal([]byte(got), &wsObject)
 	require.NoError(t, err)
@@ -139,14 +139,14 @@ func TestWsRestPostBroadcast(t *testing.T) {
 func TestWsBroadcast(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	mutex := sync.Mutex{}
+	mutex := sync.RWMutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), "test")
+	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
 
-	index, err = app.Storage.Set("test/2", "2", time.Now().UTC().UnixNano(), "test")
+	index, err = app.Storage.Set("test/2", "2", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
 	require.NoError(t, err)
 	require.Equal(t, "2", index)
 
@@ -168,12 +168,12 @@ func TestWsBroadcast(t *testing.T) {
 				app.console.Err("read c1", err)
 				break
 			}
-			data, err := app.messages.read(message)
+			event, err := app.messages.decode(message)
 			require.NoError(t, err)
-			app.console.Log("read c1", data)
+			app.console.Log("read c1", event.Data)
 			mutex.Lock()
 			if readCount == 2 {
-				got1 = data
+				got1 = event.Data
 				err = c1.Close()
 				require.NoError(t, err)
 			}
@@ -190,14 +190,14 @@ func TestWsBroadcast(t *testing.T) {
 	}()
 
 	tryes := 0
-	mutex.Lock()
+	mutex.RLock()
 	for readCount < 2 && tryes < 10000 {
 		tryes++
-		mutex.Unlock()
+		mutex.RUnlock()
 		time.Sleep(200 * time.Millisecond)
-		mutex.Lock()
+		mutex.RLock()
 	}
-	mutex.Unlock()
+	mutex.RUnlock()
 
 	for {
 		_, message, err := c2.ReadMessage()
@@ -205,19 +205,19 @@ func TestWsBroadcast(t *testing.T) {
 			app.console.Err("read", err)
 			break
 		}
-		data, err := app.messages.read(message)
+		event, err := app.messages.decode(message)
 		require.NoError(t, err)
-		app.console.Log("read c2", data)
+		app.console.Log("read c2", event.Data)
 		mutex.Lock()
 		if wrote {
-			got2 = data
+			got2 = event.Data
 			err = c2.Close()
 			require.NoError(t, err)
 		} else {
 			app.console.Log("writing from c2")
 			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+
 				"\"index\": \"1\","+
-				"\"data\": \"test2\""+
+				"\"data\": \""+app.messages.encode([]byte("test2"))+"\""+
 				"}"))
 			require.NoError(t, err)
 			wrote = true
@@ -226,14 +226,14 @@ func TestWsBroadcast(t *testing.T) {
 	}
 
 	tryes = 0
-	mutex.Lock()
+	mutex.RLock()
 	for got1 == "" && tryes < 10000 {
 		tryes++
-		mutex.Unlock()
+		mutex.RUnlock()
 		time.Sleep(2 * time.Millisecond)
-		mutex.Lock()
+		mutex.RLock()
 	}
-	mutex.Unlock()
+	mutex.RUnlock()
 
 	require.Equal(t, got1, "["+got2+"]")
 }
@@ -243,7 +243,7 @@ func TestWsDel(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
@@ -257,7 +257,7 @@ func TestWsDel(t *testing.T) {
 			app.console.Err("read c", err)
 			break
 		}
-		data, err := app.messages.read(message)
+		data, err := app.messages.decode(message)
 		require.NoError(t, err)
 		app.console.Log("read c", data)
 		if started {

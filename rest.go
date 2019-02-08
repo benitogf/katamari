@@ -1,6 +1,7 @@
 package samo
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,6 +61,13 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		_, err = base64.StdEncoding.DecodeString(obj.Data)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s", errors.New("samo: data is expected in base64 encoding"))
+			return
+		}
+
 		key, index, now := app.keys.Build(mode, vkey, obj.Index, "R", app.separator)
 
 		data, err := app.Filters.Receive.check(key, []byte(obj.Data), app.Static)
@@ -78,7 +86,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		go app.sendData(app.findConnections(key))
+		go app.sendData(key)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "{"+
 			"\"index\": \""+index+"\""+
@@ -149,7 +157,7 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go app.sendData(app.findConnections(key))
+	go app.sendData(key)
 	w.WriteHeader(http.StatusNoContent)
 	fmt.Fprintf(w, "deleted "+key)
 }

@@ -20,3 +20,8 @@ type Storage struct {
 	*Objects
 	*Keys
 }
+
+// Stats : data structure of global keys
+type Stats struct {
+	Keys []string `json:"keys"`
+}

@@ -12,51 +12,30 @@ import (
 
 	"github.com/benitogf/coat"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 )
-
-// conn extends the websocket connection with a mutex
-// https://godoc.org/github.com/gorilla/websocket#hdr-Concurrency
-type conn struct {
-	conn  *websocket.Conn
-	mutex sync.Mutex
-}
-
-// pool of mode/key filtered websocket connections
-type pool struct {
-	key         string
-	mode        string
-	connections []*conn
-}
 
 // Audit : function to provide approval or denial of requests
 type Audit func(r *http.Request) bool
 
 // Server : SAMO application server
 type Server struct {
-	mutex        sync.RWMutex
-	mutexClients sync.RWMutex
-	server       *http.Server
-	Router       *mux.Router
-	clients      []*pool
-	Filters      Filters
-	Audit        Audit
-	Storage      Database
-	separator    string
-	address      string
-	closing      bool
-	Silence      bool
-	Static       bool
-	console      *coat.Console
-	objects      *Objects
-	keys         *Keys
-	messages     *Messages
-}
-
-// Stats : data structure of global keys
-type Stats struct {
-	Keys []string `json:"keys"`
+	mutex     sync.RWMutex
+	server    *http.Server
+	Router    *mux.Router
+	stream    stream
+	Filters   Filters
+	Audit     Audit
+	Storage   Database
+	separator string
+	address   string
+	closing   bool
+	Silence   bool
+	Static    bool
+	console   *coat.Console
+	objects   *Objects
+	keys      *Keys
+	messages  *Messages
 }
 
 func (app *Server) makeRouteRegex() string {
@@ -104,21 +83,19 @@ func (app *Server) waitStart() {
 }
 
 // Start : initialize and start the http server and database connection
-// 	port : service port 8800
-//  host : service host "localhost"
-// 	storage : path to the storage folder "data/db"
-// 	separator : rune to use as key separator '/'
 func (app *Server) Start(address string) {
 	app.closing = false
-	// app.objects = &Objects{&Keys{}}
 	app.address = address
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"
 	}
+
 	if app.Router == nil {
 		app.Router = mux.NewRouter()
 	}
 	app.console = coat.NewConsole(app.address, app.Silence)
+	app.stream.console = app.console
+
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
 			Memdb:   make(map[string][]byte),
@@ -134,12 +111,12 @@ func (app *Server) Start(address string) {
 	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
 	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
 	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
-	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.wss("sa"))
-	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.wss("mo"))
-	app.Router.HandleFunc("/time", app.timeWs)
+	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.ws("sa"))
+	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.ws("mo"))
+	app.Router.HandleFunc("/time", app.clock)
 	go app.waitListen()
 	app.waitStart()
-	go app.timer()
+	go app.tick()
 }
 
 // Close : shutdown the http server and database connection

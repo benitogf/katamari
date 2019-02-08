@@ -25,14 +25,14 @@ func (o *Objects) encode(v interface{}) ([]byte, error) {
 	return data, nil
 }
 
-func (o *Objects) read(data []byte) (Object, error) {
+func (o *Objects) decode(data []byte) (Object, error) {
 	var obj Object
 	err := json.Unmarshal(data, &obj)
 
 	return obj, err
 }
 
-func (o *Objects) write(obj *Object) []byte {
+func (o *Objects) new(obj *Object) []byte {
 	dataBytes := new(bytes.Buffer)
 	json.NewEncoder(dataBytes).Encode(obj)
 

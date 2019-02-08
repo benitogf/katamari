@@ -16,7 +16,7 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, _ := app.Storage.Get("sa", "test")
-	testObject, err := app.objects.read(data)
+	testObject, err := app.objects.decode(data)
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
@@ -28,7 +28,7 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, _ = app.Storage.Get("sa", "test")
-	testObject, err = app.objects.read(data)
+	testObject, err = app.objects.decode(data)
 	require.NoError(t, err)
 	require.Equal(t, "test_update", testObject.Data)
 	// mariadb handles created/updated so it can't be mocked

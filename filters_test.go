@@ -42,7 +42,7 @@ func TestFilters(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "intercepted:bag/1", string(data))
 
-	var jsonStr = []byte(`{"data":"notest"}`)
+	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("notest")) + `"}`)
 	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)

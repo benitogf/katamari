@@ -82,7 +82,7 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 		res := []Object{}
 		for iter.Next() {
 			if db.Storage.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
-				newObject, err := db.Storage.Objects.read(iter.Value())
+				newObject, err := db.Storage.Objects.decode(iter.Value())
 				if err == nil {
 					res = append(res, newObject)
 				}
@@ -111,7 +111,7 @@ func (db *LevelDbStorage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.read(previous)
+	oldObject, err := db.Storage.Objects.decode(previous)
 	if err != nil {
 		return now, 0
 	}
@@ -124,7 +124,7 @@ func (db *LevelDbStorage) Set(key string, index string, now int64, data string) 
 	created, updated := db.Peek(key, now)
 	err := db.lvldb.Put(
 		[]byte(key),
-		db.Storage.Objects.write(&Object{
+		db.Storage.Objects.new(&Object{
 			Created: created,
 			Updated: updated,
 			Index:   index,

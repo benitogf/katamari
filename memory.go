@@ -72,7 +72,7 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 		res := []Object{}
 		for k := range db.Memdb {
 			if db.Storage.Keys.isSub(key, k, db.Storage.Separator) {
-				newObject, err := db.Storage.Objects.read(db.Memdb[k])
+				newObject, err := db.Storage.Objects.decode(db.Memdb[k])
 				if err == nil {
 					res = append(res, newObject)
 				}
@@ -92,7 +92,7 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.read(previous)
+	oldObject, err := db.Storage.Objects.decode(previous)
 	if err != nil {
 		return now, 0
 	}
@@ -105,7 +105,7 @@ func (db *MemoryStorage) Set(key string, index string, now int64, data string) (
 	db.Lock.Lock()
 	defer db.Lock.Unlock()
 	created, updated := db.Peek(key, now)
-	db.Memdb[key] = db.Storage.Objects.write(&Object{
+	db.Memdb[key] = db.Storage.Objects.new(&Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
