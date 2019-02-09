@@ -2,14 +2,14 @@
 
 package samo
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // https://medium.com/@dgryski/go-fuzz-github-com-arolek-ase-3c74d5a3150c
 func Fuzz(fdata []byte) int {
-	data := (&Messages{}).write(fdata)
-	if data == "" {
-		return 0
-	}
+	data := fmt.Sprintf("%#v", string(fdata))
 	mariadb := &MariaDbStorage{
 		User:     "root",
 		Password: "",
@@ -30,18 +30,20 @@ func Fuzz(fdata []byte) int {
 
 func tryStore(storage Database, data string) {
 	storage.Start("/")
-	defer storage.Close()
 	_, err := storage.Set("fuzz", "", 0, data)
 	if err != nil {
+		storage.Close()
 		panic(err)
 	}
 	raw, err := storage.Get("sa", "fuzz")
 	if err != nil {
+		storage.Close()
 		panic(err)
 	}
 	var obj Object
 	err = json.Unmarshal(raw, &obj)
 	if err != nil {
+		storage.Close()
 		panic(err)
 	}
 	if obj.Data != string(data) {
@@ -49,10 +51,13 @@ func tryStore(storage Database, data string) {
 	}
 	err = storage.Del("fuzz")
 	if err != nil {
+		storage.Close()
 		panic(err)
 	}
 	post, err := storage.Get("sa", "fuzz")
 	if err == nil {
+		storage.Close()
 		panic("expected empty but got: " + string(post))
 	}
+	storage.Close()
 }

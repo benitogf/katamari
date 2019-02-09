@@ -3,7 +3,7 @@ package samo
 // Database : methods of the persistent data layer
 type Database interface {
 	Active() bool
-	Start(separator string) error
+	Start() error
 	Close()
 	Keys() ([]byte, error)
 	Get(mode string, key string) ([]byte, error)

@@ -9,41 +9,51 @@ import (
 
 // MemoryStorage : composition of storage
 type MemoryStorage struct {
-	Memdb map[string][]byte
-	Lock  sync.RWMutex
+	Memdb sync.Map
+	mutex sync.RWMutex
 	*Storage
 }
 
 // Active  :
 func (db *MemoryStorage) Active() bool {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	return db.Storage.Active
 }
 
 // Start  :
-func (db *MemoryStorage) Start(separator string) error {
-	db.Storage.Separator = separator
+func (db *MemoryStorage) Start() error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if db.Storage.Separator == "" {
+		db.Storage.Separator = "/"
+	}
 	db.Storage.Active = true
 	return nil
 }
 
 // Close  :
 func (db *MemoryStorage) Close() {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	db.Storage.Active = false
 }
 
 // Clear  :
 func (db *MemoryStorage) Clear() {
-	db.Memdb = make(map[string][]byte)
+	db.Memdb.Range(func(key interface{}, value interface{}) bool {
+		db.Memdb.Delete(key)
+		return true
+	})
 }
 
 // Keys  :
 func (db *MemoryStorage) Keys() ([]byte, error) {
-	db.Lock.RLock()
-	defer db.Lock.RUnlock()
 	stats := Stats{}
-	for k := range db.Memdb {
-		stats.Keys = append(stats.Keys, k)
-	}
+	db.Memdb.Range(func(key interface{}, value interface{}) bool {
+		stats.Keys = append(stats.Keys, key.(string))
+		return true
+	})
 
 	if stats.Keys == nil {
 		stats.Keys = []string{}
@@ -57,27 +67,26 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 
 // Get :
 func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
-	db.Lock.RLock()
-	defer db.Lock.RUnlock()
 	if mode == "sa" {
-		data := db.Memdb[key]
-		if data == nil {
+		data, found := db.Memdb.Load(key)
+		if !found {
 			return []byte(""), errors.New("samo: not found")
 		}
 
-		return data, nil
+		return data.([]byte), nil
 	}
 
 	if mode == "mo" {
 		res := []Object{}
-		for k := range db.Memdb {
-			if db.Storage.Keys.isSub(key, k, db.Storage.Separator) {
-				newObject, err := db.Storage.Objects.decode(db.Memdb[k])
+		db.Memdb.Range(func(k interface{}, value interface{}) bool {
+			if db.Storage.Keys.isSub(key, k.(string), db.Storage.Separator) {
+				newObject, err := db.Storage.Objects.decode(value.([]byte))
 				if err == nil {
 					res = append(res, newObject)
 				}
 			}
-		}
+			return true
+		})
 
 		return db.Storage.Objects.encode(res)
 	}
@@ -87,12 +96,12 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 
 // Peek will check the object stored in the key if any, returns created and updated times accordingly
 func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
-	previous := db.Memdb[key]
-	if previous == nil {
+	previous, found := db.Memdb.Load(key)
+	if !found {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.decode(previous)
+	oldObject, err := db.Storage.Objects.decode(previous.([]byte))
 	if err != nil {
 		return now, 0
 	}
@@ -102,25 +111,22 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *MemoryStorage) Set(key string, index string, now int64, data string) (string, error) {
-	db.Lock.Lock()
-	defer db.Lock.Unlock()
 	created, updated := db.Peek(key, now)
-	db.Memdb[key] = db.Storage.Objects.new(&Object{
+	db.Memdb.Store(key, db.Storage.Objects.new(&Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
 		Data:    data,
-	})
+	}))
 	return index, nil
 }
 
 // Del  :
 func (db *MemoryStorage) Del(key string) error {
-	db.Lock.Lock()
-	defer db.Lock.Unlock()
-	if db.Memdb[key] == nil {
+	_, found := db.Memdb.Load(key)
+	if !found {
 		return errors.New("samo: not found")
 	}
-	delete(db.Memdb, key)
+	db.Memdb.Delete(key)
 	return nil
 }

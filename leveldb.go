@@ -3,6 +3,7 @@ package samo
 import (
 	"errors"
 	"os"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -12,18 +13,25 @@ import (
 type LevelDbStorage struct {
 	Path  string
 	lvldb *leveldb.DB
+	mutex sync.RWMutex
 	*Storage
 }
 
 // Active  :
 func (db *LevelDbStorage) Active() bool {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	return db.Storage.Active
 }
 
 // Start  :
-func (db *LevelDbStorage) Start(separator string) error {
+func (db *LevelDbStorage) Start() error {
 	var err error
-	db.Storage.Separator = separator
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if db.Storage.Separator == "" {
+		db.Storage.Separator = "/"
+	}
 	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
 		db.Storage.Active = true
@@ -33,14 +41,16 @@ func (db *LevelDbStorage) Start(separator string) error {
 
 // Close  :
 func (db *LevelDbStorage) Close() {
-	if db.lvldb != nil {
-		db.Storage.Active = false
-		db.lvldb.Close()
-	}
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	db.Storage.Active = false
+	db.lvldb.Close()
 }
 
 // Clear  :
 func (db *LevelDbStorage) Clear() {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	if !db.Storage.Active {
 		os.RemoveAll(db.Path)
 	}

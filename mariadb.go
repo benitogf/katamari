@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // idk
@@ -16,18 +16,35 @@ type MariaDbStorage struct {
 	Password string
 	Name     string
 	mysql    *sql.DB
+	mutex    sync.RWMutex
 	*Storage
+}
+
+func (db *MariaDbStorage) trimQuotes(s string) string {
+	if len(s) > 0 && s[0] == '"' {
+		s = s[1:]
+	}
+	if len(s) > 0 && s[len(s)-1] == '"' {
+		s = s[:len(s)-1]
+	}
+	return s
 }
 
 // Active  :
 func (db *MariaDbStorage) Active() bool {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	return db.Storage.Active
 }
 
 // Start  :
-func (db *MariaDbStorage) Start(separator string) error {
+func (db *MariaDbStorage) Start() error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	var err error
-	db.Storage.Separator = separator
+	if db.Storage.Separator == "" {
+		db.Storage.Separator = "/"
+	}
 	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
 	if err != nil {
 		return err
@@ -39,14 +56,16 @@ func (db *MariaDbStorage) Start(separator string) error {
 
 // Close  :
 func (db *MariaDbStorage) Close() {
-	if db.mysql != nil {
-		db.Storage.Active = false
-	}
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	db.Storage.Active = false
 }
 
 // Clear  :
 func (db *MariaDbStorage) Clear() {
 	var err error
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	if !db.Storage.Active {
 		db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
 		defer db.mysql.Close()
@@ -112,7 +131,7 @@ func (db *MariaDbStorage) fromRowToObj(rows *sql.Rows) (Object, error) {
 		newObject.Updated = int64(0)
 	}
 	newObject.Created = nC.UnixNano()
-	newObject.Data = fmt.Sprintf(`%s`, strings.Trim(Data, "\""))
+	newObject.Data = fmt.Sprintf(`%s`, db.trimQuotes(Data))
 	newObject.Index = Index
 	return newObject, nil
 }
@@ -174,7 +193,7 @@ func (db *MariaDbStorage) Set(key string, index string, now int64, data string) 
 	if err != nil {
 		return "", err
 	}
-	_, err = db.mysql.Query("call `set`('" + key + "', '" + fmt.Sprintf("%#v", data) + "');")
+	_, err = db.mysql.Query("call `set`('" + key + "', '" + fmt.Sprintf(`%#v`, data) + "');")
 	if err != nil {
 		return "", err
 	}

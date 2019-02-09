@@ -30,6 +30,7 @@ type Server struct {
 	separator string
 	address   string
 	closing   bool
+	active    bool
 	Silence   bool
 	Static    bool
 	console   *coat.Console
@@ -44,26 +45,27 @@ func (app *Server) makeRouteRegex() string {
 
 func (app *Server) waitListen() {
 	var err error
-	err = app.Storage.Start(app.separator)
-	if err == nil {
-		app.mutex.Lock()
-		app.server = &http.Server{
-			Addr: app.address,
-			Handler: cors.New(cors.Options{
-				AllowedMethods: []string{"GET", "POST", "DELETE"},
-				// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
-				// AllowCredentials: true,
-				// Debug: true,
-			}).Handler(app.Router)}
-		app.mutex.Unlock()
-		err = app.server.ListenAndServe()
-		if !app.closing {
-			log.Fatal(err)
-		}
-		return
+	err = app.Storage.Start()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	log.Fatal(err)
+	app.mutex.Lock()
+	app.server = &http.Server{
+		Addr: app.address,
+		Handler: cors.New(cors.Options{
+			AllowedMethods: []string{"GET", "POST", "DELETE"},
+			// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
+			// AllowCredentials: true,
+			// Debug: true,
+		}).Handler(app.Router)}
+	app.mutex.Unlock()
+	err = app.server.ListenAndServe()
+	app.mutex.Lock()
+	if !app.closing {
+		log.Fatal(err)
+	}
+	app.mutex.Unlock()
 }
 
 func (app *Server) waitStart() {
@@ -84,7 +86,11 @@ func (app *Server) waitStart() {
 
 // Start : initialize and start the http server and database connection
 func (app *Server) Start(address string) {
-	app.closing = false
+	if app.active {
+		return
+	}
+
+	app.active = true
 	app.address = address
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"
@@ -98,8 +104,10 @@ func (app *Server) Start(address string) {
 
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
-			Memdb:   make(map[string][]byte),
-			Storage: &Storage{Active: false}}
+			Storage: &Storage{
+				Active:    false,
+				Separator: app.separator,
+			}}
 	}
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }
@@ -121,8 +129,11 @@ func (app *Server) Start(address string) {
 
 // Close : shutdown the http server and database connection
 func (app *Server) Close(sig os.Signal) {
+	app.mutex.Lock()
+	defer app.mutex.Unlock()
 	if !app.closing {
 		app.closing = true
+		app.active = false
 		app.Storage.Close()
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
