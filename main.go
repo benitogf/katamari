@@ -21,23 +21,25 @@ type Audit func(r *http.Request) bool
 
 // Server : SAMO application server
 type Server struct {
-	mutex     sync.RWMutex
-	server    *http.Server
-	Router    *mux.Router
-	stream    stream
-	Filters   Filters
-	Audit     Audit
-	Storage   Database
-	separator string
-	address   string
-	closing   int64
-	active    int64
-	Silence   bool
-	Static    bool
-	console   *coat.Console
-	objects   *Objects
-	keys      *Keys
-	messages  *Messages
+	mutex       sync.RWMutex
+	server      *http.Server
+	Router      *mux.Router
+	stream      stream
+	Filters     Filters
+	Audit       Audit
+	Subscribe   Subscribe
+	Unsubscribe Unsubscribe
+	Storage     Database
+	separator   string
+	address     string
+	closing     int64
+	active      int64
+	Silence     bool
+	Static      bool
+	console     *coat.Console
+	objects     *Objects
+	keys        *Keys
+	messages    *Messages
 }
 
 func (app *Server) makeRouteRegex() string {
@@ -113,6 +115,14 @@ func (app *Server) Start(address string) {
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
+	if app.Subscribe == nil {
+		app.Subscribe = func(mode string, key string, remoteAddr string) error { return nil }
+	}
+	if app.Unsubscribe == nil {
+		app.Unsubscribe = func(mode string, key string, remoteAddr string) {}
+	}
+	app.stream.Subscribe = app.Subscribe
+	app.stream.Unsubscribe = app.Unsubscribe
 	rr := app.makeRouteRegex()
 	app.Router.HandleFunc("/", app.getStats)
 	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")

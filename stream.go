@@ -8,6 +8,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Subscribe : function to provide approval or denial of subscription
+type Subscribe func(mode string, key string, remoteAddr string) error
+
+// Unsubscribe : function callback on subscription closing
+type Unsubscribe func(mode string, key string, remoteAddr string)
+
 // conn extends the websocket connection with a mutex
 // https://godoc.org/github.com/gorilla/websocket#hdr-Concurrency
 type conn struct {
@@ -24,9 +30,11 @@ type pool struct {
 
 // stream a group of pools
 type stream struct {
-	mutex   sync.RWMutex
-	pools   []*pool
-	console *coat.Console
+	mutex       sync.RWMutex
+	Subscribe   Subscribe
+	Unsubscribe Unsubscribe
+	pools       []*pool
+	console     *coat.Console
 	*Keys
 }
 
@@ -79,6 +87,7 @@ func (sm *stream) close(mode string, key string, client *conn) {
 	// replace clients array with the auxiliar
 	sm.pools[poolIndex].connections = na
 	sm.mutex.Unlock()
+	go sm.Unsubscribe(mode, key, client.conn.UnderlyingConn().RemoteAddr().String())
 	client.conn.Close()
 }
 
@@ -94,6 +103,11 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 
 	if err != nil {
 		sm.console.Err("socketUpgradeError["+mode+"/"+key+"]", err)
+		return nil, err
+	}
+
+	err = sm.Subscribe(mode, mode, wsClient.UnderlyingConn().RemoteAddr().String())
+	if err != nil {
 		return nil, err
 	}
 
