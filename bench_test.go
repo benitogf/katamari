@@ -30,9 +30,6 @@ func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *te
 		ServeHTTP(w, req)
 		resp := w.Result()
 		require.Equal(b, 200, resp.StatusCode)
-		if storage == "mariadb" {
-			time.Sleep(800 * time.Millisecond)
-		}
 	}
 }
 
@@ -58,19 +55,17 @@ func BenchmarkLeveldbStoragePost(b *testing.B) {
 	defer app.Close(os.Interrupt)
 	storagePost(app.Router.ServeHTTP, b, "leveldb")
 }
-func BenchmarkMariadbStoragePost(b *testing.B) {
+
+func BenchmarkRedisStoragePost(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
 	app.Silence = true
-	app.Storage = &MariaDbStorage{
-		User:     "root",
-		Password: "",
-		Name:     "samo",
-		Storage:  &Storage{Active: false}}
-	app.Storage.Clear()
+	app.Storage = &RedisStorage{
+		Storage: &Storage{Active: false}}
 	app.Start("localhost:9889")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b, "mariadb")
+	storagePost(app.Router.ServeHTTP, b, "redis")
 }
 
 func storageSetGetDel(db Database, b *testing.B, storage string) {
@@ -91,9 +86,6 @@ func storageSetGetDel(db Database, b *testing.B, storage string) {
 			time.Sleep(wait * time.Second)
 		}
 		_ = db.Del("test/" + ci)
-		if storage == "mariadb" {
-			time.Sleep(wait * time.Second)
-		}
 	}
 	result, err := db.Get("mo", "test")
 	require.NoError(b, err)
@@ -126,19 +118,16 @@ func BenchmarkLevelDbStorageSetGetDel(b *testing.B) {
 	storageSetGetDel(app.Storage, b, "leveldb")
 }
 
-func BenchmarkMariadbStorageSetGetDel(b *testing.B) {
+func BenchmarkRedisStorageSetGetDel(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
 	app.Silence = true
-	app.Storage = &MariaDbStorage{
-		User:     "root",
-		Password: "",
-		Name:     "samo",
-		Storage:  &Storage{Active: false}}
-	app.Storage.Clear()
+	app.Storage = &RedisStorage{
+		Storage: &Storage{Active: false}}
 	app.Start("localhost:9889")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b, "mariadb")
+	storageSetGetDel(app.Storage, b, "redis")
 }
 
 func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int, b *testing.B) {
@@ -210,9 +199,5 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 }
 
 func Benchmark100Msgs10ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(100, 10, 3000, b)
-}
-
-func Benchmark100Msgs100ClientBroadcast(b *testing.B) {
-	multipleClientBroadcast(100, 100, 3000, b)
+	multipleClientBroadcast(10, 10, 3000, b)
 }

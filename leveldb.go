@@ -113,10 +113,6 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 // Peek :
 func (db *LevelDbStorage) Peek(key string, now int64) (int64, int64) {
 	previous, err := db.lvldb.Get([]byte(key), nil)
-	if err != nil && err.Error() == "leveldb: not found" {
-		return now, 0
-	}
-
 	if err != nil {
 		return now, 0
 	}
@@ -151,6 +147,10 @@ func (db *LevelDbStorage) Set(key string, index string, now int64, data string) 
 // Del  :
 func (db *LevelDbStorage) Del(key string) error {
 	_, err := db.lvldb.Get([]byte(key), nil)
+	if err != nil && err.Error() == "leveldb: not found" {
+		return errors.New("samo: not found")
+	}
+
 	if err != nil {
 		return err
 	}

@@ -246,8 +246,10 @@ func (db *customStorage) Active() bool {
 }
 
 // Start  :
-func (db *customStorage) Start(separator string) error {
-	db.Storage.Separator = separator
+func (db *customStorage) Start() error {
+	if db.Storage.Separator == "" {
+		db.Storage.Separator = "/"
+	}
 	db.Storage.Active = true
 	return nil
 }
