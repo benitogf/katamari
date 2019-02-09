@@ -20,8 +20,10 @@ func (app *Server) tick() {
 		select {
 		case <-ticker.C:
 			poolIndex := app.stream.findPool("ws", "time")
+			app.stream.mutex.RLock()
 			if poolIndex != -1 {
-				app.sendTime(app.stream.pools[poolIndex].connections)
+				go app.sendTime(app.stream.pools[poolIndex].connections)
+				app.stream.mutex.RUnlock()
 			}
 		}
 	}

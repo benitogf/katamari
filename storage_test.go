@@ -47,19 +47,37 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 	require.Empty(t, dataDel)
 }
 
-func StorageMO(app *Server, t *testing.T, testData string) {
+func StorageMO(app *Server, t *testing.T, testData string, driver string) {
 	_ = app.Storage.Del("test/456")
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	_ = app.Storage.Del("test/123")
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	_ = app.Storage.Del("test/1")
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	modData := testData + testData
 	index, err := app.Storage.Set("test/123", "123", 0, testData)
 	require.NoError(t, err)
 	require.Equal(t, "123", index)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	index, err = app.Storage.Set("test/456", "456", 0, modData)
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	require.Equal(t, "456", index)
 	data, err := app.Storage.Get("mo", "test")
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	var testObjects []Object
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
@@ -75,8 +93,14 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	}
 	data1, err := app.Storage.Get("sa", "test/123")
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	data2, err := app.Storage.Get("sa", "test/456")
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	obj1, err := app.objects.decode(data1)
 	require.NoError(t, err)
 	obj2, err := app.objects.decode(data2)
@@ -85,6 +109,9 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	require.Equal(t, modData, obj2.Data)
 	keys, err := app.Storage.Keys()
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))
 
 	req := httptest.NewRequest(
@@ -103,50 +130,21 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	require.NoError(t, err)
 	data, err = app.Storage.Get("mo", "test")
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(testObjects))
 	err = app.Storage.Del("test/" + dat.Index)
 	require.NoError(t, err)
+	if driver == "mariadb" {
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 var units = []string{
 	"\xe4\xef\xf0\xe9\xf9l\x100",
-	"elIjoiYSB0aGluZyBpbi" +
-		"B0aGUgYm94OiAxNTgxNm" +
-		"YxYz\x12NMwOTA5NzU4MjZk" +
-		"YzYwOWUxYzY5ZGI1Nzdh" +
-		"YjViZmVjNTdjN2IwNTci" +
-		"fQ==",
-	"eyJuYW10=;O\xb6\x8d\xae\"\xeaaGlu" +
-		"ZyBpbiBform-dataOiAx" +
-		"NTgx\\mYx\x00\x04MwOTA5NzU4" +
-		"MjZkQzYwOWUxYzY5ZGI1" +
-		"NzdhYjViZmVjNTdjN2Tc" +
-		"ifQ==",
-	"eyYW10=;O\xb6\x8d\xae\"\xeaaGluZy" +
-		"BpbiBform-dataOiAxNT" +
-		"gx\\mYx\x00\x04MwOTA5NzU4Mj" +
-		"ZkQzYwOWUxYzY5ZGI1Nz" +
-		"dhYjViZmVjNTdjN2Tcif" +
-		"Q==",
-	"eW1lIjoiYSB0aGluZyBp" +
-		"biB0aGU\x90Ym94OiAxNTgx" +
-		"NmYxYzMwOTA5NzU4MjZk" +
-		"YzYwOWUxYzY5ZGI1Nzdh" +
-		"YjViZmVjNTdjN2IwNTci" +
-		"fQ==",
-	`"eW1lIjoiYSB0aGluZyBp""eW1lIjoiYSB0aGluZyBp"`,
-	`"""eW1lIjoiYSB0aGluZyBp"""`,
-	`"`,
-	`""`,
-	`"""`,
-	`eW1lIjoiYSB0aGluZyBp"`,
-	`"eW1lIjoiYSB0aGluZyBp"`,
-	`eW1lIjoiYSB0aGluZyBp"`,
-	`eW1lIjoiYSB0aGluZyBp"eW1lIjoiYSB0aGluZyBp`,
-	``,
-	"=yifQe\x05",
 }
 
 func TestStorageMemory(t *testing.T) {
@@ -155,7 +153,7 @@ func TestStorageMemory(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, fmt.Sprintf("%#v", units[i]), "memory")
 	}
 	StorageSA(app, t, "memory")
 }
@@ -171,7 +169,7 @@ func TestStorageLeveldb(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, fmt.Sprintf("%#v", units[i]), "leveldb")
 	}
 	StorageSA(app, t, "leveldb")
 }
@@ -185,11 +183,12 @@ func TestStorageMariadb(t *testing.T) {
 		Name:     "samo",
 		Storage:  &Storage{Active: false}}
 	app.Storage.Clear()
+	time.Sleep(1000 * time.Millisecond)
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
+		StorageMO(app, t, fmt.Sprintf("%#v", units[i]), "mariadb")
 	}
 	StorageSA(app, t, "mariadb")
 }

@@ -12,6 +12,7 @@ import (
 func (app *Server) sendData(key string) {
 	connections := app.stream.findConnections(key, app.separator)
 	if len(connections) > 0 {
+		app.stream.mutex.RLock()
 		for _, clientIndex := range connections {
 			key := app.stream.pools[clientIndex].key
 			raw, _ := app.Storage.Get(app.stream.pools[clientIndex].mode, key)
@@ -23,6 +24,7 @@ func (app *Server) sendData(key string) {
 				}
 			}
 		}
+		app.stream.mutex.RUnlock()
 	}
 }
 

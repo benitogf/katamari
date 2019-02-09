@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,8 +30,8 @@ type Server struct {
 	Storage   Database
 	separator string
 	address   string
-	closing   bool
-	active    bool
+	closing   int64
+	active    int64
 	Silence   bool
 	Static    bool
 	console   *coat.Console
@@ -61,11 +62,9 @@ func (app *Server) waitListen() {
 		}).Handler(app.Router)}
 	app.mutex.Unlock()
 	err = app.server.ListenAndServe()
-	app.mutex.Lock()
-	if !app.closing {
+	if atomic.LoadInt64(&app.closing) != 1 {
 		log.Fatal(err)
 	}
-	app.mutex.Unlock()
 }
 
 func (app *Server) waitStart() {
@@ -79,18 +78,20 @@ func (app *Server) waitStart() {
 	}
 	app.mutex.RUnlock()
 	if app.server == nil || !app.Storage.Active() {
-		log.Fatal("Server start failed")
+		log.Fatal("server start failed")
 	}
 	app.console.Log("glad to serve[" + app.address + "]")
 }
 
 // Start : initialize and start the http server and database connection
 func (app *Server) Start(address string) {
-	if app.active {
+	if atomic.LoadInt64(&app.active) == 1 {
+		app.console.Err("server already active")
 		return
 	}
 
-	app.active = true
+	atomic.StoreInt64(&app.active, 1)
+	atomic.StoreInt64(&app.closing, 0)
 	app.address = address
 	if app.separator == "" || len(app.separator) > 1 {
 		app.separator = "/"
@@ -129,11 +130,9 @@ func (app *Server) Start(address string) {
 
 // Close : shutdown the http server and database connection
 func (app *Server) Close(sig os.Signal) {
-	app.mutex.Lock()
-	defer app.mutex.Unlock()
-	if !app.closing {
-		app.closing = true
-		app.active = false
+	if atomic.LoadInt64(&app.closing) != 1 {
+		atomic.StoreInt64(&app.closing, 1)
+		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
 		app.console.Err("shutdown", sig)
 		if app.server != nil {

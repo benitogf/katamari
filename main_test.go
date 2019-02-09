@@ -88,16 +88,15 @@ func TestDoubleStart(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
+	t.Skip()
 	app := Server{}
 	app.Silence = true
 	app.separator = ":"
 	app.Start("localhost:9889")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
-	app2 := Server{}
-	app2.Silence = true
-	app2.Start("localhost:9889")
-	defer app2.Close(os.Interrupt)
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
 }
 
 func TestInvalidKey(t *testing.T) {

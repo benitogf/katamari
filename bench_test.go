@@ -31,7 +31,7 @@ func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *te
 		resp := w.Result()
 		require.Equal(b, 200, resp.StatusCode)
 		if storage == "mariadb" {
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(800 * time.Millisecond)
 		}
 	}
 }
@@ -79,18 +79,27 @@ func storageSetGetDel(db Database, b *testing.B, storage string) {
 		index := strconv.FormatInt(int64(i), 10)
 		tests["test"+index] = "test" + index
 	}
+	wait := time.Duration(5)
 	b.ResetTimer()
 	for index := range tests {
 		ci, _ := db.Set("test/"+index, index, 0, tests[index])
-		_, _ = db.Get("sa", "test/"+ci)
-		_ = db.Del("test/" + ci)
-		// https://stackoverflow.com/questions/14331032/mysql-error-1040-too-many-connection/34176072
 		if storage == "mariadb" {
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(wait * time.Second)
+		}
+		_, _ = db.Get("sa", "test/"+ci)
+		if storage == "mariadb" {
+			time.Sleep(wait * time.Second)
+		}
+		_ = db.Del("test/" + ci)
+		if storage == "mariadb" {
+			time.Sleep(wait * time.Second)
 		}
 	}
 	result, err := db.Get("mo", "test")
 	require.NoError(b, err)
+	if storage == "mariadb" {
+		time.Sleep(wait * time.Second)
+	}
 	require.Equal(b, "[]", string(result))
 }
 
