@@ -189,7 +189,7 @@ func TestStorageMariadb(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 	StorageSA(app, t, "mariadb")
 }
