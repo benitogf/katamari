@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -188,6 +189,7 @@ func TestStorageMariadb(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		time.Sleep(100 * time.Millisecond)
 	}
 	StorageSA(app, t, "mariadb")
 }
