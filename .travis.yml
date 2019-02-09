@@ -8,6 +8,9 @@ go:
 addons:
   mariadb: '10.0'
 
+services:
+  - redis-server
+
 install:
   - go get github.com/gorilla/mux
   - go get github.com/gorilla/websocket
@@ -18,6 +21,7 @@ install:
   - go get github.com/gobwas/glob
   - go get github.com/go-sql-driver/mysql
   - go get github.com/go-redis/redis
+  - go get github.com/mongodb/mongo-go-driver/mongo
   - go get golang.org/x/tools/cmd/cover
 
 before_script:

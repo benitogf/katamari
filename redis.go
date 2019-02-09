@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// RedisStorage : composition of storage
 type RedisStorage struct {
 	mutex    sync.RWMutex
 	address  string

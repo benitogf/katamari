@@ -23,8 +23,8 @@ func (app *Server) tick() {
 			app.stream.mutex.RLock()
 			if poolIndex != -1 {
 				go app.sendTime(app.stream.pools[poolIndex].connections)
-				app.stream.mutex.RUnlock()
 			}
+			app.stream.mutex.RUnlock()
 		}
 	}
 }
