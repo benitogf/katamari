@@ -31,7 +31,8 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 	index, err = app.Storage.Set("test", "test", 2, "test_update")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
-	data, _ = app.Storage.Get("sa", "test")
+	data, err = app.Storage.Get("sa", "test")
+	require.NoError(t, err)
 	testObject, err = app.objects.decode(data)
 	require.NoError(t, err)
 	require.Equal(t, "test_update", testObject.Data)
@@ -141,7 +142,7 @@ func TestStorageLeveldb(t *testing.T) {
 	StorageSA(app, t, "leveldb")
 }
 
-func TestStorageRedisdb(t *testing.T) {
+func TestStorageRedis(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
 	app.Storage = &RedisStorage{
@@ -153,6 +154,20 @@ func TestStorageRedisdb(t *testing.T) {
 		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
 	}
 	StorageSA(app, t, "redis")
+}
+
+func TestStorageMongodb(t *testing.T) {
+	app := &Server{}
+	app.Silence = true
+	app.Storage = &MongodbStorage{
+		Storage: &Storage{Active: false}}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	for i := range units {
+		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+	}
+	StorageSA(app, t, "mongodb")
 }
 
 func TestStorageMariadb(t *testing.T) {

@@ -68,6 +68,18 @@ func BenchmarkRedisStoragePost(b *testing.B) {
 	storagePost(app.Router.ServeHTTP, b, "redis")
 }
 
+func BenchmarkMongodbStoragePost(b *testing.B) {
+	b.ReportAllocs()
+	app := Server{}
+	app.Silence = true
+	app.Storage = &MongodbStorage{
+		Storage: &Storage{Active: false}}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	storagePost(app.Router.ServeHTTP, b, "mongodb")
+}
+
 func storageSetGetDel(db Database, b *testing.B, storage string) {
 	tests := make(map[string]string)
 	for i := 0; i < b.N; i++ {
@@ -128,6 +140,18 @@ func BenchmarkRedisStorageSetGetDel(b *testing.B) {
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	storageSetGetDel(app.Storage, b, "redis")
+}
+
+func BenchmarkMongodbStorageSetGetDel(b *testing.B) {
+	b.ReportAllocs()
+	app := Server{}
+	app.Silence = true
+	app.Storage = &MongodbStorage{
+		Storage: &Storage{Active: false}}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	storageSetGetDel(app.Storage, b, "mongodb")
 }
 
 func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int, b *testing.B) {

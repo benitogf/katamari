@@ -10,6 +10,7 @@ addons:
 
 services:
   - redis-server
+  - mongodb
 
 install:
   - go get github.com/gorilla/mux
