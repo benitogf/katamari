@@ -49,7 +49,7 @@ func BenchmarkLeveldbStoragePost(b *testing.B) {
 	app.Storage = &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -61,7 +61,7 @@ func BenchmarkRedisStoragePost(b *testing.B) {
 	app := Server{}
 	app.Silence = true
 	app.Storage = &RedisStorage{
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -73,7 +73,7 @@ func BenchmarkMongodbStoragePost(b *testing.B) {
 	app := Server{}
 	app.Silence = true
 	app.Storage = &MongodbStorage{
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -123,7 +123,7 @@ func BenchmarkLevelDbStorageSetGetDel(b *testing.B) {
 	app.Storage = &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -135,7 +135,7 @@ func BenchmarkRedisStorageSetGetDel(b *testing.B) {
 	app := Server{}
 	app.Silence = true
 	app.Storage = &RedisStorage{
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -147,7 +147,7 @@ func BenchmarkMongodbStorageSetGetDel(b *testing.B) {
 	app := Server{}
 	app.Silence = true
 	app.Storage = &MongodbStorage{
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)

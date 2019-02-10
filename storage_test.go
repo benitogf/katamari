@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -129,12 +128,9 @@ func TestStorageMemory(t *testing.T) {
 func TestStorageLeveldb(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
-	app.Storage = &LevelDbStorage{
-		Path:    "test/db",
-		lvldb:   nil,
-		Storage: &Storage{Active: false}}
-	app.Storage.Clear()
+	app.Storage = &LevelDbStorage{}
 	app.Start("localhost:9889")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
@@ -145,8 +141,7 @@ func TestStorageLeveldb(t *testing.T) {
 func TestStorageRedis(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
-	app.Storage = &RedisStorage{
-		Storage: &Storage{Active: false}}
+	app.Storage = &RedisStorage{}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -159,8 +154,7 @@ func TestStorageRedis(t *testing.T) {
 func TestStorageMongodb(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
-	app.Storage = &MongodbStorage{
-		Storage: &Storage{Active: false}}
+	app.Storage = &MongodbStorage{}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -173,13 +167,8 @@ func TestStorageMongodb(t *testing.T) {
 func TestStorageMariadb(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
-	app.Storage = &MariaDbStorage{
-		User:     "root",
-		Password: "",
-		Name:     "samo",
-		Storage:  &Storage{Active: false}}
+	app.Storage = &MariaDbStorage{}
 	app.Storage.Clear()
-	time.Sleep(1000 * time.Millisecond)
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {

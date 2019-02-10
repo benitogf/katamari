@@ -25,6 +25,9 @@ func (db *MemoryStorage) Active() bool {
 func (db *MemoryStorage) Start() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
+	if db.Storage == nil {
+		db.Storage = &Storage{}
+	}
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
 	}

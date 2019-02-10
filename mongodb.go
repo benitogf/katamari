@@ -17,7 +17,7 @@ import (
 // MongodbStorage : composition of storage
 type MongodbStorage struct {
 	mutex   sync.RWMutex
-	address string
+	Address string
 	mongodb *mongo.Client
 	*Storage
 }
@@ -49,13 +49,16 @@ func (db *MongodbStorage) Start() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	var err error
+	if db.Storage == nil {
+		db.Storage = &Storage{}
+	}
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
 	}
-	if db.address == "" {
-		db.address = "localhost:27017"
+	if db.Address == "" {
+		db.Address = "localhost:27017"
 	}
-	db.mongodb, err = mongo.Connect(context.TODO(), "mongodb://"+db.address)
+	db.mongodb, err = mongo.Connect(context.TODO(), "mongodb://"+db.Address)
 	if err != nil {
 		return err
 	}

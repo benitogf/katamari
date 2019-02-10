@@ -12,8 +12,8 @@ import (
 // RedisStorage : composition of storage
 type RedisStorage struct {
 	mutex    sync.RWMutex
-	address  string
-	password string
+	Address  string
+	Password string
 	redisdb  *redis.Client
 	*Storage
 }
@@ -29,16 +29,19 @@ func (db *RedisStorage) Active() bool {
 func (db *RedisStorage) Start() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
+	if db.Storage == nil {
+		db.Storage = &Storage{}
+	}
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
 	}
 	db.Storage.Active = true
-	if db.address == "" {
-		db.address = "localhost:6379"
+	if db.Address == "" {
+		db.Address = "localhost:6379"
 	}
 	db.redisdb = redis.NewClient(&redis.Options{
-		Addr:     db.address,
-		Password: db.password, // no password set
+		Addr:     db.Address,
+		Password: db.Password, // no password set
 		DB:       0,           // use default DB
 	})
 	_, err := db.redisdb.Ping().Result()

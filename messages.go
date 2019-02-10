@@ -18,12 +18,7 @@ type Messages struct{}
 
 // write base64 string from bytes
 func (messages *Messages) encode(raw []byte) string {
-	data := ""
-	if len(raw) > 0 {
-		data = base64.StdEncoding.EncodeToString(raw)
-	}
-
-	return data
+	return base64.StdEncoding.EncodeToString(raw)
 }
 
 func (messages *Messages) decode(message []byte) (Message, error) {

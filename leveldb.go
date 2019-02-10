@@ -2,6 +2,7 @@ package samo
 
 import (
 	"errors"
+	"log"
 	"os"
 	"sync"
 
@@ -29,8 +30,14 @@ func (db *LevelDbStorage) Start() error {
 	var err error
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
+	if db.Storage == nil {
+		db.Storage = &Storage{}
+	}
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
+	}
+	if db.Path == "" {
+		db.Path = "data/db"
 	}
 	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
@@ -51,8 +58,19 @@ func (db *LevelDbStorage) Close() {
 func (db *LevelDbStorage) Clear() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	if !db.Storage.Active {
-		os.RemoveAll(db.Path)
+	var err error
+	if db.Storage.Active {
+		db.lvldb.Close()
+	}
+	if db.Path == "" {
+		db.Path = "data/db"
+	}
+	os.RemoveAll(db.Path)
+	if db.Storage.Active {
+		db.lvldb, err = leveldb.OpenFile(db.Path, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

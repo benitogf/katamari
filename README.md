@@ -20,7 +20,9 @@ also a [react application example](https://github.com/benitogf/samo-js-client-ex
 
 ## server
 
-with [golang installed](https://golang.org/doc/install) from a terminal get the library:
+download some [compiled release](https://github.com/benitogf/U-00A9/releases)
+
+or with [go installed](https://golang.org/doc/install) get the library:
 
 ```bash
 go get github.com/benitogf/samo
@@ -142,9 +144,9 @@ will handle the key as key->value
 }
 ```
 
-## filters, audit and extra routes
+## filters, audit, subscription events and extra routes
 
-    Define ad lib receive and send filter criteria using key glob patterns, audit middleware and extra routes
+    Define ad lib receive and send filter criteria using key glob patterns, audit middleware, subscription events, and extra routes
 
 ```go
 package main
@@ -152,6 +154,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/benitogf/samo"
@@ -168,14 +171,7 @@ func main() {
 	}
 
 	// Filters
-	app.ReceiveFilter("things/*", func(index string, data []byte) ([]byte, error) {
-		if string(data) != "object" {
-			return nil, errors.New("filtered")
-		}
-
-		return data, nil
-	})
-	app.ReceiveFilter("bag", func(index string, data []byte) ([]byte, error) {
+	app.ReceiveFilter("bag/*", func(index string, data []byte) ([]byte, error) {
 		if string(data) != "marbles" {
 			return nil, errors.New("filtered")
 		}
@@ -186,17 +182,19 @@ func main() {
 		return []byte("intercepted"), nil
 	})
 
-	// Extend routes
+	// Subscription events
+	server.Subscribe = func(mode string, key string, remoteAddr string) error {
+		log.Println(mode, key)
+		return nil
+	}
+	server.Unsubscribe = func(mode string, key string, remoteAddr string) {
+		log.Println(mode, key)
+	}
+	// Predefine the router
 	app.Router = mux.NewRouter()
-	app.Router.HandleFunc("/extras", func(w http.ResponseWriter, r *http.Request) {
-		data, err := app.Storage.Get("mo", "extras")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "%s", err)
-			return
-		}
+	app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, string(data))
+		fmt.Fprintf(w, "123")
 	})
 	app.Start("localhost:8800")
 	app.WaitClose()
@@ -207,6 +205,7 @@ func main() {
 
     Use alternative storages, the default is memory
 
+### leveldb
 ```go
 package main
 
@@ -217,84 +216,61 @@ import (
 func main() {
 	app := samo.Server{}
 	app.Storage = &samo.LevelDbStorage{
-		Path:    "data/db",
-		Storage: &samo.Storage{Active: false}}
+		Path:    "data/db"}
 	app.Start("localhost:8800")
 	app.WaitClose()
 }
 ```
-
-    Define alternative storages
-
+### redis
 ```go
 package main
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/benitogf/samo"
 )
 
-type customStorage struct {
-	*samo.Storage
-}
-
-// Active  :
-func (db *customStorage) Active() bool {
-	return db.Storage.Active
-}
-
-// Start  :
-func (db *customStorage) Start() error {
-	if db.Storage.Separator == "" {
-		db.Storage.Separator = "/"
-	}
-	db.Storage.Active = true
-	return nil
-}
-
-// Close  :
-func (db *customStorage) Close() {
-	db.Storage.Active = false
-}
-
-// Keys  :
-func (db *customStorage) Keys() ([]byte, error) {
-	fmt.Println("keys")
-	return []byte(""), errors.New("not implemented")
-}
-
-// Get :
-func (db *customStorage) Get(mode string, key string) ([]byte, error) {
-	fmt.Println("get", mode, key)
-	return []byte(""), errors.New("not implemented")
-}
-
-// Peek  :
-func (db *customStorage) Peek(key string, now int64) (int64, int64) {
-	fmt.Println("peek", key, now)
-	return 0, 0
-}
-
-// Set  :
-func (db *customStorage) Set(key string, index string, now int64, data string) (string, error) {
-	fmt.Println("set", key, index, now, data)
-	return "", errors.New("not implemented")
-}
-
-// Del  :
-func (db *customStorage) Del(key string) error {
-	fmt.Println("del", key)
-	return errors.New("not implemented")
-}
-
 func main() {
 	app := samo.Server{}
-	app.Storage = &customStorage{&samo.Storage{Active: false}}
+	app.Storage = &samo.RedisStorage{
+		Address: "localhost:6379",
+		Password: ""}
 	app.Start("localhost:8800")
 	app.WaitClose()
 }
-
-
 ```
+### mongodb
+```go
+package main
+
+import (
+	"github.com/benitogf/samo"
+)
+
+func main() {
+	app := samo.Server{}
+	app.Storage = &samo.MongodbStorage{
+		Address: "localhost:27017"}
+	app.Start("localhost:8800")
+	app.WaitClose()
+}
+```
+### mariadb
+```go
+package main
+
+import (
+	"github.com/benitogf/samo"
+)
+
+func main() {
+	app := samo.Server{}
+	app.Storage = &samo.MariaDbStorage{
+		User:     "root",
+		Password: "",
+		Name:     "test"}
+	app.Start("localhost:8800")
+	app.WaitClose()
+}
+```
+
+

@@ -107,10 +107,7 @@ func (app *Server) Start(address string) {
 
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{
-			Storage: &Storage{
-				Active:    false,
-				Separator: app.separator,
-			}}
+			Storage: &Storage{Separator: app.separator}}
 	}
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }

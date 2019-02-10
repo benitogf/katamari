@@ -14,14 +14,14 @@ func Fuzz(fdata []byte) int {
 		User:     "root",
 		Password: "",
 		Name:     "samo",
-		Storage:  &Storage{Active: false}}
+		Storage:  &Storage{}}
 	leveldb := &LevelDbStorage{
 		Path:    "test/db",
 		lvldb:   nil,
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	memory := &MemoryStorage{
 		Memdb:   make(map[string][]byte),
-		Storage: &Storage{Active: false}}
+		Storage: &Storage{}}
 	tryStore(memory, data)
 	tryStore(leveldb, data)
 	tryStore(mariadb, data)

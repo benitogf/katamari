@@ -42,8 +42,17 @@ func (db *MariaDbStorage) Start() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	var err error
+	if db.Storage == nil {
+		db.Storage = &Storage{}
+	}
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
+	}
+	if db.User == "" {
+		db.User = "root"
+	}
+	if db.Name == "" {
+		db.Name = "samo"
 	}
 	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
 	if err != nil {
@@ -66,14 +75,12 @@ func (db *MariaDbStorage) Clear() {
 	var err error
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	if !db.Storage.Active {
-		db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
-		defer db.mysql.Close()
-		if err != nil {
-			return
-		}
-		_, _ = db.mysql.Query("call `clear`();")
+	db.mysql, err = sql.Open("mysql", db.User+":"+db.Password+"@/"+db.Name)
+	defer db.mysql.Close()
+	if err != nil {
+		return
 	}
+	_, _ = db.mysql.Query("call `clear`();")
 }
 
 // Keys  :
