@@ -209,9 +209,7 @@ func main() {
 ```go
 package main
 
-import (
-	"github.com/benitogf/samo"
-)
+import "github.com/benitogf/samo"
 
 func main() {
 	app := samo.Server{}
@@ -225,9 +223,7 @@ func main() {
 ```go
 package main
 
-import (
-	"github.com/benitogf/samo"
-)
+import "github.com/benitogf/samo"
 
 func main() {
 	app := samo.Server{}
@@ -242,9 +238,7 @@ func main() {
 ```go
 package main
 
-import (
-	"github.com/benitogf/samo"
-)
+import "github.com/benitogf/samo"
 
 func main() {
 	app := samo.Server{}
@@ -258,9 +252,7 @@ func main() {
 ```go
 package main
 
-import (
-	"github.com/benitogf/samo"
-)
+import "github.com/benitogf/samo"
 
 func main() {
 	app := samo.Server{}
