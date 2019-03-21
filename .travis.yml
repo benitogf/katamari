@@ -22,7 +22,7 @@ install:
   - go get github.com/gobwas/glob
   - go get github.com/go-sql-driver/mysql
   - go get github.com/go-redis/redis
-  - go get github.com/mongodb/mongo-go-driver/mongo
+  - go get github.com/benitogf/mongo-go-driver/mongo
   - go get golang.org/x/tools/cmd/cover
 
 before_script:
