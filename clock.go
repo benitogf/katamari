@@ -1,6 +1,8 @@
 package samo
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -32,6 +34,14 @@ func (app *Server) tick() {
 func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 	mode := "ws"
 	key := "time"
+
+	if !app.Audit(r) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		app.console.Err("socketConnectionUnauthorized", key)
+		return
+	}
+
 	client, err := app.stream.new(mode, key, w, r)
 
 	if err != nil {
