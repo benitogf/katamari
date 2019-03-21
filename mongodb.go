@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mongodb/mongo-go-driver/mongo/options"
+	"github.com/benitogf/mongo-go-driver/mongo/options"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/benitogf/mongo-go-driver/bson"
+	"github.com/benitogf/mongo-go-driver/mongo"
 )
 
 // MongodbStorage : composition of storage
@@ -232,7 +232,7 @@ func (db *MongodbStorage) Set(key string, index string, now int64, data string) 
 // Del  :
 func (db *MongodbStorage) Del(key string) error {
 	var previous document
-	// github.com/mongodb/mongo-go-driver/bson/primitive.E composite literal uses unkeyed fields
+	// github.com/benitogf/mongo-go-driver/bson/primitive.E composite literal uses unkeyed fields
 	filter := bson.M{"key": key}
 	err := db.mongodb.Database("samo").Collection("store").FindOne(context.TODO(), filter).Decode(&previous)
 	if err == mongo.ErrNoDocuments {
