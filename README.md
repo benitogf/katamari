@@ -3,8 +3,8 @@
 [![Build Status][build-image]][build-url]
 
 
-[build-url]: https://travis-ci.org/benitogf/samo
-[build-image]: https://api.travis-ci.org/benitogf/samo.svg?branch=master&style=flat-square
+[build-url]: https://travis-ci.com/benitogf/samo
+[build-image]: https://api.travis-ci.com/benitogf/samo.svg?branch=master&style=flat-square
 
 Zero configuration data persistence and communication layer for your application.
 
@@ -189,6 +189,11 @@ func main() {
 	// Audit requests
 	app.Audit = func(r *http.Request) bool {
 		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
+  }
+
+	// Audit Events
+	app.AuditEvent = func(r *http.Request, event samo.Message) bool {
+		return r.Method == "GET" && r.Header.Get("Token") != nil
 	}
 
 	// Filters

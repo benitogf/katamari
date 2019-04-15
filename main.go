@@ -16,8 +16,11 @@ import (
 	"github.com/rs/cors"
 )
 
-// Audit : function to provide approval or denial of requests
+// Audit : function to define approval or denial of requests
 type Audit func(r *http.Request) bool
+
+// AuditEvent : function to define approval or denial of events
+type AuditEvent func(r *http.Request, event Message) bool
 
 // Server : SAMO application server
 type Server struct {
@@ -27,6 +30,7 @@ type Server struct {
 	stream      stream
 	Filters     Filters
 	Audit       Audit
+	AuditEvent  AuditEvent
 	Subscribe   Subscribe
 	Unsubscribe Unsubscribe
 	Storage     Database
@@ -102,6 +106,7 @@ func (app *Server) Start(address string) {
 	if app.Router == nil {
 		app.Router = mux.NewRouter()
 	}
+
 	app.console = coat.NewConsole(app.address, app.Silence)
 	app.stream.console = app.console
 
@@ -109,15 +114,23 @@ func (app *Server) Start(address string) {
 		app.Storage = &MemoryStorage{
 			Storage: &Storage{Separator: app.separator}}
 	}
+
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
+
+	if app.AuditEvent == nil {
+		app.AuditEvent = func(r *http.Request, event Message) bool { return true }
+	}
+
 	if app.Subscribe == nil {
 		app.Subscribe = func(mode string, key string, remoteAddr string) error { return nil }
 	}
+
 	if app.Unsubscribe == nil {
 		app.Unsubscribe = func(mode string, key string, remoteAddr string) {}
 	}
+
 	app.stream.Subscribe = app.Subscribe
 	app.stream.Unsubscribe = app.Unsubscribe
 	rr := app.makeRouteRegex()
