@@ -294,9 +294,9 @@ func TestWsBadRequest(t *testing.T) {
 	require.Equal(t, 400, resp.StatusCode)
 }
 
-func TestWsEventAudit(t *testing.T) {
+func TestWsAuditEvent(t *testing.T) {
 	app := Server{}
-	app.Silence = false
+	app.Silence = true
 	// block all events (read only subscription)
 	app.AuditEvent = func(r *http.Request, event Message) bool {
 		return false
