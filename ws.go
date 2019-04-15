@@ -56,10 +56,15 @@ func (app *Server) processSet(mode string, key string, index string, sub string,
 	}
 }
 
-func (app *Server) processMessage(mode string, key string, client *conn, message []byte) {
+func (app *Server) processMessage(mode string, key string, message []byte, client *conn, r *http.Request) {
 	event, err := app.messages.decode(message)
 	if err != nil {
 		app.console.Err("eventMessageError["+mode+"/"+key+"]", err)
+		return
+	}
+
+	if !app.AuditEvent(r, event) {
+		app.console.Err("socketEventUnauthorized", key)
 		return
 	}
 
@@ -74,7 +79,7 @@ func (app *Server) processMessage(mode string, key string, client *conn, message
 	}
 }
 
-func (app *Server) readClient(client *conn, mode string, key string) {
+func (app *Server) readClient(mode string, key string, client *conn, r *http.Request) {
 	for {
 		_, message, err := client.conn.ReadMessage()
 
@@ -83,7 +88,7 @@ func (app *Server) readClient(client *conn, mode string, key string) {
 			break
 		}
 
-		go app.processMessage(mode, key, client, message)
+		go app.processMessage(mode, key, message, client, r)
 	}
 }
 
@@ -96,12 +101,14 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 			app.console.Err("socketKeyError", key)
 			return
 		}
+
 		if !app.Audit(r) {
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
 			app.console.Err("socketConnectionUnauthorized", key)
 			return
 		}
+
 		client, err := app.stream.new(mode, key, w, r)
 
 		if err != nil {
@@ -114,10 +121,12 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 		// send initial msg
 		raw, _ := app.Storage.Get(mode, key)
 		filteredData, err := app.Filters.Send.check(key, raw, app.Static)
-		if err == nil {
-			go app.stream.write(client, app.messages.encode(filteredData))
+		if err != nil {
+			app.console.Err("samo: filtered route", err)
+			return
 		}
 
-		app.readClient(client, mode, key)
+		go app.stream.write(client, app.messages.encode(filteredData))
+		app.readClient(mode, key, client, r)
 	}
 }

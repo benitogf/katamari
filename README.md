@@ -189,6 +189,11 @@ func main() {
 	// Audit requests
 	app.Audit = func(r *http.Request) bool {
 		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
+  }
+
+	// Audit Events
+	app.AuditEvent = func(r *http.Request, event samo.Message) bool {
+		return r.Method == "GET" && r.Header.Get("Token") != nil
 	}
 
 	// Filters

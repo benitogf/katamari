@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -285,11 +286,51 @@ func TestWsBadRequest(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-
 	req := httptest.NewRequest("GET", "/sa/test", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 
 	require.Equal(t, 400, resp.StatusCode)
+}
+
+func TestWsEventAudit(t *testing.T) {
+	app := Server{}
+	app.Silence = false
+	// block all events (read only subscription)
+	app.AuditEvent = func(r *http.Request, event Message) bool {
+		return false
+	}
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	require.NoError(t, err)
+
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			app.console.Err("read c", err)
+			break
+		}
+		data, err := app.messages.decode(message)
+		require.NoError(t, err)
+		app.console.Log("read c", data)
+		err = c.WriteMessage(websocket.TextMessage, []byte("{"+
+			"\"op\": \"del\""+
+			"}"))
+		require.NoError(t, err)
+		err = c.Close()
+		require.NoError(t, err)
+	}
+
+	req := httptest.NewRequest("GET", "/r/sa/test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, 200, resp.StatusCode)
 }

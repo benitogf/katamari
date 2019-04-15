@@ -56,7 +56,7 @@ func (r Router) check(key string, data []byte, static bool) ([]byte, error) {
 	}
 
 	if match == -1 && static {
-		return nil, errors.New("route not defined, static mode")
+		return nil, errors.New("route not defined, static mode, key:" + key)
 	}
 
 	return r[match].apply(key, data)
