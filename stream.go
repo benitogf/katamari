@@ -97,6 +97,7 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 		CheckOrigin: func(r *http.Request) bool {
 			return r.Header.Get("Upgrade") == "websocket"
 		},
+		Subprotocols: []string{"bearer"},
 	}
 
 	wsClient, err := upgrader.Upgrade(w, r, nil)

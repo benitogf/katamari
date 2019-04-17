@@ -61,10 +61,11 @@ func (app *Server) waitListen() {
 	app.server = &http.Server{
 		Addr: app.address,
 		Handler: cors.New(cors.Options{
-			AllowedMethods: []string{"GET", "POST", "DELETE"},
+			AllowedMethods: []string{"GET", "POST", "DELETE", "PUT"},
 			// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
 			// AllowCredentials: true,
-			// Debug: true,
+			AllowedHeaders: []string{"Authorization", "Content-Type"},
+			// Debug:          true,
 		}).Handler(app.Router)}
 	app.mutex.Unlock()
 	err = app.server.ListenAndServe()
