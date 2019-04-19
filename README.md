@@ -93,7 +93,10 @@ will handle the key as key->value
 | GET | get object | http://{host}:{port}/r/sa/{key} |
 ### websocket
 
-### get (sent after handshake and on each new/update/delete event)
+  subscriptions can receive messages with operations on the data `set` (default) or `del`, however no confirmation sent to the client
+
+
+### `get` (sent after handshake and after each new/update/delete event)
 ---
 ```js
 {
@@ -104,7 +107,7 @@ will handle the key as key->value
 }
 ```
 
-### set (format expected from client)
+### `set` (format expected from client)
 ---
 ```js
 {
@@ -112,7 +115,7 @@ will handle the key as key->value
 }
 ```
 
-### del (format expected from client)
+### `del` (format expected from client)
 ---
 ```js
 {
