@@ -68,6 +68,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		app.console.Log("rpost", vkey)
 		key, index, now := app.keys.Build(mode, vkey, obj.Index, "R", app.separator)
 
 		data, err := app.Filters.Receive.check(key, []byte(obj.Data), app.Static)
@@ -109,6 +110,7 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
+		app.console.Log("rget", key)
 		raw, err := app.Storage.Get(mode, key)
 		if err != nil {
 			app.console.Err(err)
@@ -144,6 +146,7 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	app.console.Log("rdel", key)
 	err := app.Storage.Del(key)
 
 	if err != nil {
