@@ -23,11 +23,18 @@ As stated in this relevant [article](https://medium.com/@brenda.clark/firebase-a
 
 # quickstart
 
+Sample application [client](https://github.com/benitogf/samo-js-client-example) and [server](https://github.com/benitogf/tie):
+  - jwt token based auth
+  - protected subscription component
+  - read only public subscription component
+  - token refresh cycle
+  - auto-reconnect on protected components subscriptions
+  - built with [react](https://github.com/facebook/create-react-app) and [material ui](https://material-ui.com)
+  - using react [hooks-state](https://reactjs.org/docs/hooks-state.html)
+
 ## client
 
 There's a [js client library](https://www.npmjs.com/package/samo-js-client).
-
-also a [sample application](https://github.com/benitogf/samo-js-client-example) built with [react](https://github.com/facebook/create-react-app) and [material ui](https://material-ui.com).
 
 ## server
 
