@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/benitogf/coat"
+	jsonpatch "github.com/benitogf/json-patch"
 	"github.com/gorilla/websocket"
 )
 
@@ -25,6 +26,7 @@ type conn struct {
 type pool struct {
 	key         string
 	mode        string
+	cache       []byte
 	connections []*conn
 }
 
@@ -36,6 +38,7 @@ type stream struct {
 	pools       []*pool
 	console     *coat.Console
 	*Keys
+	*Messages
 }
 
 func (sm *stream) findPool(mode string, key string) int {
@@ -107,7 +110,7 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 		return nil, err
 	}
 
-	err = sm.Subscribe(mode, mode, wsClient.UnderlyingConn().RemoteAddr().String())
+	err = sm.Subscribe(mode, key, wsClient.UnderlyingConn().RemoteAddr().String())
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +147,35 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) *conn 
 	return client
 }
 
-func (sm *stream) write(client *conn, data string) {
+func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
+	if sm.pools[poolIndex].cache == nil {
+		sm.console.Log("no cache hit", sm.pools[poolIndex].key)
+		sm.pools[poolIndex].cache = data
+		return data, false
+	}
+
+	sm.console.Log("cache hit", len(data), len(sm.pools[poolIndex].cache))
+	patch, err := jsonpatch.CreateMergePatch(sm.pools[poolIndex].cache, data)
+	if err != nil {
+		sm.console.Err("failed to generate patch", err)
+		sm.pools[poolIndex].cache = data
+		return data, false
+	}
+
+	sm.console.Log("patch generated", string(patch))
+	modifiedData, err := jsonpatch.MergePatch(data, patch)
+	if err != nil {
+		sm.console.Err("failed to merge patch", err)
+		sm.pools[poolIndex].cache = data
+		return data, false
+	}
+
+	sm.console.Log("patch merged")
+	sm.pools[poolIndex].cache = modifiedData
+	return modifiedData, true
+}
+
+func (sm *stream) write(client *conn, data string, snapshot bool) {
 	client.mutex.Lock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte("{"+
 		"\"data\": \""+data+"\""+

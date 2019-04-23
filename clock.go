@@ -12,7 +12,7 @@ func (app *Server) sendTime(clients []*conn) {
 	now := time.Now().UTC().UnixNano()
 	data := strconv.FormatInt(now, 10)
 	for _, client := range clients {
-		go app.stream.write(client, data)
+		go app.stream.write(client, data, true)
 	}
 }
 

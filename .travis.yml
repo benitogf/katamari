@@ -24,6 +24,7 @@ install:
   - go get github.com/go-redis/redis
   - go get github.com/benitogf/mongo-go-driver/mongo
   - go get golang.org/x/tools/cmd/cover
+  - go get github.com/benitogf/json-patch
 
 before_script:
   - mysql -u root < samo.sql
