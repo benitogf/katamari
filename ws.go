@@ -18,10 +18,10 @@ func (app *Server) sendData(key string) {
 			raw, _ := app.Storage.Get(app.stream.pools[poolIndex].mode, key)
 			filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 			if err == nil {
-				modifiedData, _ := app.stream.patch(poolIndex, filteredData)
+				modifiedData, snapshot := app.stream.patch(poolIndex, filteredData)
 				data := app.messages.encode(modifiedData)
 				for _, client := range app.stream.pools[poolIndex].connections {
-					go app.stream.write(client, data, false)
+					go app.stream.write(client, data, snapshot)
 				}
 			}
 		}
@@ -120,7 +120,7 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		client, err := app.stream.new(mode, key, w, r)
+		client, poolIndex, err := app.stream.new(mode, key, w, r)
 
 		if err != nil {
 			return
@@ -137,6 +137,7 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		app.stream.setCache(poolIndex, filteredData)
 		go app.stream.write(client, app.messages.encode(filteredData), true)
 		app.readClient(mode, key, client, r)
 	}

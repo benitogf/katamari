@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benitogf/jsonpatch"
 	"github.com/gorilla/websocket"
+	"github.com/nsf/jsondiff"
 	"github.com/stretchr/testify/require"
 )
 
@@ -161,6 +163,7 @@ func TestWsBroadcast(t *testing.T) {
 	readCount := 0
 	got1 := ""
 	got2 := ""
+	cache := ""
 
 	go func() {
 		for {
@@ -215,6 +218,7 @@ func TestWsBroadcast(t *testing.T) {
 			err = c2.Close()
 			require.NoError(t, err)
 		} else {
+			cache = event.Data
 			app.console.Log("writing from c2")
 			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+
 				"\"index\": \"1\","+
@@ -235,8 +239,22 @@ func TestWsBroadcast(t *testing.T) {
 		mutex.RLock()
 	}
 	mutex.RUnlock()
+	patch, err := jsonpatch.DecodePatch([]byte(got2))
+	require.NoError(t, err)
 
-	require.Equal(t, got1, "["+got2+"]")
+	modified, err := patch.Apply([]byte(cache))
+	require.NoError(t, err)
+
+	opts := jsondiff.DefaultConsoleOptions()
+	result, _ := jsondiff.Compare(
+		[]byte(got1),
+		[]byte("["+string(modified)+"]"),
+		&opts)
+
+	app.console.Log("patch: ", got2)
+	app.console.Log(got1, "["+string(modified)+"]")
+
+	require.Equal(t, result, jsondiff.FullMatch)
 }
 
 func TestWsDel(t *testing.T) {

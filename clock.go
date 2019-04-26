@@ -42,7 +42,7 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := app.stream.new(mode, key, w, r)
+	client, _, err := app.stream.new(mode, key, w, r)
 
 	if err != nil {
 		return

@@ -1,11 +1,14 @@
 package samo
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"sync"
 
+	"github.com/benitogf/jsonpatch"
+
 	"github.com/benitogf/coat"
-	jsonpatch "github.com/benitogf/json-patch"
 	"github.com/gorilla/websocket"
 )
 
@@ -94,7 +97,7 @@ func (sm *stream) close(mode string, key string, client *conn) {
 	client.conn.Close()
 }
 
-func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Request) (*conn, error) {
+func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Request) (*conn, int, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -107,18 +110,19 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 
 	if err != nil {
 		sm.console.Err("socketUpgradeError["+mode+"/"+key+"]", err)
-		return nil, err
+		return nil, -1, err
 	}
 
 	err = sm.Subscribe(mode, key, wsClient.UnderlyingConn().RemoteAddr().String())
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
-	return sm.open(mode, key, wsClient), nil
+	client, poolIndex := sm.open(mode, key, wsClient)
+	return client, poolIndex, nil
 }
 
-func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) *conn {
+func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn, int) {
 	poolIndex := sm.findPool(mode, key)
 	client := &conn{
 		conn:  wsClient,
@@ -144,40 +148,51 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) *conn 
 
 	sm.console.Log("connections["+mode+"/"+key+"]: ", len(sm.pools[poolIndex].connections))
 	sm.mutex.Unlock()
-	return client
+	return client, poolIndex
 }
 
+func (sm *stream) setCache(poolIndex int, data []byte) {
+	sm.pools[poolIndex].cache = data
+}
+
+// patch will return either the snapshot or the patch
+// patch, false (patch)
+// snapshot, true (snapshot)
 func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
+	if sm.pools[poolIndex].mode == "ws" {
+		return data, true
+	}
+
 	if sm.pools[poolIndex].cache == nil {
-		sm.console.Log("no cache hit", sm.pools[poolIndex].key)
-		sm.pools[poolIndex].cache = data
-		return data, false
+		// this should not happen, but we can send the snapshot
+		sm.console.Err("no cache hit", sm.pools[poolIndex].key)
+		sm.setCache(poolIndex, data)
+		return data, true
 	}
 
-	sm.console.Log("cache hit", len(data), len(sm.pools[poolIndex].cache))
-	patch, err := jsonpatch.CreateMergePatch(sm.pools[poolIndex].cache, data)
+	sm.console.Log("cache hit", sm.pools[poolIndex].mode, sm.pools[poolIndex].key, string(sm.pools[poolIndex].cache), string(data))
+	// generate patch https://github.com/benitogf/jsonpatch/blob/master/jsonpatch.go#L64
+	patch, err := jsonpatch.CreatePatch(sm.pools[poolIndex].cache, data)
+	sm.setCache(poolIndex, data)
 	if err != nil {
-		sm.console.Err("failed to generate patch", err)
-		sm.pools[poolIndex].cache = data
-		return data, false
+		sm.console.Err("generate patch failed", err)
+		return data, true
 	}
-
-	sm.console.Log("patch generated", string(patch))
-	modifiedData, err := jsonpatch.MergePatch(data, patch)
+	operations, err := json.Marshal(patch)
 	if err != nil {
-		sm.console.Err("failed to merge patch", err)
-		sm.pools[poolIndex].cache = data
-		return data, false
+		sm.console.Err("json marshall patch operations failed", err)
+		return data, true
 	}
 
-	sm.console.Log("patch merged")
-	sm.pools[poolIndex].cache = modifiedData
-	return modifiedData, true
+	sm.console.Log("generated patch for", sm.pools[poolIndex].mode, sm.pools[poolIndex].key, string(operations), string(data))
+
+	return operations, false
 }
 
 func (sm *stream) write(client *conn, data string, snapshot bool) {
 	client.mutex.Lock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte("{"+
+		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
 		"\"data\": \""+data+"\""+
 		"}"))
 	client.mutex.Unlock()
