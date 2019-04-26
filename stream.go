@@ -27,6 +27,7 @@ type conn struct {
 
 // pool of mode/key filtered websocket connections
 type pool struct {
+	mutex       sync.RWMutex
 	key         string
 	mode        string
 	cache       []byte
@@ -152,7 +153,9 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn
 }
 
 func (sm *stream) setCache(poolIndex int, data []byte) {
+	sm.pools[poolIndex].mutex.Lock()
 	sm.pools[poolIndex].cache = data
+	sm.pools[poolIndex].mutex.Unlock()
 }
 
 // patch will return either the snapshot or the patch
