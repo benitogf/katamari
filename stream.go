@@ -130,9 +130,9 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn
 		mutex: sync.Mutex{},
 	}
 
-	sm.mutex.Lock()
 	if poolIndex == -1 {
 		// create a pool
+		sm.mutex.Lock()
 		sm.pools = append(
 			sm.pools,
 			&pool{
@@ -140,15 +140,19 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn
 				mode:        mode,
 				connections: []*conn{client}})
 		poolIndex = len(sm.pools) - 1
+		sm.mutex.Unlock()
 	} else {
 		// use existing pool
+		sm.pools[poolIndex].mutex.Lock()
 		sm.pools[poolIndex].connections = append(
 			sm.pools[poolIndex].connections,
 			client)
+		sm.pools[poolIndex].mutex.Unlock()
 	}
 
+	sm.pools[poolIndex].mutex.RLock()
 	sm.console.Log("connections["+mode+"/"+key+"]: ", len(sm.pools[poolIndex].connections))
-	sm.mutex.Unlock()
+	sm.pools[poolIndex].mutex.RUnlock()
 	return client, poolIndex
 }
 
@@ -162,32 +166,30 @@ func (sm *stream) setCache(poolIndex int, data []byte) {
 // patch, false (patch)
 // snapshot, true (snapshot)
 func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
+	sm.pools[poolIndex].mutex.RLock()
 	if sm.pools[poolIndex].mode == "ws" {
+		sm.pools[poolIndex].mutex.RUnlock()
 		return data, true
 	}
 
 	if sm.pools[poolIndex].cache == nil {
-		// this should not happen, but we can send the snapshot
-		sm.console.Err("no cache hit", sm.pools[poolIndex].key)
+		sm.pools[poolIndex].mutex.RUnlock()
 		sm.setCache(poolIndex, data)
 		return data, true
 	}
 
-	sm.console.Log("cache hit", sm.pools[poolIndex].mode, sm.pools[poolIndex].key, string(sm.pools[poolIndex].cache), string(data))
-	// generate patch https://github.com/benitogf/jsonpatch/blob/master/jsonpatch.go#L64
 	patch, err := jsonpatch.CreatePatch(sm.pools[poolIndex].cache, data)
+	sm.pools[poolIndex].mutex.RUnlock()
 	sm.setCache(poolIndex, data)
 	if err != nil {
-		sm.console.Err("generate patch failed", err)
+		sm.console.Err("patch create failed", err)
 		return data, true
 	}
 	operations, err := json.Marshal(patch)
 	if err != nil {
-		sm.console.Err("json marshall patch operations failed", err)
+		sm.console.Err("patch decode failed", err)
 		return data, true
 	}
-
-	sm.console.Log("generated patch for", sm.pools[poolIndex].mode, sm.pools[poolIndex].key, string(operations), string(data))
 
 	return operations, false
 }
