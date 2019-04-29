@@ -12,20 +12,21 @@ import (
 func (app *Server) sendData(key string) {
 	connections := app.stream.findConnections(key, app.separator)
 	if len(connections) > 0 {
-		app.stream.mutex.RLock()
 		for _, poolIndex := range connections {
+			app.stream.mutex.RLock()
 			key := app.stream.pools[poolIndex].key
 			raw, _ := app.Storage.Get(app.stream.pools[poolIndex].mode, key)
+			connections := app.stream.pools[poolIndex].connections
+			app.stream.mutex.RUnlock()
 			filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 			if err == nil {
 				modifiedData, snapshot := app.stream.patch(poolIndex, filteredData)
 				data := app.messages.encode(modifiedData)
-				for _, client := range app.stream.pools[poolIndex].connections {
+				for _, client := range connections {
 					go app.stream.write(client, data, snapshot)
 				}
 			}
 		}
-		app.stream.mutex.RUnlock()
 	}
 }
 

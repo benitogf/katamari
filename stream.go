@@ -27,7 +27,6 @@ type conn struct {
 
 // pool of mode/key filtered websocket connections
 type pool struct {
-	mutex       sync.RWMutex
 	key         string
 	mode        string
 	cache       []byte
@@ -130,9 +129,9 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn
 		mutex: sync.Mutex{},
 	}
 
+	sm.mutex.Lock()
 	if poolIndex == -1 {
 		// create a pool
-		sm.mutex.Lock()
 		sm.pools = append(
 			sm.pools,
 			&pool{
@@ -140,42 +139,35 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn
 				mode:        mode,
 				connections: []*conn{client}})
 		poolIndex = len(sm.pools) - 1
-		sm.mutex.Unlock()
 	} else {
 		// use existing pool
-		sm.pools[poolIndex].mutex.Lock()
 		sm.pools[poolIndex].connections = append(
 			sm.pools[poolIndex].connections,
 			client)
-		sm.pools[poolIndex].mutex.Unlock()
 	}
-
-	sm.pools[poolIndex].mutex.RLock()
 	sm.console.Log("connections["+mode+"/"+key+"]: ", len(sm.pools[poolIndex].connections))
-	sm.pools[poolIndex].mutex.RUnlock()
+	sm.mutex.Unlock()
+
 	return client, poolIndex
 }
 
 func (sm *stream) setCache(poolIndex int, data []byte) {
-	sm.pools[poolIndex].mutex.Lock()
+	sm.mutex.Lock()
 	sm.pools[poolIndex].cache = data
-	sm.pools[poolIndex].mutex.Unlock()
+	sm.mutex.Unlock()
 }
 
 // patch will return either the snapshot or the patch
 // patch, false (patch)
 // snapshot, true (snapshot)
 func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
-	sm.pools[poolIndex].mutex.RLock()
 	if sm.pools[poolIndex].cache == nil {
 		sm.console.Err("empty cache on patch")
-		sm.pools[poolIndex].mutex.RUnlock()
 		sm.setCache(poolIndex, data)
 		return data, true
 	}
 
 	patch, err := jsonpatch.CreatePatch(sm.pools[poolIndex].cache, data)
-	sm.pools[poolIndex].mutex.RUnlock()
 	sm.setCache(poolIndex, data)
 	if err != nil {
 		sm.console.Err("patch create failed", err)
