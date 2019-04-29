@@ -167,12 +167,8 @@ func (sm *stream) setCache(poolIndex int, data []byte) {
 // snapshot, true (snapshot)
 func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
 	sm.pools[poolIndex].mutex.RLock()
-	if sm.pools[poolIndex].mode == "ws" {
-		sm.pools[poolIndex].mutex.RUnlock()
-		return data, true
-	}
-
 	if sm.pools[poolIndex].cache == nil {
+		sm.console.Err("empty cache on patch")
 		sm.pools[poolIndex].mutex.RUnlock()
 		sm.setCache(poolIndex, data)
 		return data, true
