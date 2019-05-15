@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benitogf/jsonpatch"
 	"github.com/gorilla/websocket"
+	"github.com/nsf/jsondiff"
 	"github.com/stretchr/testify/require"
 )
 
@@ -161,6 +163,8 @@ func TestWsBroadcast(t *testing.T) {
 	readCount := 0
 	got1 := ""
 	got2 := ""
+	cache1 := ""
+	cache2 := ""
 
 	go func() {
 		for {
@@ -178,7 +182,17 @@ func TestWsBroadcast(t *testing.T) {
 				err = c1.Close()
 				require.NoError(t, err)
 			}
+			if readCount == 1 {
+				patch, err := jsonpatch.DecodePatch([]byte(event.Data))
+				require.NoError(t, err)
+
+				modified, err := patch.Apply([]byte(cache1))
+				require.NoError(t, err)
+
+				cache1 = string(modified)
+			}
 			if readCount == 0 {
+				cache1 = event.Data
 				err = c1.WriteMessage(websocket.TextMessage, []byte("{"+
 					"\"op\": \"del\","+
 					"\"index\": \"2\""+
@@ -215,6 +229,7 @@ func TestWsBroadcast(t *testing.T) {
 			err = c2.Close()
 			require.NoError(t, err)
 		} else {
+			cache2 = event.Data
 			app.console.Log("writing from c2")
 			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+
 				"\"index\": \"1\","+
@@ -236,7 +251,28 @@ func TestWsBroadcast(t *testing.T) {
 	}
 	mutex.RUnlock()
 
-	require.Equal(t, got1, "["+got2+"]")
+	patch1, err := jsonpatch.DecodePatch([]byte(got1))
+	require.NoError(t, err)
+
+	modified1, err := patch1.Apply([]byte(cache1))
+	require.NoError(t, err)
+
+	patch2, err := jsonpatch.DecodePatch([]byte(got2))
+	require.NoError(t, err)
+
+	modified2, err := patch2.Apply([]byte(cache2))
+	require.NoError(t, err)
+
+	opts := jsondiff.DefaultConsoleOptions()
+	result, _ := jsondiff.Compare(
+		modified1,
+		[]byte("["+string(modified2)+"]"),
+		&opts)
+
+	app.console.Log("patches: ", got1, got2)
+	app.console.Log("merged: ", string(modified1), "["+string(modified2)+"]")
+
+	require.Equal(t, result, jsondiff.FullMatch)
 }
 
 func TestWsDel(t *testing.T) {

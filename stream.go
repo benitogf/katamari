@@ -1,8 +1,12 @@
 package samo
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"sync"
+
+	"github.com/benitogf/jsonpatch"
 
 	"github.com/benitogf/coat"
 	"github.com/gorilla/websocket"
@@ -25,6 +29,7 @@ type conn struct {
 type pool struct {
 	key         string
 	mode        string
+	cache       []byte
 	connections []*conn
 }
 
@@ -36,6 +41,7 @@ type stream struct {
 	pools       []*pool
 	console     *coat.Console
 	*Keys
+	*Messages
 }
 
 func (sm *stream) findPool(mode string, key string) int {
@@ -91,7 +97,7 @@ func (sm *stream) close(mode string, key string, client *conn) {
 	client.conn.Close()
 }
 
-func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Request) (*conn, error) {
+func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Request) (*conn, int, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -104,18 +110,19 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 
 	if err != nil {
 		sm.console.Err("socketUpgradeError["+mode+"/"+key+"]", err)
-		return nil, err
+		return nil, -1, err
 	}
 
-	err = sm.Subscribe(mode, mode, wsClient.UnderlyingConn().RemoteAddr().String())
+	err = sm.Subscribe(mode, key, wsClient.UnderlyingConn().RemoteAddr().String())
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
-	return sm.open(mode, key, wsClient), nil
+	client, poolIndex := sm.open(mode, key, wsClient)
+	return client, poolIndex, nil
 }
 
-func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) *conn {
+func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn, int) {
 	poolIndex := sm.findPool(mode, key)
 	client := &conn{
 		conn:  wsClient,
@@ -138,15 +145,47 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) *conn 
 			sm.pools[poolIndex].connections,
 			client)
 	}
-
 	sm.console.Log("connections["+mode+"/"+key+"]: ", len(sm.pools[poolIndex].connections))
 	sm.mutex.Unlock()
-	return client
+
+	return client, poolIndex
 }
 
-func (sm *stream) write(client *conn, data string) {
+func (sm *stream) setCache(poolIndex int, data []byte) {
+	sm.mutex.Lock()
+	sm.pools[poolIndex].cache = data
+	sm.mutex.Unlock()
+}
+
+// patch will return either the snapshot or the patch
+// patch, false (patch)
+// snapshot, true (snapshot)
+func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
+	if sm.pools[poolIndex].cache == nil {
+		sm.console.Err("empty cache on patch")
+		sm.setCache(poolIndex, data)
+		return data, true
+	}
+
+	patch, err := jsonpatch.CreatePatch(sm.pools[poolIndex].cache, data)
+	sm.setCache(poolIndex, data)
+	if err != nil {
+		sm.console.Err("patch create failed", err)
+		return data, true
+	}
+	operations, err := json.Marshal(patch)
+	if err != nil {
+		sm.console.Err("patch decode failed", err)
+		return data, true
+	}
+
+	return operations, false
+}
+
+func (sm *stream) write(client *conn, data string, snapshot bool) {
 	client.mutex.Lock()
 	err := client.conn.WriteMessage(websocket.TextMessage, []byte("{"+
+		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
 		"\"data\": \""+data+"\""+
 		"}"))
 	client.mutex.Unlock()

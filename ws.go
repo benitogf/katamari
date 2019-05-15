@@ -12,19 +12,21 @@ import (
 func (app *Server) sendData(key string) {
 	connections := app.stream.findConnections(key, app.separator)
 	if len(connections) > 0 {
-		app.stream.mutex.RLock()
-		for _, clientIndex := range connections {
-			key := app.stream.pools[clientIndex].key
-			raw, _ := app.Storage.Get(app.stream.pools[clientIndex].mode, key)
+		for _, poolIndex := range connections {
+			app.stream.mutex.RLock()
+			key := app.stream.pools[poolIndex].key
+			raw, _ := app.Storage.Get(app.stream.pools[poolIndex].mode, key)
+			connections := app.stream.pools[poolIndex].connections
+			app.stream.mutex.RUnlock()
 			filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 			if err == nil {
-				data := app.messages.encode(filteredData)
-				for _, client := range app.stream.pools[clientIndex].connections {
-					go app.stream.write(client, data)
+				modifiedData, snapshot := app.stream.patch(poolIndex, filteredData)
+				data := app.messages.encode(modifiedData)
+				for _, client := range connections {
+					go app.stream.write(client, data, snapshot)
 				}
 			}
 		}
-		app.stream.mutex.RUnlock()
 	}
 }
 
@@ -119,7 +121,7 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		client, err := app.stream.new(mode, key, w, r)
+		client, poolIndex, err := app.stream.new(mode, key, w, r)
 
 		if err != nil {
 			return
@@ -136,7 +138,8 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		go app.stream.write(client, app.messages.encode(filteredData))
+		app.stream.setCache(poolIndex, filteredData)
+		go app.stream.write(client, app.messages.encode(filteredData), true)
 		app.readClient(mode, key, client, r)
 	}
 }
