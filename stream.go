@@ -184,7 +184,7 @@ func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
 
 func (sm *stream) write(client *conn, data string, snapshot bool) {
 	client.mutex.Lock()
-	err := client.conn.WriteMessage(websocket.TextMessage, []byte("{"+
+	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte("{"+
 		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
 		"\"data\": \""+data+"\""+
 		"}"))
