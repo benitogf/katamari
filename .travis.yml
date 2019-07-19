@@ -6,7 +6,7 @@ go:
   - 1.11.x
 
 addons:
-  mariadb: '10.0'
+  mariadb: '10.2'
 
 services:
   - redis-server
