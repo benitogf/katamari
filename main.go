@@ -40,6 +40,7 @@ type Server struct {
 	active      int64
 	Silence     bool
 	Static      bool
+	Tick        time.Duration
 	console     *coat.Console
 	objects     *Objects
 	keys        *Keys
@@ -116,6 +117,10 @@ func (app *Server) Start(address string) {
 			Storage: &Storage{Separator: app.separator}}
 	}
 
+	if app.Tick == 0 {
+		app.Tick = 1 * time.Second
+	}
+
 	if app.Audit == nil {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
@@ -131,6 +136,13 @@ func (app *Server) Start(address string) {
 	if app.Unsubscribe == nil {
 		app.Unsubscribe = func(mode string, key string, remoteAddr string) {}
 	}
+
+	app.stream.pools = append(
+		app.stream.pools,
+		&pool{
+			key:         "time",
+			mode:        "ws",
+			connections: []*conn{}})
 
 	app.stream.Subscribe = app.Subscribe
 	app.stream.Unsubscribe = app.Unsubscribe

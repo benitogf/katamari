@@ -8,25 +8,21 @@ import (
 	"time"
 )
 
-func (app *Server) sendTime(clients []*conn) {
+func (app *Server) getTime() string {
 	now := time.Now().UTC().UnixNano()
-	data := strconv.FormatInt(now, 10)
-	for _, client := range clients {
-		go app.stream.write(client, data, true)
-	}
+	return strconv.FormatInt(now, 10)
+}
+
+func (app *Server) sendTime() {
+	go app.stream.broadcast(0, app.getTime(), true)
 }
 
 func (app *Server) tick() {
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(app.Tick)
 	for {
 		select {
 		case <-ticker.C:
-			poolIndex := app.stream.findPool("ws", "time")
-			app.stream.mutex.RLock()
-			if poolIndex != -1 {
-				go app.sendTime(app.stream.pools[poolIndex].connections)
-			}
-			app.stream.mutex.RUnlock()
+			app.sendTime()
 		}
 	}
 }
@@ -49,7 +45,7 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer app.stream.close(mode, key, client)
-	app.sendTime([]*conn{client})
+	go app.stream.write(client, app.getTime(), true)
 
 	for {
 		_, _, err := client.conn.ReadMessage()
