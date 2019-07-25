@@ -9,24 +9,26 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func (app *Server) getPatch(poolIndex int, mode string, key string) (string, bool, error) {
+	raw, _ := app.Storage.Get(mode, key)
+	filteredData, err := app.Filters.Send.check(key, raw, app.Static)
+	if err != nil {
+		return "", false, err
+	}
+	modifiedData, snapshot := app.stream.patch(poolIndex, filteredData)
+	return app.messages.encode(modifiedData), snapshot, nil
+}
+
 func (app *Server) sendData(key string) {
-	connections := app.stream.findConnections(key, app.separator)
-	if len(connections) > 0 {
-		for _, poolIndex := range connections {
-			app.stream.mutex.RLock()
-			key := app.stream.pools[poolIndex].key
-			raw, _ := app.Storage.Get(app.stream.pools[poolIndex].mode, key)
-			connections := app.stream.pools[poolIndex].connections
-			app.stream.mutex.RUnlock()
-			filteredData, err := app.Filters.Send.check(key, raw, app.Static)
-			if err == nil {
-				modifiedData, snapshot := app.stream.patch(poolIndex, filteredData)
-				data := app.messages.encode(modifiedData)
-				for _, client := range connections {
-					go app.stream.write(client, data, snapshot)
-				}
-			}
+	for _, poolIndex := range app.stream.findConnections(key, app.separator) {
+		data, snapshot, err := app.getPatch(
+			poolIndex,
+			app.stream.pools[poolIndex].mode,
+			app.stream.pools[poolIndex].key)
+		if err != nil {
+			continue
 		}
+		go app.stream.broadcast(poolIndex, data, snapshot)
 	}
 }
 
@@ -39,7 +41,7 @@ func (app *Server) processDel(mode string, key string, index string) {
 		return
 	}
 
-	app.sendData(delKey)
+	go app.sendData(delKey)
 }
 
 func (app *Server) processSet(mode string, key string, index string, sub string, data string) {
@@ -65,7 +67,7 @@ func (app *Server) processSet(mode string, key string, index string, sub string,
 		return
 	}
 
-	app.sendData(setKey)
+	go app.sendData(setKey)
 }
 
 func (app *Server) processMessage(mode string, key string, message []byte, client *conn, r *http.Request) {
@@ -81,13 +83,13 @@ func (app *Server) processMessage(mode string, key string, message []byte, clien
 	}
 
 	if event.Op == "del" && (event.Index != "" || mode == "sa") {
-		app.processDel(mode, key, event.Index)
+		go app.processDel(mode, key, event.Index)
 		return
 	}
 
 	if event.Data != "" {
 		sub := fmt.Sprintf("%x", md5.Sum([]byte(client.conn.UnderlyingConn().RemoteAddr().String())))
-		app.processSet(mode, key, event.Index, sub, event.Data)
+		go app.processSet(mode, key, event.Index, sub, event.Data)
 	}
 }
 

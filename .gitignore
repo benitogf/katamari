@@ -7,3 +7,6 @@ debug.test
 samo
 .vscode
 samo-fuzz.zip
+cpu.prof
+mem.prof
+samo.test.exe

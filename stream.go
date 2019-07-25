@@ -46,14 +46,12 @@ type stream struct {
 
 func (sm *stream) findPool(mode string, key string) int {
 	poolIndex := -1
-	sm.mutex.RLock()
 	for i := range sm.pools {
 		if sm.pools[i].key == key && sm.pools[i].mode == mode {
 			poolIndex = i
 			break
 		}
 	}
-	sm.mutex.RUnlock()
 
 	return poolIndex
 }
@@ -74,18 +72,14 @@ func (sm *stream) findConnections(key string, separator string) []int {
 }
 
 func (sm *stream) close(mode string, key string, client *conn) {
-	// remove the client before closing
-	poolIndex := sm.findPool(mode, key)
-
 	// auxiliar clients array
 	na := []*conn{}
 
 	// loop to remove this client
 	sm.mutex.Lock()
+	poolIndex := sm.findPool(mode, key)
 	for _, v := range sm.pools[poolIndex].connections {
-		if v == client {
-			continue
-		} else {
+		if v != client {
 			na = append(na, v)
 		}
 	}
@@ -123,13 +117,13 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 }
 
 func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn, int) {
-	poolIndex := sm.findPool(mode, key)
 	client := &conn{
 		conn:  wsClient,
 		mutex: sync.Mutex{},
 	}
 
 	sm.mutex.Lock()
+	poolIndex := sm.findPool(mode, key)
 	if poolIndex == -1 {
 		// create a pool
 		sm.pools = append(
@@ -161,18 +155,13 @@ func (sm *stream) setCache(poolIndex int, data []byte) {
 // patch, false (patch)
 // snapshot, true (snapshot)
 func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
-	if sm.pools[poolIndex].cache == nil {
-		sm.console.Err("empty cache on patch")
-		sm.setCache(poolIndex, data)
-		return data, true
-	}
-
-	patch, err := jsonpatch.CreatePatch(sm.pools[poolIndex].cache, data)
-	sm.setCache(poolIndex, data)
+	cache := sm.pools[poolIndex].cache
+	patch, err := jsonpatch.CreatePatch(cache, data)
 	if err != nil {
 		sm.console.Err("patch create failed", err)
 		return data, true
 	}
+	sm.pools[poolIndex].cache = data
 	operations, err := json.Marshal(patch)
 	if err != nil {
 		sm.console.Err("patch decode failed", err)
@@ -191,5 +180,15 @@ func (sm *stream) write(client *conn, data string, snapshot bool) {
 	client.mutex.Unlock()
 	if err != nil {
 		sm.console.Log("writeStreamErr: ", err)
+	}
+}
+
+func (sm *stream) broadcast(poolIndex int, data string, snapshot bool) {
+	sm.mutex.RLock()
+	connections := sm.pools[poolIndex].connections
+	sm.mutex.RUnlock()
+
+	for _, client := range connections {
+		go sm.write(client, data, snapshot)
 	}
 }

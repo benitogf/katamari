@@ -222,6 +222,6 @@ func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int,
 	require.Equal(b, int64(numberOfClients*numberOfMsgs), atomic.LoadInt64(&ops))
 }
 
-func Benchmark100Msgs10ClientBroadcast(b *testing.B) {
+func Benchmark10Msgs10ClientBroadcast(b *testing.B) {
 	multipleClientBroadcast(10, 10, 3000, b)
 }

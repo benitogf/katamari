@@ -21,6 +21,7 @@ import (
 func TestWsTime(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.Tick = 100 * time.Millisecond
 	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -61,7 +62,7 @@ func TestWsTime(t *testing.T) {
 	for count < 2 && tryes < 10000 {
 		tryes++
 		mutex.Unlock()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		mutex.Lock()
 	}
 	mutex.Unlock()
@@ -109,7 +110,7 @@ func TestWsRestPostBroadcast(t *testing.T) {
 	for !started && tryes < 10000 {
 		tryes++
 		mutex.RUnlock()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		mutex.RLock()
 	}
 	mutex.RUnlock()
@@ -125,7 +126,7 @@ func TestWsRestPostBroadcast(t *testing.T) {
 	for got == "" && tryes < 10000 {
 		tryes++
 		mutex.RUnlock()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		mutex.RLock()
 	}
 	mutex.RUnlock()
@@ -209,7 +210,7 @@ func TestWsBroadcast(t *testing.T) {
 	for readCount < 2 && tryes < 10000 {
 		tryes++
 		mutex.RUnlock()
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		mutex.RLock()
 	}
 	mutex.RUnlock()
@@ -246,7 +247,7 @@ func TestWsBroadcast(t *testing.T) {
 	for got1 == "" && tryes < 10000 {
 		tryes++
 		mutex.RUnlock()
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		mutex.RLock()
 	}
 	mutex.RUnlock()
