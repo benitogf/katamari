@@ -133,3 +133,8 @@ func (db *MemoryStorage) Del(key string) error {
 	db.Memdb.Delete(key)
 	return nil
 }
+
+// Watch :
+func (db *MemoryStorage) Watch(key string) interface{} {
+	return nil
+}

@@ -231,3 +231,8 @@ func (db *MariaDbStorage) Del(key string) error {
 	}
 	return nil
 }
+
+// Watch :
+func (db *MariaDbStorage) Watch(key string) interface{} {
+	return nil
+}

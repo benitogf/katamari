@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"go.etcd.io/etcd/clientv3"
 
 	"github.com/benitogf/coat"
 	"github.com/gorilla/mux"
@@ -87,6 +90,18 @@ func (app *Server) waitStart() {
 	app.mutex.RUnlock()
 	if app.server == nil || !app.Storage.Active() {
 		log.Fatal("server start failed")
+	}
+
+	if reflect.TypeOf(app.Storage).String() == "*samo.EtcdStorage" {
+		app.console.Log("beep boop")
+		go func() {
+			for wresp := range app.Storage.Watch("").(clientv3.WatchChan) {
+				for _, ev := range wresp.Events {
+					// fmt.Printf("Wachout %s %q : %q\n", ev.Type, ev.Kv.Key, ev.Kv.Value)
+					go app.sendData(string(ev.Kv.Key))
+				}
+			}
+		}()
 	}
 	app.console.Log("glad to serve[" + app.address + "]")
 }

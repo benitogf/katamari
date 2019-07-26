@@ -175,3 +175,8 @@ func (db *LevelDbStorage) Del(key string) error {
 
 	return db.lvldb.Delete([]byte(key), nil)
 }
+
+// Watch :
+func (db *LevelDbStorage) Watch(key string) interface{} {
+	return nil
+}

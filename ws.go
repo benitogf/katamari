@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"github.com/gorilla/mux"
 )
@@ -41,7 +42,9 @@ func (app *Server) processDel(mode string, key string, index string) {
 		return
 	}
 
-	go app.sendData(delKey)
+	if reflect.TypeOf(app.Storage).String() != "*samo.EtcdStorage" {
+		go app.sendData(delKey)
+	}
 }
 
 func (app *Server) processSet(mode string, key string, index string, sub string, data string) {
@@ -67,7 +70,9 @@ func (app *Server) processSet(mode string, key string, index string, sub string,
 		return
 	}
 
-	go app.sendData(setKey)
+	if reflect.TypeOf(app.Storage).String() != "*samo.EtcdStorage" {
+		go app.sendData(setKey)
+	}
 }
 
 func (app *Server) processMessage(mode string, key string, message []byte, client *conn, r *http.Request) {

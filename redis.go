@@ -176,3 +176,8 @@ func (db *RedisStorage) Del(key string) error {
 
 	return db.redisdb.Del(key).Err()
 }
+
+// Watch :
+func (db *RedisStorage) Watch(key string) interface{} {
+	return nil
+}

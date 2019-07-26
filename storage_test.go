@@ -138,6 +138,19 @@ func TestStorageLeveldb(t *testing.T) {
 	StorageSA(app, t, "leveldb")
 }
 
+func TestStorageEtcd(t *testing.T) {
+	app := &Server{}
+	app.Silence = true
+	app.Storage = &EtcdStorage{}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	for i := range units {
+		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+	}
+	StorageSA(app, t, "etcd")
+}
+
 func TestStorageRedis(t *testing.T) {
 	app := &Server{}
 	app.Silence = true

@@ -71,12 +71,8 @@ func TestWsTime(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWsRestPostBroadcast(t *testing.T) {
-	app := Server{}
-	app.Silence = true
+func wsRestBroadcast(t *testing.T, app *Server) {
 	mutex := sync.RWMutex{}
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -140,12 +136,25 @@ func TestWsRestPostBroadcast(t *testing.T) {
 	require.Equal(t, 200, resp.StatusCode)
 }
 
-func TestWsBroadcast(t *testing.T) {
+func TestWsRestBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	mutex := sync.RWMutex{}
+	app.Storage = &EtcdStorage{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
+	wsRestBroadcast(t, &app)
+}
+
+func TestWsRestBroadcastMemory(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	wsRestBroadcast(t, &app)
+}
+
+func wsBroadcast(t *testing.T, app *Server) {
+	mutex := sync.RWMutex{}
 	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
@@ -276,11 +285,25 @@ func TestWsBroadcast(t *testing.T) {
 	require.Equal(t, result, jsondiff.FullMatch)
 }
 
-func TestWsDel(t *testing.T) {
+func TestWsBroadcastEtcd(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Storage = &EtcdStorage{}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	wsBroadcast(t, &app)
+}
+
+func TestWsBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
+	wsBroadcast(t, &app)
+}
+
+func wsDel(t *testing.T, app *Server) {
 	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
@@ -316,6 +339,23 @@ func TestWsDel(t *testing.T) {
 	resp := w.Result()
 
 	require.Equal(t, 404, resp.StatusCode)
+}
+
+func TestWsDelEtcd(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Storage = &EtcdStorage{}
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	wsDel(t, &app)
+}
+
+func TestWsDelMemory(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	wsDel(t, &app)
 }
 
 func TestWsBadRequest(t *testing.T) {
