@@ -93,11 +93,9 @@ func (app *Server) waitStart() {
 	}
 
 	if reflect.TypeOf(app.Storage).String() == "*samo.EtcdStorage" {
-		app.console.Log("beep boop")
 		go func() {
 			for wresp := range app.Storage.Watch("").(clientv3.WatchChan) {
 				for _, ev := range wresp.Events {
-					// fmt.Printf("Wachout %s %q : %q\n", ev.Type, ev.Kv.Key, ev.Kv.Value)
 					go app.sendData(string(ev.Kv.Key))
 				}
 			}
