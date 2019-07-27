@@ -59,7 +59,7 @@ func (db *EtcdStorage) Start() error {
 	cfg.Dir = db.Path
 	cfg.Logger = "zap"
 	cfg.Debug = false
-	cfg.LogOutputs = []string{db.Path + "/LOG"}
+	// cfg.LogOutputs = []string{db.Path + "/LOG"}
 	db.server, err = embed.StartEtcd(cfg)
 	if err != nil {
 		return err
