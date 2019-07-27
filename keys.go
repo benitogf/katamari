@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gobwas/glob"
 )
 
 // Keys methods
@@ -17,6 +19,12 @@ func (keys *Keys) isValid(key string, separator string) bool {
 
 // isSub checks if index is a sub path of the key
 func (keys *Keys) isSub(key string, index string, separator string) bool {
+	if strings.Contains(key, "*") {
+		re := glob.MustCompile(key)
+		keyPath := strings.Split(key, separator)
+		indexPath := strings.Split(index, separator)
+		return re.Match(index) && len(keyPath) == len(indexPath)-1
+	}
 	moIndex := strings.Split(strings.Replace(index, key+separator, "", 1), separator)
 	return len(moIndex) == 1 && moIndex[0] != key
 }

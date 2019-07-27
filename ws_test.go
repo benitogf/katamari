@@ -203,11 +203,11 @@ func wsBroadcast(t *testing.T, app *Server) {
 			}
 			if readCount == 0 {
 				cache1 = event.Data
-				err = c1.WriteMessage(websocket.TextMessage, []byte("{"+
-					"\"op\": \"del\","+
-					"\"index\": \"2\""+
-					"}"))
-				require.NoError(t, err)
+				req := httptest.NewRequest("DELETE", "/r/test/2", nil)
+				w := httptest.NewRecorder()
+				app.Router.ServeHTTP(w, req)
+				resp := w.Result()
+				require.Equal(t, http.StatusNoContent, resp.StatusCode)
 			}
 			readCount++
 			mutex.Unlock()
@@ -241,11 +241,14 @@ func wsBroadcast(t *testing.T, app *Server) {
 		} else {
 			cache2 = event.Data
 			app.console.Log("writing from c2")
-			err = c2.WriteMessage(websocket.TextMessage, []byte("{"+
+			req := httptest.NewRequest("POST", "/r/sa/test/1", bytes.NewBuffer([]byte("{"+
 				"\"index\": \"1\","+
 				"\"data\": \""+app.messages.encode([]byte("test2"))+"\""+
-				"}"))
-			require.NoError(t, err)
+				"}")))
+			w := httptest.NewRecorder()
+			app.Router.ServeHTTP(w, req)
+			resp := w.Result()
+			require.Equal(t, http.StatusOK, resp.StatusCode)
 			wrote = true
 		}
 		mutex.Unlock()
@@ -303,61 +306,6 @@ func TestWsBroadcastMemory(t *testing.T) {
 	wsBroadcast(t, &app)
 }
 
-func wsDel(t *testing.T, app *Server) {
-	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
-	require.NoError(t, err)
-	require.NotEmpty(t, index)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	require.NoError(t, err)
-	started := false
-
-	for {
-		_, message, err := c.ReadMessage()
-		if err != nil {
-			app.console.Err("read c", err)
-			break
-		}
-		data, err := app.messages.decode(message)
-		require.NoError(t, err)
-		app.console.Log("read c", data)
-		if started {
-			err = c.Close()
-			require.NoError(t, err)
-		} else {
-			err = c.WriteMessage(websocket.TextMessage, []byte("{"+
-				"\"op\": \"del\""+
-				"}"))
-			require.NoError(t, err)
-			started = true
-		}
-	}
-
-	req := httptest.NewRequest("GET", "/r/sa/test", nil)
-	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
-	resp := w.Result()
-
-	require.Equal(t, 404, resp.StatusCode)
-}
-
-func TestWsDelEtcd(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.Storage = &EtcdStorage{}
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	wsDel(t, &app)
-}
-
-func TestWsDelMemory(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	wsDel(t, &app)
-}
-
 func TestWsBadRequest(t *testing.T) {
 	app := Server{}
 	app.Silence = true
@@ -369,45 +317,4 @@ func TestWsBadRequest(t *testing.T) {
 	resp := w.Result()
 
 	require.Equal(t, 400, resp.StatusCode)
-}
-
-func TestWsAuditEvent(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	// block all events (read only subscription)
-	app.AuditEvent = func(r *http.Request, event Message) bool {
-		return false
-	}
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
-	require.NoError(t, err)
-	require.NotEmpty(t, index)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	require.NoError(t, err)
-
-	for {
-		_, message, err := c.ReadMessage()
-		if err != nil {
-			app.console.Err("read c", err)
-			break
-		}
-		data, err := app.messages.decode(message)
-		require.NoError(t, err)
-		app.console.Log("read c", data)
-		err = c.WriteMessage(websocket.TextMessage, []byte("{"+
-			"\"op\": \"del\""+
-			"}"))
-		require.NoError(t, err)
-		err = c.Close()
-		require.NoError(t, err)
-	}
-
-	req := httptest.NewRequest("GET", "/r/sa/test", nil)
-	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
-	resp := w.Result()
-
-	require.Equal(t, 200, resp.StatusCode)
 }

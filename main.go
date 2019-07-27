@@ -22,9 +22,6 @@ import (
 // Audit : function to define approval or denial of requests
 type Audit func(r *http.Request) bool
 
-// AuditEvent : function to define approval or denial of events
-type AuditEvent func(r *http.Request, event Message) bool
-
 // Server : SAMO application server
 type Server struct {
 	mutex       sync.RWMutex
@@ -33,7 +30,6 @@ type Server struct {
 	stream      stream
 	Filters     Filters
 	Audit       Audit
-	AuditEvent  AuditEvent
 	Subscribe   Subscribe
 	Unsubscribe Unsubscribe
 	Storage     Database
@@ -52,6 +48,10 @@ type Server struct {
 
 func (app *Server) makeRouteRegex() string {
 	return "[a-zA-Z\\d][a-zA-Z\\d\\" + app.separator + "]+[a-zA-Z\\d]"
+}
+
+func (app *Server) makeRouteRegexGlob() string {
+	return "[a-zA-Z\\*\\d][a-zA-Z\\*\\d\\" + app.separator + "]+[a-zA-Z\\*\\d]"
 }
 
 func (app *Server) waitListen() {
@@ -138,10 +138,6 @@ func (app *Server) Start(address string) {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
 
-	if app.AuditEvent == nil {
-		app.AuditEvent = func(r *http.Request, event Message) bool { return true }
-	}
-
 	if app.Subscribe == nil {
 		app.Subscribe = func(mode string, key string, remoteAddr string) error { return nil }
 	}
@@ -160,14 +156,15 @@ func (app *Server) Start(address string) {
 	app.stream.Subscribe = app.Subscribe
 	app.stream.Unsubscribe = app.Unsubscribe
 	rr := app.makeRouteRegex()
+	globRegex := app.makeRouteRegexGlob()
 	app.Router.HandleFunc("/", app.getStats)
 	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
 	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
-	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rGet("mo")).Methods("GET")
+	app.Router.HandleFunc("/r/mo/{key:"+globRegex+"}", app.rGet("mo")).Methods("GET")
 	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
 	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
 	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.ws("sa"))
-	app.Router.HandleFunc("/mo/{key:"+rr+"}", app.ws("mo"))
+	app.Router.HandleFunc("/mo/{key:"+globRegex+"}", app.ws("mo"))
 	app.Router.HandleFunc("/time", app.clock)
 	go app.waitListen()
 	app.waitStart()

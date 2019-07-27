@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *testing.B, storage string) {
+func storagePost(ServeHTTP func(w http.ResponseWriter, req *http.Request), b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(
@@ -39,21 +39,21 @@ func BenchmarkMemorydbStoragePost(b *testing.B) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b, "memory")
+	storagePost(app.Router.ServeHTTP, b)
 }
 
-func BenchmarkLeveldbStoragePost(b *testing.B) {
+func BenchmarkLevelStoragePost(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
 	app.Silence = true
-	app.Storage = &LevelDbStorage{
+	app.Storage = &LevelStorage{
 		Path:    "test/db",
 		lvldb:   nil,
 		Storage: &Storage{}}
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b, "leveldb")
+	storagePost(app.Router.ServeHTTP, b)
 }
 
 func BenchmarkRedisStoragePost(b *testing.B) {
@@ -65,7 +65,7 @@ func BenchmarkRedisStoragePost(b *testing.B) {
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b, "redis")
+	storagePost(app.Router.ServeHTTP, b)
 }
 
 func BenchmarkEtcdStoragePost(b *testing.B) {
@@ -75,45 +75,23 @@ func BenchmarkEtcdStoragePost(b *testing.B) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b, "memory")
+	storagePost(app.Router.ServeHTTP, b)
 }
 
-func BenchmarkMongodbStoragePost(b *testing.B) {
-	b.ReportAllocs()
-	app := Server{}
-	app.Silence = true
-	app.Storage = &MongodbStorage{
-		Storage: &Storage{}}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	storagePost(app.Router.ServeHTTP, b, "mongodb")
-}
-
-func storageSetGetDel(db Database, b *testing.B, storage string) {
+func storageSetGetDel(db Database, b *testing.B) {
 	tests := make(map[string]string)
 	for i := 0; i < b.N; i++ {
 		index := strconv.FormatInt(int64(i), 10)
 		tests["test"+index] = "test" + index
 	}
-	wait := time.Duration(5)
 	b.ResetTimer()
 	for index := range tests {
 		ci, _ := db.Set("test/"+index, index, 0, tests[index])
-		if storage == "mariadb" {
-			time.Sleep(wait * time.Second)
-		}
 		_, _ = db.Get("sa", "test/"+ci)
-		if storage == "mariadb" {
-			time.Sleep(wait * time.Second)
-		}
 		_ = db.Del("test/" + ci)
 	}
 	result, err := db.Get("mo", "test")
 	require.NoError(b, err)
-	if storage == "mariadb" {
-		time.Sleep(wait * time.Second)
-	}
 	require.Equal(b, "[]", string(result))
 }
 
@@ -123,21 +101,21 @@ func BenchmarkMemoryStorageSetGetDel(b *testing.B) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b, "memory")
+	storageSetGetDel(app.Storage, b)
 }
 
-func BenchmarkLevelDbStorageSetGetDel(b *testing.B) {
+func BenchmarkLevelStorageSetGetDel(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
 	app.Silence = true
-	app.Storage = &LevelDbStorage{
+	app.Storage = &LevelStorage{
 		Path:    "test/db",
 		lvldb:   nil,
 		Storage: &Storage{}}
 	app.Storage.Clear()
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b, "leveldb")
+	storageSetGetDel(app.Storage, b)
 }
 
 func BenchmarkRedisStorageSetGetDel(b *testing.B) {
@@ -149,7 +127,7 @@ func BenchmarkRedisStorageSetGetDel(b *testing.B) {
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b, "redis")
+	storageSetGetDel(app.Storage, b)
 }
 
 func BenchmarkEtcdStorageSetGetDel(b *testing.B) {
@@ -160,19 +138,7 @@ func BenchmarkEtcdStorageSetGetDel(b *testing.B) {
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b, "memory")
-}
-
-func BenchmarkMongodbStorageSetGetDel(b *testing.B) {
-	b.ReportAllocs()
-	app := Server{}
-	app.Silence = true
-	app.Storage = &MongodbStorage{
-		Storage: &Storage{}}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b, "mongodb")
+	storageSetGetDel(app.Storage, b)
 }
 
 func multipleClientBroadcast(numberOfMsgs int, numberOfClients int, timeout int, b *testing.B) {
