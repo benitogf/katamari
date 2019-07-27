@@ -17,7 +17,7 @@ As stated in this relevant [article](https://medium.com/@brenda.clark/firebase-a
 - dynamic routing
 - glob pattern subscriptions
 - restful CRUD service that reflects interactions to real-time subscriptions
-- storage interfaces for leveldb, redis, mongodb, mariadb, and etcd
+- storage interfaces for leveldb, redis, and etcd
 - filtering and audit middleware
 - auto managed timestamps (created, updated)
 
