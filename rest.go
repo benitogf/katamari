@@ -1,8 +1,6 @@
 package samo
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -32,7 +30,6 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vkey := mux.Vars(r)["key"]
-
 		if !app.keys.isValid(vkey, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
@@ -45,10 +42,8 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		var obj Object
-		decoder := json.NewDecoder(r.Body)
+		event, err := app.messages.decodePost(r.Body)
 		defer r.Body.Close()
-		err := decoder.Decode(&obj)
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -56,23 +51,10 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		if obj.Data == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("samo: emptyDataError data is empty"))
-			return
-		}
-
-		_, err = base64.StdEncoding.DecodeString(obj.Data)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("samo: data is expected in base64 encoding"))
-			return
-		}
-
 		app.console.Log("rpost", vkey)
-		key, index, now := app.keys.Build(mode, vkey, obj.Index, "R", app.separator)
+		key, index, now := app.keys.Build(mode, vkey, event.Index, "R", app.separator)
 
-		data, err := app.Filters.Receive.check(key, []byte(obj.Data), app.Static)
+		data, err := app.Filters.Receive.check(key, []byte(event.Data), app.Static)
 		if err != nil {
 			app.console.Err("setError["+mode+"/"+key+"]", err)
 			w.WriteHeader(http.StatusBadRequest)

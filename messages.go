@@ -3,12 +3,14 @@ package samo
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 )
 
 // Message expected from websocket connections
 type Message struct {
-	Op    string `json:"op"`
+	Op    string `json:"op,omitempty"`
 	Index string `json:"index"`
 	Data  string `json:"data"`
 }
@@ -34,4 +36,44 @@ func (messages *Messages) decode(message []byte) (Message, error) {
 	wsEvent.Data = strings.Trim(string(data), "\n")
 
 	return wsEvent, nil
+}
+
+func (messages *Messages) decodeEvent(message []byte, mode string) (Message, error) {
+	var wsEvent Message
+	err := json.Unmarshal(message, &wsEvent)
+	if err != nil {
+		return wsEvent, err
+	}
+	if wsEvent.Op == "del" && wsEvent.Index == "" && mode != "sa" {
+		return wsEvent, errors.New("samo: empty index on delete event")
+	}
+
+	if wsEvent.Data == "" && wsEvent.Op != "del" {
+		return wsEvent, errors.New("samo: empty ws event data")
+	}
+
+	_, err = base64.StdEncoding.DecodeString(wsEvent.Data)
+	if err != nil {
+		return wsEvent, err
+	}
+
+	return wsEvent, nil
+}
+
+func (messages *Messages) decodePost(r io.Reader) (Message, error) {
+	var httpEvent Message
+	decoder := json.NewDecoder(r)
+	err := decoder.Decode(&httpEvent)
+	if err != nil {
+		return httpEvent, err
+	}
+	if httpEvent.Data == "" {
+		return httpEvent, errors.New("samo: empty post data")
+	}
+	_, err = base64.StdEncoding.DecodeString(httpEvent.Data)
+	if err != nil {
+		return httpEvent, err
+	}
+
+	return httpEvent, nil
 }

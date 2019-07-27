@@ -10,14 +10,17 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/embed"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 )
 
 // EtcdStorage : composition of storage
 type EtcdStorage struct {
 	mutex   sync.RWMutex
-	Address []string
+	Peers   []string
+	Path    string
 	cli     *clientv3.Client
+	server  *embed.Etcd
 	timeout time.Duration
 	*Storage
 }
@@ -31,11 +34,16 @@ func (db *EtcdStorage) Active() bool {
 
 // Start  :
 func (db *EtcdStorage) Start() error {
+	var wg sync.WaitGroup
+	wg.Add(1)
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	var err error
 	if db.Storage == nil {
 		db.Storage = &Storage{}
+	}
+	if db.Path == "" {
+		db.Path = "data/default.etcd"
 	}
 	if db.timeout == 0 {
 		db.timeout = 30 * time.Second
@@ -44,14 +52,35 @@ func (db *EtcdStorage) Start() error {
 		db.Storage.Separator = "/"
 	}
 	db.Storage.Active = true
-	if len(db.Address) == 0 {
-		db.Address = []string{"localhost:2379"}
+	if len(db.Peers) == 0 {
+		db.Peers = []string{"localhost:2379"}
 	}
+	cfg := embed.NewConfig()
+	cfg.Dir = db.Path
+	cfg.Logger = "zap"
+	cfg.Debug = false
+	cfg.LogOutputs = []string{db.Path + "/LOG"}
+	db.server, err = embed.StartEtcd(cfg)
+	if err != nil {
+		return err
+	}
+	select {
+	case <-db.server.Server.ReadyNotify():
+		db.cli, err = clientv3.New(clientv3.Config{
+			Endpoints:   db.Peers,
+			DialTimeout: 5 * time.Second,
+		})
+		wg.Done()
+	case <-time.After(5 * time.Second):
+		db.server.Server.Stop()
+		err = errors.New("etcd embed server took too long to start")
+		wg.Done()
+	case <-db.server.Err():
+		err = errors.New("etcd embed server error")
+		wg.Done()
+	}
+	wg.Wait()
 
-	db.cli, err = clientv3.New(clientv3.Config{
-		Endpoints:   db.Address,
-		DialTimeout: 5 * time.Second,
-	})
 	return err
 }
 
@@ -60,12 +89,12 @@ func (db *EtcdStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.cli.Close()
+	db.server.Close()
 	db.Storage.Active = false
 }
 
 // Clear  :
 func (db *EtcdStorage) Clear() {
-	// https://github.com/etcd-io/etcd/issues/10101
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	_, err := db.cli.Delete(ctx, "", clientv3.WithPrefix())
 	cancel()
@@ -84,7 +113,6 @@ func (db *EtcdStorage) Keys() ([]byte, error) {
 		return nil, err
 	}
 	for _, ev := range resp.Kvs {
-		// fmt.Printf("%s : %s\n", ev.Key, ev.Value)
 		stats.Keys = append(stats.Keys, string(ev.Key))
 	}
 

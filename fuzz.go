@@ -3,34 +3,44 @@
 package samo
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 )
 
 // https://medium.com/@dgryski/go-fuzz-github-com-arolek-ase-3c74d5a3150c
+// go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
+// go get -u github.com/dvyukov/go-fuzz/go-fuzz
+// go-fuzz-build github.com/benitogf/samo
+// go-fuzz -bin='samo-fuzz.zip' -workdir=fuzz
 func Fuzz(fdata []byte) int {
 	data := fmt.Sprintf("%#v", string(fdata))
-	mariadb := &MariaDbStorage{
+	memory := &MemoryStorage{}
+	level := &LevelDbStorage{
+		Path:  "test/db",
+		lvldb: nil}
+	redis := &RedisStorage{
+		Address:  "localhost:6379",
+		Password: ""}
+	etcd := &EtcdStorage{}
+	mongo := &MongodbStorage{
+		Address: "localhost:27017"}
+	maria := &MariaDbStorage{
 		User:     "root",
 		Password: "",
-		Name:     "samo",
-		Storage:  &Storage{}}
-	leveldb := &LevelDbStorage{
-		Path:    "test/db",
-		lvldb:   nil,
-		Storage: &Storage{}}
-	memory := &MemoryStorage{
-		Memdb:   make(map[string][]byte),
-		Storage: &Storage{}}
-	tryStore(memory, data)
-	tryStore(leveldb, data)
-	tryStore(mariadb, data)
+		Name:     "samo"}
+	fuzzStorage(memory, data)
+	fuzzStorage(level, data)
+	fuzzStorage(redis, data)
+	fuzzStorage(mongo, data)
+	fuzzStorage(maria, data)
+	fuzzStorage(etcd, data)
 	return 1
 }
 
-func tryStore(storage Database, data string) {
-	storage.Start("/")
-	_, err := storage.Set("fuzz", "", 0, data)
+func fuzzStorage(storage Database, data string) {
+	storage.Start()
+	_, err := storage.Set("fuzz", "", 0, base64.StdEncoding.EncodeToString([]byte(data)))
 	if err != nil {
 		storage.Close()
 		panic(err)
@@ -46,6 +56,11 @@ func tryStore(storage Database, data string) {
 		storage.Close()
 		panic(err)
 	}
+	raw, err = base64.StdEncoding.DecodeString(obj.Data)
+	if err != nil {
+		panic(err)
+	}
+	obj.Data = string(raw)
 	if obj.Data != string(data) {
 		panic("data != obj.Data: " + obj.Data + " : " + data)
 	}

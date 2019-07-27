@@ -64,7 +64,7 @@ func (app *Server) processSet(mode string, key string, index string, sub string,
 	}
 
 	app.console.Log("set", setKey)
-	_, err = app.Storage.Set(setKey, setIndex, now, app.messages.encode(filteredData))
+	_, err = app.Storage.Set(setKey, setIndex, now, string(filteredData))
 	if err != nil {
 		app.console.Err("setEventError", err)
 		return
@@ -76,7 +76,7 @@ func (app *Server) processSet(mode string, key string, index string, sub string,
 }
 
 func (app *Server) processMessage(mode string, key string, message []byte, client *conn, r *http.Request) {
-	event, err := app.messages.decode(message)
+	event, err := app.messages.decodeEvent(message, mode)
 	if err != nil {
 		app.console.Err("eventMessageError["+mode+"/"+key+"]", err)
 		return
@@ -87,15 +87,13 @@ func (app *Server) processMessage(mode string, key string, message []byte, clien
 		return
 	}
 
-	if event.Op == "del" && (event.Index != "" || mode == "sa") {
+	if event.Op == "del" {
 		go app.processDel(mode, key, event.Index)
 		return
 	}
 
-	if event.Data != "" {
-		sub := fmt.Sprintf("%x", md5.Sum([]byte(client.conn.UnderlyingConn().RemoteAddr().String())))
-		go app.processSet(mode, key, event.Index, sub, event.Data)
-	}
+	sub := fmt.Sprintf("%x", md5.Sum([]byte(client.conn.UnderlyingConn().RemoteAddr().String())))
+	go app.processSet(mode, key, event.Index, sub, event.Data)
 }
 
 func (app *Server) readClient(mode string, key string, client *conn, r *http.Request) {

@@ -3,7 +3,6 @@ package samo
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -112,6 +111,16 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 
 var units = []string{
 	"\xe4\xef\xf0\xe9\xf9l\x100",
+	"V'\xe4\xc0\xbb>0\x86j",
+	"0'\xe40\x860",
+	"\b𝅗𝅝\x85",
+	"𓏝",
+	"𝅅",
+	"'",
+	"\xd80''",
+	"\xd8%''",
+	"0",
+	"",
 }
 
 func TestStorageMemory(t *testing.T) {
@@ -120,7 +129,7 @@ func TestStorageMemory(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
 	StorageSA(app, t, "memory")
 }
@@ -133,7 +142,7 @@ func TestStorageLeveldb(t *testing.T) {
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
 	StorageSA(app, t, "leveldb")
 }
@@ -146,7 +155,7 @@ func TestStorageEtcd(t *testing.T) {
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
 	StorageSA(app, t, "etcd")
 }
@@ -159,7 +168,7 @@ func TestStorageRedis(t *testing.T) {
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
 	StorageSA(app, t, "redis")
 }
@@ -172,7 +181,7 @@ func TestStorageMongodb(t *testing.T) {
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
 	StorageSA(app, t, "mongodb")
 }
@@ -185,7 +194,7 @@ func TestStorageMariadb(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageMO(app, t, fmt.Sprintf("%#v", units[i]))
+		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
 	StorageSA(app, t, "mariadb")
 }

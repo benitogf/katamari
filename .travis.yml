@@ -27,11 +27,10 @@ install:
   - go get github.com/benitogf/jsonpatch
   - go get github.com/nsf/jsondiff
   - go get go.etcd.io/etcd/clientv3
+  - go get go.etcd.io/etcd/embed
 
 before_script:
   - mysql -u root < samo.sql
-  - go get -v go.etcd.io/etcd
-  - nohup $GOPATH/bin/etcd &
 
 script:
   - go vet ./...
