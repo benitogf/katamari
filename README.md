@@ -15,6 +15,7 @@ As stated in this relevant [article](https://medium.com/@brenda.clark/firebase-a
 ## features
 
 - dynamic routing
+- glob pattern subscriptions
 - restful CRUD service that reflects interactions to real-time subscriptions
 - storage interfaces for leveldb, redis, mongodb, mariadb, and etcd
 - filtering and audit middleware
@@ -62,7 +63,7 @@ The service expose four kinds of routes:
 
 - /sa/**: single allocation allows subscriptions to a key->value.
 
-- /mo/**: multiple objects allows subscription to a prefix key/*->list.
+- /mo/**: multiple objects allows subscription to a prefix key/*->list. glob patterns allowed.
 
 ## general routes
 
@@ -88,7 +89,7 @@ will handle the key as a prefix to get a list of every key/[index...], excluding
 
 | method  | description | url    |
 | ------------- |:-------------:| -----:|
-| websocket | key data events: new, update, delete | ws://{host}:{port}/mo/{key} |
+| websocket | key data events: new, update, delete, glob patterns allowed | ws://{host}:{port}/mo/{key} |
 | POST | create/update, if the index is not provided it will autogenerate a new one, preexistent data on the provided key/index will be overwriten | http://{host}:{port}/r/mo |
 | GET | get list | http://{host}:{port}/r/mo/{key} |
 
@@ -117,11 +118,6 @@ func main() {
 	app.Audit = func(r *http.Request) bool {
 		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
   }
-
-	// Audit Events
-	app.AuditEvent = func(r *http.Request, event samo.Message) bool {
-		return r.Method == "GET" && r.Header.Get("Token") != nil
-	}
 
 	// Filters
 	app.ReceiveFilter("bag/*", func(index string, data []byte) ([]byte, error) {
@@ -158,7 +154,7 @@ func main() {
 
     Use alternative storages (the default is memory)
 
-### leveldb
+### level
 ```go
 package main
 
@@ -166,7 +162,7 @@ import "github.com/benitogf/samo"
 
 func main() {
 	app := samo.Server{}
-	app.Storage = &samo.LevelDbStorage{
+	app.Storage = &samo.LevelStorage{
 		Path:    "data/db"}
 	app.Start("localhost:8800")
 	app.WaitClose()
@@ -187,7 +183,7 @@ func main() {
 	app.WaitClose()
 }
 ```
-### mongodb
+### mongo
 ```go
 package main
 
@@ -195,24 +191,8 @@ import "github.com/benitogf/samo"
 
 func main() {
 	app := samo.Server{}
-	app.Storage = &samo.MongodbStorage{
+	app.Storage = &samo.MongoStorage{
 		Address: "localhost:27017"}
-	app.Start("localhost:8800")
-	app.WaitClose()
-}
-```
-### mariadb
-```go
-package main
-
-import "github.com/benitogf/samo"
-
-func main() {
-	app := samo.Server{}
-	app.Storage = &samo.MariaDbStorage{
-		User:     "root",
-		Password: "",
-		Name:     "test"}
 	app.Start("localhost:8800")
 	app.WaitClose()
 }

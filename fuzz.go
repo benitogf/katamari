@@ -25,15 +25,10 @@ func Fuzz(fdata []byte) int {
 	etcd := &EtcdStorage{}
 	mongo := &MongodbStorage{
 		Address: "localhost:27017"}
-	maria := &MariaDbStorage{
-		User:     "root",
-		Password: "",
-		Name:     "samo"}
 	fuzzStorage(memory, data)
 	fuzzStorage(level, data)
 	fuzzStorage(redis, data)
 	fuzzStorage(mongo, data)
-	fuzzStorage(maria, data)
 	fuzzStorage(etcd, data)
 	return 1
 }

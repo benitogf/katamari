@@ -46,13 +46,5 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 
 	defer app.stream.close(mode, key, client)
 	go app.stream.write(client, app.getTime(), true)
-
-	for {
-		_, _, err := client.conn.ReadMessage()
-
-		if err != nil {
-			app.console.Err("readSocketError["+mode+"/"+key+"]", err)
-			break
-		}
-	}
+	app.readClient(mode, key, client)
 }

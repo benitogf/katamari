@@ -99,6 +99,19 @@ func TestRestart(t *testing.T) {
 	defer app.Close(os.Interrupt)
 }
 
+func TestGlobKey(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test/*"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	app.console.Err(err)
+	require.NotNil(t, c)
+	require.NoError(t, err)
+	c.Close()
+}
+
 func TestInvalidKey(t *testing.T) {
 	app := Server{}
 	app.Silence = true

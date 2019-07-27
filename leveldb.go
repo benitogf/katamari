@@ -4,14 +4,15 @@ import (
 	"errors"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// LevelDbStorage : composition of storage
-type LevelDbStorage struct {
+// LevelStorage : composition of storage
+type LevelStorage struct {
 	Path  string
 	lvldb *leveldb.DB
 	mutex sync.RWMutex
@@ -19,14 +20,14 @@ type LevelDbStorage struct {
 }
 
 // Active  :
-func (db *LevelDbStorage) Active() bool {
+func (db *LevelStorage) Active() bool {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	return db.Storage.Active
 }
 
 // Start  :
-func (db *LevelDbStorage) Start() error {
+func (db *LevelStorage) Start() error {
 	var err error
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
@@ -47,7 +48,7 @@ func (db *LevelDbStorage) Start() error {
 }
 
 // Close  :
-func (db *LevelDbStorage) Close() {
+func (db *LevelStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.Storage.Active = false
@@ -55,7 +56,7 @@ func (db *LevelDbStorage) Close() {
 }
 
 // Clear  :
-func (db *LevelDbStorage) Clear() {
+func (db *LevelStorage) Clear() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	var err error
@@ -75,7 +76,7 @@ func (db *LevelDbStorage) Clear() {
 }
 
 // Keys  :
-func (db *LevelDbStorage) Keys() ([]byte, error) {
+func (db *LevelStorage) Keys() ([]byte, error) {
 	iter := db.lvldb.NewIterator(nil, nil)
 	stats := Stats{}
 	for iter.Next() {
@@ -95,7 +96,7 @@ func (db *LevelDbStorage) Keys() ([]byte, error) {
 }
 
 // Get  :
-func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
+func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 	if mode == "sa" {
 		data, err := db.lvldb.Get([]byte(key), nil)
 		if err != nil {
@@ -106,7 +107,8 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 	}
 
 	if mode == "mo" {
-		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(key+db.Storage.Separator)), nil)
+		globPrefixKey := strings.Split(key, db.Storage.Separator+"*")[0]
+		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(globPrefixKey+db.Storage.Separator)), nil)
 		res := []Object{}
 		for iter.Next() {
 			if db.Storage.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
@@ -129,7 +131,7 @@ func (db *LevelDbStorage) Get(mode string, key string) ([]byte, error) {
 }
 
 // Peek :
-func (db *LevelDbStorage) Peek(key string, now int64) (int64, int64) {
+func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 	previous, err := db.lvldb.Get([]byte(key), nil)
 	if err != nil {
 		return now, 0
@@ -144,7 +146,7 @@ func (db *LevelDbStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set  :
-func (db *LevelDbStorage) Set(key string, index string, now int64, data string) (string, error) {
+func (db *LevelStorage) Set(key string, index string, now int64, data string) (string, error) {
 	created, updated := db.Peek(key, now)
 	err := db.lvldb.Put(
 		[]byte(key),
@@ -163,7 +165,7 @@ func (db *LevelDbStorage) Set(key string, index string, now int64, data string) 
 }
 
 // Del  :
-func (db *LevelDbStorage) Del(key string) error {
+func (db *LevelStorage) Del(key string) error {
 	_, err := db.lvldb.Get([]byte(key), nil)
 	if err != nil && err.Error() == "leveldb: not found" {
 		return errors.New("samo: not found")
@@ -177,6 +179,6 @@ func (db *LevelDbStorage) Del(key string) error {
 }
 
 // Watch :
-func (db *LevelDbStorage) Watch(key string) interface{} {
+func (db *LevelStorage) Watch(key string) interface{} {
 	return nil
 }

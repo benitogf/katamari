@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func StorageSA(app *Server, t *testing.T, driver string) {
-	_ = app.Storage.Del("test")
+func StorageSA(app *Server, t *testing.T) {
+	app.Storage.Clear()
 	index, err := app.Storage.Set("test", "test", 1, "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
@@ -22,10 +22,6 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
-	// mariadb handles created/updated so it can't be mocked
-	if driver != "mariadb" {
-		require.Equal(t, int64(1), testObject.Created)
-	}
 	index, err = app.Storage.Set("test", "test", 2, "test_update")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
@@ -34,11 +30,6 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 	testObject, err = app.objects.decode(data)
 	require.NoError(t, err)
 	require.Equal(t, "test_update", testObject.Data)
-	// mariadb handles created/updated so it can't be mocked
-	if driver != "mariadb" {
-		require.Equal(t, int64(2), testObject.Updated)
-		require.Equal(t, int64(1), testObject.Created)
-	}
 	err = app.Storage.Del("test")
 	require.NoError(t, err)
 	raw, _ := app.Storage.Get("sa", "test")
@@ -47,9 +38,7 @@ func StorageSA(app *Server, t *testing.T, driver string) {
 }
 
 func StorageMO(app *Server, t *testing.T, testData string) {
-	_ = app.Storage.Del("test/456")
-	_ = app.Storage.Del("test/123")
-	_ = app.Storage.Del("test/1")
+	app.Storage.Clear()
 	modData := testData + testData
 	index, err := app.Storage.Set("test/123", "123", 0, testData)
 	require.NoError(t, err)
@@ -107,6 +96,35 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	require.Equal(t, 3, len(testObjects))
 	err = app.Storage.Del("test/" + dat.Index)
 	require.NoError(t, err)
+	data, err = app.Storage.Get("mo", "test")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	index, err = app.Storage.Set("test/glob1/glob123", "123", 0, testData)
+	require.NoError(t, err)
+	require.Equal(t, "123", index)
+	index, err = app.Storage.Set("test/glob2/glob456", "456", 0, modData)
+	require.NoError(t, err)
+	require.Equal(t, "456", index)
+	data, err = app.Storage.Get("mo", "test/*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	index, err = app.Storage.Set("test/1/glob/g/123", "123", 0, testData)
+	require.NoError(t, err)
+	require.Equal(t, "123", index)
+	index, err = app.Storage.Set("test/2/glob/g/456", "456", 0, modData)
+	require.NoError(t, err)
+	require.Equal(t, "456", index)
+	data, err = app.Storage.Get("mo", "test/*/glob/*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
 }
 
 var units = []string{
@@ -131,20 +149,19 @@ func TestStorageMemory(t *testing.T) {
 	for i := range units {
 		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
-	StorageSA(app, t, "memory")
+	StorageSA(app, t)
 }
 
 func TestStorageLeveldb(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
-	app.Storage = &LevelDbStorage{}
+	app.Storage = &LevelStorage{}
 	app.Start("localhost:9889")
-	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
-	StorageSA(app, t, "leveldb")
+	StorageSA(app, t)
 }
 
 func TestStorageEtcd(t *testing.T) {
@@ -152,12 +169,11 @@ func TestStorageEtcd(t *testing.T) {
 	app.Silence = true
 	app.Storage = &EtcdStorage{}
 	app.Start("localhost:9889")
-	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
-	StorageSA(app, t, "etcd")
+	StorageSA(app, t)
 }
 
 func TestStorageRedis(t *testing.T) {
@@ -165,36 +181,9 @@ func TestStorageRedis(t *testing.T) {
 	app.Silence = true
 	app.Storage = &RedisStorage{}
 	app.Start("localhost:9889")
-	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		StorageMO(app, t, app.messages.encode([]byte(units[i])))
 	}
-	StorageSA(app, t, "redis")
-}
-
-func TestStorageMongodb(t *testing.T) {
-	app := &Server{}
-	app.Silence = true
-	app.Storage = &MongodbStorage{}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	for i := range units {
-		StorageMO(app, t, app.messages.encode([]byte(units[i])))
-	}
-	StorageSA(app, t, "mongodb")
-}
-
-func TestStorageMariadb(t *testing.T) {
-	app := &Server{}
-	app.Silence = true
-	app.Storage = &MariaDbStorage{}
-	app.Storage.Clear()
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	for i := range units {
-		StorageMO(app, t, app.messages.encode([]byte(units[i])))
-	}
-	StorageSA(app, t, "mariadb")
+	StorageSA(app, t)
 }

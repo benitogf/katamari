@@ -144,8 +144,9 @@ func (db *EtcdStorage) Get(mode string, key string) ([]byte, error) {
 
 	if mode == "mo" {
 		res := []Object{}
+		globPrefixKey := strings.Split(key, db.Storage.Separator+"*")[0]
 		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-		resp, err := db.cli.Get(ctx, key, clientv3.WithPrefix())
+		resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
 		cancel()
 		if err != nil {
 			return []byte(""), err
