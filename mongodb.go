@@ -245,3 +245,8 @@ func (db *MongodbStorage) Del(key string) error {
 	_, err = db.mongodb.Database("samo").Collection("store").DeleteOne(context.TODO(), filter)
 	return err
 }
+
+// Watch :
+func (db *MongodbStorage) Watch(key string) interface{} {
+	return nil
+}

@@ -10,6 +10,7 @@ type Database interface {
 	Set(key string, index string, now int64, data string) (string, error)
 	Del(key string) error
 	Clear()
+	Watch(key string) interface{}
 }
 
 // Storage : abstraction of persistent data layer

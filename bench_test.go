@@ -68,6 +68,16 @@ func BenchmarkRedisStoragePost(b *testing.B) {
 	storagePost(app.Router.ServeHTTP, b, "redis")
 }
 
+func BenchmarkEtcdStoragePost(b *testing.B) {
+	b.ReportAllocs()
+	app := Server{}
+	app.Storage = &EtcdStorage{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	storagePost(app.Router.ServeHTTP, b, "memory")
+}
+
 func BenchmarkMongodbStoragePost(b *testing.B) {
 	b.ReportAllocs()
 	app := Server{}
@@ -140,6 +150,17 @@ func BenchmarkRedisStorageSetGetDel(b *testing.B) {
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	storageSetGetDel(app.Storage, b, "redis")
+}
+
+func BenchmarkEtcdStorageSetGetDel(b *testing.B) {
+	b.ReportAllocs()
+	app := Server{}
+	app.Silence = true
+	app.Storage = &EtcdStorage{}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	storageSetGetDel(app.Storage, b, "memory")
 }
 
 func BenchmarkMongodbStorageSetGetDel(b *testing.B) {
