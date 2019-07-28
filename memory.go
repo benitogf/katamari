@@ -9,8 +9,9 @@ import (
 
 // MemoryStorage : composition of storage
 type MemoryStorage struct {
-	Memdb sync.Map
-	mutex sync.RWMutex
+	Memdb   sync.Map
+	mutex   sync.RWMutex
+	watcher StorageChan
 	*Storage
 }
 
@@ -30,6 +31,9 @@ func (db *MemoryStorage) Start() error {
 	}
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
+	}
+	if db.watcher == nil {
+		db.watcher = make(StorageChan)
 	}
 	db.Storage.Active = true
 	return nil
@@ -121,6 +125,7 @@ func (db *MemoryStorage) Set(key string, index string, now int64, data string) (
 		Index:   index,
 		Data:    data,
 	}))
+	db.watcher <- StorageEvent{key: key, operation: "set"}
 	return index, nil
 }
 
@@ -131,10 +136,11 @@ func (db *MemoryStorage) Del(key string) error {
 		return errors.New("samo: not found")
 	}
 	db.Memdb.Delete(key)
+	db.watcher <- StorageEvent{key: key, operation: "del"}
 	return nil
 }
 
 // Watch :
-func (db *MemoryStorage) Watch(key string) interface{} {
-	return nil
+func (db *MemoryStorage) Watch() StorageChan {
+	return db.watcher
 }

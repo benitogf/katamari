@@ -13,9 +13,10 @@ import (
 
 // LevelStorage : composition of storage
 type LevelStorage struct {
-	Path  string
-	lvldb *leveldb.DB
-	mutex sync.RWMutex
+	Path    string
+	lvldb   *leveldb.DB
+	mutex   sync.RWMutex
+	watcher StorageChan
 	*Storage
 }
 
@@ -39,6 +40,9 @@ func (db *LevelStorage) Start() error {
 	}
 	if db.Path == "" {
 		db.Path = "data/db"
+	}
+	if db.watcher == nil {
+		db.watcher = make(StorageChan)
 	}
 	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
@@ -161,6 +165,7 @@ func (db *LevelStorage) Set(key string, index string, now int64, data string) (s
 		return "", err
 	}
 
+	db.watcher <- StorageEvent{key: key, operation: "set"}
 	return index, nil
 }
 
@@ -175,10 +180,15 @@ func (db *LevelStorage) Del(key string) error {
 		return err
 	}
 
-	return db.lvldb.Delete([]byte(key), nil)
+	err = db.lvldb.Delete([]byte(key), nil)
+	if err != nil {
+		return err
+	}
+	db.watcher <- StorageEvent{key: key, operation: "del"}
+	return nil
 }
 
 // Watch :
-func (db *LevelStorage) Watch(key string) interface{} {
-	return nil
+func (db *LevelStorage) Watch() StorageChan {
+	return db.watcher
 }

@@ -38,28 +38,6 @@ func (messages *Messages) decode(message []byte) (Message, error) {
 	return wsEvent, nil
 }
 
-func (messages *Messages) decodeEvent(message []byte, mode string) (Message, error) {
-	var wsEvent Message
-	err := json.Unmarshal(message, &wsEvent)
-	if err != nil {
-		return wsEvent, err
-	}
-	if wsEvent.Op == "del" && wsEvent.Index == "" && mode != "sa" {
-		return wsEvent, errors.New("samo: empty index on delete event")
-	}
-
-	if wsEvent.Data == "" && wsEvent.Op != "del" {
-		return wsEvent, errors.New("samo: empty ws event data")
-	}
-
-	_, err = base64.StdEncoding.DecodeString(wsEvent.Data)
-	if err != nil {
-		return wsEvent, err
-	}
-
-	return wsEvent, nil
-}
-
 func (messages *Messages) decodePost(r io.Reader) (Message, error) {
 	var httpEvent Message
 	decoder := json.NewDecoder(r)

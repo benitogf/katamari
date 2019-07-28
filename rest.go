@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/gorilla/mux"
 )
@@ -70,9 +69,6 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		if reflect.TypeOf(app.Storage).String() != "*samo.EtcdStorage" {
-			go app.sendData(key)
-		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "{"+
 			"\"index\": \""+index+"\""+
@@ -145,9 +141,6 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if reflect.TypeOf(app.Storage).String() != "*samo.EtcdStorage" {
-		go app.sendData(key)
-	}
 	w.WriteHeader(http.StatusNoContent)
 	fmt.Fprintf(w, "deleted "+key)
 }

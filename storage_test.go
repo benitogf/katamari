@@ -175,15 +175,3 @@ func TestStorageEtcd(t *testing.T) {
 	}
 	StorageSA(app, t)
 }
-
-func TestStorageRedis(t *testing.T) {
-	app := &Server{}
-	app.Silence = true
-	app.Storage = &RedisStorage{}
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	for i := range units {
-		StorageMO(app, t, app.messages.encode([]byte(units[i])))
-	}
-	StorageSA(app, t)
-}
