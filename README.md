@@ -17,7 +17,7 @@ As stated in this relevant [article](https://medium.com/@brenda.clark/firebase-a
 - dynamic routing
 - glob pattern subscriptions
 - restful CRUD service that reflects interactions to real-time subscriptions
-- storage interfaces for leveldb, redis, and etcd
+- storage interfaces for memory, leveldb, and etcd
 - filtering and audit middleware
 - auto managed timestamps (created, updated)
 
@@ -164,35 +164,6 @@ func main() {
 	app := samo.Server{}
 	app.Storage = &samo.LevelStorage{
 		Path:    "data/db"}
-	app.Start("localhost:8800")
-	app.WaitClose()
-}
-```
-### redis
-```go
-package main
-
-import "github.com/benitogf/samo"
-
-func main() {
-	app := samo.Server{}
-	app.Storage = &samo.RedisStorage{
-		Address: "localhost:6379",
-		Password: ""}
-	app.Start("localhost:8800")
-	app.WaitClose()
-}
-```
-### mongo
-```go
-package main
-
-import "github.com/benitogf/samo"
-
-func main() {
-	app := samo.Server{}
-	app.Storage = &samo.MongoStorage{
-		Address: "localhost:27017"}
 	app.Start("localhost:8800")
 	app.WaitClose()
 }

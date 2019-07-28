@@ -5,10 +5,6 @@ os:
 go:
   - 1.12.x
 
-services:
-  - redis-server
-  - mongodb
-
 install:
   - go get github.com/gorilla/mux
   - go get github.com/gorilla/websocket
@@ -17,7 +13,6 @@ install:
   - go get github.com/benitogf/coat
   - go get github.com/stretchr/testify
   - go get github.com/gobwas/glob
-  - go get github.com/go-redis/redis
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/benitogf/jsonpatch
   - go get github.com/nsf/jsondiff

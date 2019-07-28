@@ -16,12 +16,15 @@ import (
 
 // EtcdStorage : composition of storage
 type EtcdStorage struct {
-	mutex   sync.RWMutex
-	Peers   []string
-	Path    string
-	cli     *clientv3.Client
-	server  *embed.Etcd
-	timeout time.Duration
+	mutex      sync.RWMutex
+	Peers      []string
+	Path       string
+	cli        *clientv3.Client
+	server     *embed.Etcd
+	timeout    time.Duration
+	watcher    StorageChan
+	OnlyClient bool
+	Debug      bool
 	*Storage
 }
 
@@ -35,12 +38,14 @@ func (db *EtcdStorage) Active() bool {
 // Start  :
 func (db *EtcdStorage) Start() error {
 	var wg sync.WaitGroup
-	wg.Add(1)
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	var err error
 	if db.Storage == nil {
 		db.Storage = &Storage{}
+	}
+	if db.watcher == nil {
+		db.watcher = make(StorageChan)
 	}
 	if db.Path == "" {
 		db.Path = "data/default.etcd"
@@ -55,31 +60,44 @@ func (db *EtcdStorage) Start() error {
 	if len(db.Peers) == 0 {
 		db.Peers = []string{"localhost:2379"}
 	}
-	cfg := embed.NewConfig()
-	cfg.Dir = db.Path
-	cfg.Logger = "zap"
-	cfg.Debug = false
-	// cfg.LogOutputs = []string{db.Path + "/LOG"}
-	db.server, err = embed.StartEtcd(cfg)
-	if err != nil {
-		return err
-	}
-	select {
-	case <-db.server.Server.ReadyNotify():
-		db.cli, err = clientv3.New(clientv3.Config{
-			Endpoints:   db.Peers,
-			DialTimeout: 5 * time.Second,
-		})
-		wg.Done()
-	case <-time.After(5 * time.Second):
-		db.server.Server.Stop()
-		err = errors.New("etcd embed server took too long to start")
-		wg.Done()
-	case <-db.server.Err():
-		err = errors.New("etcd embed server error")
-		wg.Done()
+	if !db.OnlyClient {
+		wg.Add(1)
+		cfg := embed.NewConfig()
+		cfg.Dir = db.Path
+		cfg.Logger = "zap"
+		cfg.Debug = db.Debug
+		// cfg.LogOutputs = []string{db.Path + "/LOG"}
+		db.server, err = embed.StartEtcd(cfg)
+		if err != nil {
+			return err
+		}
+		select {
+		case <-db.server.Server.ReadyNotify():
+			wg.Done()
+		case <-time.After(5 * time.Second):
+			db.server.Server.Stop()
+			err = errors.New("etcd embed server took too long to start")
+			wg.Done()
+		case <-db.server.Err():
+			err = errors.New("etcd embed server error")
+			wg.Done()
+		}
 	}
 	wg.Wait()
+	db.cli, err = clientv3.New(clientv3.Config{
+		Endpoints:   db.Peers,
+		DialTimeout: 5 * time.Second,
+	})
+	go func() {
+		for wresp := range db.cli.Watch(context.Background(), "", clientv3.WithPrefix()) {
+			for _, ev := range wresp.Events {
+				db.watcher <- StorageEvent{key: string(ev.Kv.Key), operation: string(ev.Type)}
+			}
+			if !db.Active() {
+				return
+			}
+		}
+	}()
 
 	return err
 }
@@ -89,7 +107,9 @@ func (db *EtcdStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.cli.Close()
-	db.server.Close()
+	if !db.OnlyClient {
+		db.server.Close()
+	}
 	db.Storage.Active = false
 }
 
@@ -223,6 +243,6 @@ func (db *EtcdStorage) Del(key string) error {
 }
 
 // Watch :
-func (db *EtcdStorage) Watch(key string) interface{} {
-	return db.cli.Watch(context.Background(), "", clientv3.WithPrefix())
+func (db *EtcdStorage) Watch() StorageChan {
+	return db.watcher
 }
