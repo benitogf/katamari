@@ -19,6 +19,10 @@ install:
   - go get go.etcd.io/etcd/clientv3
   - go get go.etcd.io/etcd/embed
 
+before_script:
+  - go get -v go.etcd.io/etcd	  - go get -v go.etcd.io/etcd
+  - nohup $GOPATH/bin/etcd &git	  - nohup $GOPATH/bin/etcd &
+
 script:
   - go vet ./...
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .

@@ -29,6 +29,7 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vkey := mux.Vars(r)["key"]
+		event, err := app.messages.decodePost(r.Body)
 		if !app.keys.isValid(vkey, app.separator) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
@@ -40,9 +41,6 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
 			return
 		}
-
-		event, err := app.messages.decodePost(r.Body)
-		defer r.Body.Close()
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -69,10 +67,15 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		if app.Storage.Watch() == nil {
+			go app.sendData(key)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "{"+
 			"\"index\": \""+index+"\""+
 			"}")
+		return
 	}
 }
 
@@ -139,6 +142,10 @@ func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, "%s", err)
 		return
+	}
+
+	if app.Storage.Watch() == nil {
+		go app.sendData(key)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

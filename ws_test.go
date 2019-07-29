@@ -139,7 +139,7 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 func TestWsRestBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.Storage = &EtcdStorage{}
+	app.Storage = &EtcdStorage{OnlyClient: true}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	wsRestBroadcast(t, &app)
@@ -291,7 +291,7 @@ func wsBroadcast(t *testing.T, app *Server) {
 func TestWsBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.Storage = &EtcdStorage{}
+	app.Storage = &EtcdStorage{OnlyClient: true}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)

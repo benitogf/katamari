@@ -56,7 +56,6 @@ func (db *EtcdStorage) Start() error {
 	if db.Storage.Separator == "" {
 		db.Storage.Separator = "/"
 	}
-	db.Storage.Active = true
 	if len(db.Peers) == 0 {
 		db.Peers = []string{"localhost:2379"}
 	}
@@ -98,6 +97,7 @@ func (db *EtcdStorage) Start() error {
 			}
 		}
 	}()
+	db.Storage.Active = true
 
 	return err
 }
@@ -110,6 +110,7 @@ func (db *EtcdStorage) Close() {
 	if !db.OnlyClient {
 		db.server.Close()
 	}
+	close(db.watcher)
 	db.Storage.Active = false
 }
 

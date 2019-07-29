@@ -167,7 +167,7 @@ func TestStorageLeveldb(t *testing.T) {
 func TestStorageEtcd(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
-	app.Storage = &EtcdStorage{}
+	app.Storage = &EtcdStorage{OnlyClient: true}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {

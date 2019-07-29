@@ -27,6 +27,7 @@ type Server struct {
 	stream      stream
 	Filters     Filters
 	Audit       Audit
+	Workers     int
 	Subscribe   Subscribe
 	Unsubscribe Unsubscribe
 	Storage     Database
@@ -89,13 +90,23 @@ func (app *Server) waitStart() {
 		log.Fatal("server start failed")
 	}
 
-	go func() {
-		for {
-			ev := <-app.Storage.Watch()
-			go app.sendData(ev.key)
+	if app.Storage.Watch() != nil {
+		for i := 0; i < app.Workers; i++ {
+			go app.broadcast(app.Storage.Watch())
 		}
-	}()
+	}
+
 	app.console.Log("glad to serve[" + app.address + "]")
+}
+
+func (app *Server) broadcast(sc StorageChan) {
+	for {
+		ev := <-sc
+		go app.sendData(ev.key)
+		if !app.Storage.Active() {
+			break
+		}
+	}
 }
 
 // Start : initialize and start the http server and database connection
@@ -138,6 +149,9 @@ func (app *Server) Start(address string) {
 
 	if app.Unsubscribe == nil {
 		app.Unsubscribe = func(mode string, key string, remoteAddr string) {}
+	}
+	if app.Workers == 0 {
+		app.Workers = 2
 	}
 
 	app.stream.pools = append(

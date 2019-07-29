@@ -57,6 +57,7 @@ func (db *LevelStorage) Close() {
 	defer db.mutex.Unlock()
 	db.Storage.Active = false
 	db.lvldb.Close()
+	close(db.watcher)
 }
 
 // Clear  :
@@ -165,7 +166,7 @@ func (db *LevelStorage) Set(key string, index string, now int64, data string) (s
 		return "", err
 	}
 
-	db.watcher <- StorageEvent{key: key, operation: "set"}
+	// db.watcher <- StorageEvent{key: key, operation: "set"}
 	return index, nil
 }
 
@@ -184,7 +185,7 @@ func (db *LevelStorage) Del(key string) error {
 	if err != nil {
 		return err
 	}
-	db.watcher <- StorageEvent{key: key, operation: "del"}
+	// db.watcher <- StorageEvent{key: key, operation: "del"}
 	return nil
 }
 
