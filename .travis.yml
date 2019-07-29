@@ -20,8 +20,8 @@ install:
   - go get go.etcd.io/etcd/embed
 
 before_script:
-  - go get -v go.etcd.io/etcd	  - go get -v go.etcd.io/etcd
-  - nohup $GOPATH/bin/etcd &git	  - nohup $GOPATH/bin/etcd &
+  - go get -v go.etcd.io/etcd
+  - nohup $GOPATH/bin/etcd &
 
 script:
   - go vet ./...
