@@ -136,19 +136,31 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 	require.Equal(t, 200, resp.StatusCode)
 }
 
-func TestWsRestBroadcastEtcd(t *testing.T) {
+func TestWsRestBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.Storage = &EtcdStorage{OnlyClient: true}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	wsRestBroadcast(t, &app)
 }
 
-func TestWsRestBroadcastMemory(t *testing.T) {
+func TestWsRestBroadcastLevel(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.Storage = &LevelStorage{
+		Path: "test/db"}
 	app.Start("localhost:9889")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	wsRestBroadcast(t, &app)
+}
+
+func TestWsRestBroadcastEtcd(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Storage = &EtcdStorage{OnlyClient: true}
+	app.Start("localhost:9889")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	wsRestBroadcast(t, &app)
 }
@@ -288,20 +300,31 @@ func wsBroadcast(t *testing.T, app *Server) {
 	require.Equal(t, result, jsondiff.FullMatch)
 }
 
-func TestWsBroadcastEtcd(t *testing.T) {
+func TestWsBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.Storage = &EtcdStorage{OnlyClient: true}
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	wsBroadcast(t, &app)
+}
+
+func TestWsBroadcastLevel(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Storage = &LevelStorage{
+		Path: "test/db"}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	wsBroadcast(t, &app)
 }
 
-func TestWsBroadcastMemory(t *testing.T) {
+func TestWsBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.Storage = &EtcdStorage{OnlyClient: true}
 	app.Start("localhost:9889")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	wsBroadcast(t, &app)
 }
