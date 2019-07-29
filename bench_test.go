@@ -34,11 +34,9 @@ func BenchmarkLevelStorageSetGetDel(b *testing.B) {
 	app := Server{}
 	app.Silence = true
 	app.Storage = &LevelStorage{
-		Path:    "test/db",
-		lvldb:   nil,
-		Storage: &Storage{}}
-	app.Storage.Clear()
+		Path: "test/db"}
 	app.Start("localhost:9889")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	storageSetGetDel(app.Storage, b)
 }

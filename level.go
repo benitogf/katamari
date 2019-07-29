@@ -2,8 +2,6 @@ package samo
 
 import (
 	"errors"
-	"log"
-	"os"
 	"strings"
 	"sync"
 
@@ -14,7 +12,7 @@ import (
 // LevelStorage : composition of storage
 type LevelStorage struct {
 	Path    string
-	lvldb   *leveldb.DB
+	client  *leveldb.DB
 	mutex   sync.RWMutex
 	watcher StorageChan
 	*Storage
@@ -44,7 +42,7 @@ func (db *LevelStorage) Start() error {
 	if db.watcher == nil {
 		db.watcher = make(StorageChan)
 	}
-	db.lvldb, err = leveldb.OpenFile(db.Path, nil)
+	db.client, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
 		db.Storage.Active = true
 	}
@@ -56,33 +54,22 @@ func (db *LevelStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.Storage.Active = false
-	db.lvldb.Close()
+	db.client.Close()
 	close(db.watcher)
 }
 
 // Clear  :
 func (db *LevelStorage) Clear() {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	var err error
-	if db.Storage.Active {
-		db.lvldb.Close()
+	iter := db.client.NewIterator(nil, nil)
+	for iter.Next() {
+		_ = db.client.Delete(iter.Key(), nil)
 	}
-	if db.Path == "" {
-		db.Path = "data/db"
-	}
-	os.RemoveAll(db.Path)
-	if db.Storage.Active {
-		db.lvldb, err = leveldb.OpenFile(db.Path, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	iter.Release()
 }
 
 // Keys  :
 func (db *LevelStorage) Keys() ([]byte, error) {
-	iter := db.lvldb.NewIterator(nil, nil)
+	iter := db.client.NewIterator(nil, nil)
 	stats := Stats{}
 	for iter.Next() {
 		stats.Keys = append(stats.Keys, string(iter.Key()))
@@ -103,7 +90,7 @@ func (db *LevelStorage) Keys() ([]byte, error) {
 // Get  :
 func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 	if mode == "sa" {
-		data, err := db.lvldb.Get([]byte(key), nil)
+		data, err := db.client.Get([]byte(key), nil)
 		if err != nil {
 			return []byte(""), err
 		}
@@ -113,7 +100,7 @@ func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 
 	if mode == "mo" {
 		globPrefixKey := strings.Split(key, db.Storage.Separator+"*")[0]
-		iter := db.lvldb.NewIterator(util.BytesPrefix([]byte(globPrefixKey+db.Storage.Separator)), nil)
+		iter := db.client.NewIterator(util.BytesPrefix([]byte(globPrefixKey+db.Storage.Separator)), nil)
 		res := []Object{}
 		for iter.Next() {
 			if db.Storage.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
@@ -137,7 +124,7 @@ func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 
 // Peek :
 func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
-	previous, err := db.lvldb.Get([]byte(key), nil)
+	previous, err := db.client.Get([]byte(key), nil)
 	if err != nil {
 		return now, 0
 	}
@@ -153,7 +140,7 @@ func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 // Set  :
 func (db *LevelStorage) Set(key string, index string, now int64, data string) (string, error) {
 	created, updated := db.Peek(key, now)
-	err := db.lvldb.Put(
+	err := db.client.Put(
 		[]byte(key),
 		db.Storage.Objects.new(&Object{
 			Created: created,
@@ -166,13 +153,13 @@ func (db *LevelStorage) Set(key string, index string, now int64, data string) (s
 		return "", err
 	}
 
-	// db.watcher <- StorageEvent{key: key, operation: "set"}
+	db.watcher <- StorageEvent{key: key, operation: "set"}
 	return index, nil
 }
 
 // Del  :
 func (db *LevelStorage) Del(key string) error {
-	_, err := db.lvldb.Get([]byte(key), nil)
+	_, err := db.client.Get([]byte(key), nil)
 	if err != nil && err.Error() == "leveldb: not found" {
 		return errors.New("samo: not found")
 	}
@@ -181,11 +168,11 @@ func (db *LevelStorage) Del(key string) error {
 		return err
 	}
 
-	err = db.lvldb.Delete([]byte(key), nil)
+	err = db.client.Delete([]byte(key), nil)
 	if err != nil {
 		return err
 	}
-	// db.watcher <- StorageEvent{key: key, operation: "del"}
+	db.watcher <- StorageEvent{key: key, operation: "del"}
 	return nil
 }
 
