@@ -151,17 +151,25 @@ func (sm *stream) setCache(poolIndex int, data []byte) {
 	sm.mutex.Unlock()
 }
 
+func (sm *stream) getCache(poolIndex int) []byte {
+	sm.mutex.RLock()
+	cache := sm.pools[poolIndex].cache
+	sm.mutex.RUnlock()
+	return cache
+}
+
 // patch will return either the snapshot or the patch
 // patch, false (patch)
 // snapshot, true (snapshot)
 func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
-	cache := sm.pools[poolIndex].cache
+	cache := sm.getCache(poolIndex)
 	patch, err := jsonpatch.CreatePatch(cache, data)
 	if err != nil {
 		sm.console.Err("patch create failed", err)
+		sm.setCache(poolIndex, data)
 		return data, true
 	}
-	sm.pools[poolIndex].cache = data
+	sm.setCache(poolIndex, data)
 	operations, err := json.Marshal(patch)
 	if err != nil {
 		sm.console.Err("patch decode failed", err)
