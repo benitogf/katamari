@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,7 @@ func TestAudit(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 
-	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
+	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 

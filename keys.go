@@ -34,31 +34,14 @@ func (keys *Keys) lastIndex(key string, separator string) string {
 	return key[strings.LastIndexAny(key, separator)+1:]
 }
 
-// get the key according to the mode
-func (keys *Keys) get(mode string, key string, index string, separator string) string {
-	if mode == "mo" {
-		key += separator + index
-	}
-	return key
-}
-
 // Build the key but returns the components as well
-func (keys *Keys) Build(mode string, key string, index string, subIndex string, separator string) (string, string, int64) {
+func (keys *Keys) Build(mode string, key string, separator string) string {
 	now := time.Now().UTC().UnixNano()
-
 	if mode == "sa" {
-		index = keys.lastIndex(key, separator)
-		return key, index, now
-	}
-	if mode == "mo" {
-		if index == "" {
-			// subIndex is used as a way to allow multiple clients adding
-			// data to the same key without collisions
-			// subIndex = position in the list of clients of the writer
-			index = strconv.FormatInt(now, 16) + subIndex
-		}
-		key += separator + index
+		return key
 	}
 
-	return key, index, now
+	index := strconv.FormatInt(now, 16)
+	key += separator + index
+	return key
 }

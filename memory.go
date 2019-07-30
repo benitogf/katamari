@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // MemoryStorage : composition of storage
@@ -118,7 +119,9 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set  :
-func (db *MemoryStorage) Set(key string, index string, now int64, data string) (string, error) {
+func (db *MemoryStorage) Set(key string, data string) (string, error) {
+	now := time.Now().UTC().UnixNano()
+	index := (&Keys{}).lastIndex(key, db.Storage.Separator)
 	created, updated := db.Peek(key, now)
 	db.Memdb.Store(key, db.Storage.Objects.new(&Object{
 		Created: created,

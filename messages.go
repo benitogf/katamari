@@ -10,9 +10,7 @@ import (
 
 // Message expected from websocket connections
 type Message struct {
-	Op    string `json:"op,omitempty"`
-	Index string `json:"index"`
-	Data  string `json:"data"`
+	Data string `json:"data"`
 }
 
 // Messages handle extract, write and read messages

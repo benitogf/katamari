@@ -205,7 +205,9 @@ func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set  :
-func (db *EtcdStorage) Set(key string, index string, now int64, data string) (string, error) {
+func (db *EtcdStorage) Set(key string, data string) (string, error) {
+	now := time.Now().UTC().UnixNano()
+	index := (&Keys{}).lastIndex(key, db.Storage.Separator)
 	created, updated := db.Peek(key, now)
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	_, err := db.cli.Put(ctx, key, string(db.Storage.Objects.new(&Object{

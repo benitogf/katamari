@@ -49,8 +49,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 		}
 
 		app.console.Log("rpost", vkey)
-		key, index, now := app.keys.Build(mode, vkey, event.Index, "R", app.separator)
-
+		key := app.keys.Build(mode, vkey, app.separator)
 		data, err := app.Filters.Receive.check(key, []byte(event.Data), app.Static)
 		if err != nil {
 			app.console.Err("setError["+mode+"/"+key+"]", err)
@@ -59,7 +58,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		index, err = app.Storage.Set(key, index, now, string(data))
+		index, err := app.Storage.Set(key, string(data))
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

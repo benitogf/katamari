@@ -79,8 +79,8 @@ will handle the key as key->value
 
 | method | description | url    |
 | ------------- |:-------------:| -----:|
-| websocket| key data events: update, delete | ws://{host}:{port}/sa/{key} |
-| POST | create/update | http://{host}:{port}/r/sa/{key} |
+| websocket| subscribe to events on the object | ws://{host}:{port}/sa/{key} |
+| POST | create/update object | http://{host}:{port}/r/sa/{key} |
 | GET | get object | http://{host}:{port}/r/sa/{key} |
 
 ## multiple objects (mo)
@@ -89,8 +89,8 @@ will handle the key as a prefix to get a list of every key/[index...], excluding
 
 | method  | description | url    |
 | ------------- |:-------------:| -----:|
-| websocket | key data events: new, update, delete, glob patterns allowed | ws://{host}:{port}/mo/{key} |
-| POST | create/update, if the index is not provided it will autogenerate a new one, preexistent data on the provided key/index will be overwriten | http://{host}:{port}/r/mo |
+| websocket | subscribe to events on the list, glob patterns allowed | ws://{host}:{port}/mo/{key} |
+| POST | create a new object in the list | http://{host}:{port}/r/mo |
 | GET | get list | http://{host}:{port}/r/mo/{key} |
 
 ## filters, audit, subscription events and extra routes
