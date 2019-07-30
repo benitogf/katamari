@@ -14,7 +14,7 @@ import (
 
 func StorageSA(app *Server, t *testing.T) {
 	app.Storage.Clear()
-	index, err := app.Storage.Set("test", "test", 1, "test")
+	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, _ := app.Storage.Get("sa", "test")
@@ -22,7 +22,7 @@ func StorageSA(app *Server, t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
-	index, err = app.Storage.Set("test", "test", 2, "test_update")
+	index, err = app.Storage.Set("test", "test_update")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, err = app.Storage.Get("sa", "test")
@@ -40,12 +40,12 @@ func StorageSA(app *Server, t *testing.T) {
 func StorageMO(app *Server, t *testing.T, testData string) {
 	app.Storage.Clear()
 	modData := testData + testData
-	index, err := app.Storage.Set("test/123", "123", 0, testData)
+	key, err := app.Storage.Set("test/123", testData)
 	require.NoError(t, err)
-	require.Equal(t, "123", index)
-	index, err = app.Storage.Set("test/456", "456", 0, modData)
+	require.Equal(t, "123", key)
+	key, err = app.Storage.Set("test/456", modData)
 	require.NoError(t, err)
-	require.Equal(t, "456", index)
+	require.Equal(t, "456", key)
 	data, err := app.Storage.Get("mo", "test")
 	require.NoError(t, err)
 	var testObjects []Object
@@ -78,7 +78,7 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	req := httptest.NewRequest(
 		"POST", "/r/mo/test",
 		bytes.NewBuffer(
-			[]byte(`{"data":"testauto"}`),
+			[]byte(`{"data":"testpost"}`),
 		),
 	)
 	w := httptest.NewRecorder()
@@ -101,24 +101,24 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
-	index, err = app.Storage.Set("test/glob1/glob123", "123", 0, testData)
+	key, err = app.Storage.Set("test/glob1/glob123", testData)
 	require.NoError(t, err)
-	require.Equal(t, "123", index)
-	index, err = app.Storage.Set("test/glob2/glob456", "456", 0, modData)
+	require.Equal(t, "glob123", key)
+	key, err = app.Storage.Set("test/glob2/glob456", modData)
 	require.NoError(t, err)
-	require.Equal(t, "456", index)
+	require.Equal(t, "glob456", key)
 	data, err = app.Storage.Get("mo", "test/*")
 	require.NoError(t, err)
 	err = json.Unmarshal(data, &testObjects)
 	app.console.Log(testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
-	index, err = app.Storage.Set("test/1/glob/g/123", "123", 0, testData)
+	key, err = app.Storage.Set("test/1/glob/g/123", testData)
 	require.NoError(t, err)
-	require.Equal(t, "123", index)
-	index, err = app.Storage.Set("test/2/glob/g/456", "456", 0, modData)
+	require.Equal(t, "123", key)
+	key, err = app.Storage.Set("test/2/glob/g/456", modData)
 	require.NoError(t, err)
-	require.Equal(t, "456", index)
+	require.Equal(t, "456", key)
 	data, err = app.Storage.Get("mo", "test/*/glob/*")
 	require.NoError(t, err)
 	err = json.Unmarshal(data, &testObjects)

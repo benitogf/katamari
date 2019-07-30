@@ -16,7 +16,7 @@ type Database interface {
 	Close()
 	Keys() ([]byte, error)
 	Get(mode string, key string) ([]byte, error)
-	Set(key string, index string, now int64, data string) (string, error)
+	Set(key string, data string) (string, error)
 	Del(key string) error
 	Clear()
 	Watch() StorageChan

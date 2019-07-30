@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +57,7 @@ func TestRestDel(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
-	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
+	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -83,7 +82,7 @@ func TestRestGet(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
-	index, err := app.Storage.Set("test", "test", time.Now().UTC().UnixNano(), "test")
+	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 	data, _ := app.Storage.Get("sa", "test")
@@ -111,7 +110,7 @@ func TestRestStats(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 
-	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), "test1")
+	index, err := app.Storage.Set("test/1", "test1")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 
@@ -144,15 +143,11 @@ func TestRestResponseCode(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 
-	index, err := app.Storage.Set("test", "test", 0, "test")
+	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 
-	index, err = app.Storage.Set("test", "test", 0, "test0")
-	require.NoError(t, err)
-	require.NotEmpty(t, index)
-
-	index, err = app.Storage.Set("test/1", "1", 0, "test1")
+	index, err = app.Storage.Set("test/1", "test1")
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 

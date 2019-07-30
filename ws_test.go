@@ -167,13 +167,13 @@ func TestWsRestBroadcastEtcd(t *testing.T) {
 
 func wsBroadcast(t *testing.T, app *Server) {
 	mutex := sync.RWMutex{}
-	index, err := app.Storage.Set("test/1", "1", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
+	key, err := app.Storage.Set("test/1", app.messages.encode([]byte("test")))
 	require.NoError(t, err)
-	require.Equal(t, "1", index)
+	require.Equal(t, "1", key)
 
-	index, err = app.Storage.Set("test/2", "2", time.Now().UTC().UnixNano(), app.messages.encode([]byte("test")))
+	key, err = app.Storage.Set("test/2", app.messages.encode([]byte("test")))
 	require.NoError(t, err)
-	require.Equal(t, "2", index)
+	require.Equal(t, "2", key)
 
 	u1 := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test"}
 	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1"}

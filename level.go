@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -138,7 +139,9 @@ func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set  :
-func (db *LevelStorage) Set(key string, index string, now int64, data string) (string, error) {
+func (db *LevelStorage) Set(key string, data string) (string, error) {
+	now := time.Now().UTC().UnixNano()
+	index := (&Keys{}).lastIndex(key, db.Storage.Separator)
 	created, updated := db.Peek(key, now)
 	err := db.client.Put(
 		[]byte(key),
