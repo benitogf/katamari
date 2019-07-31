@@ -10,6 +10,9 @@ import (
 
 func (app *Server) getPatch(poolIndex int, mode string, key string) (string, bool, error) {
 	raw, _ := app.Storage.Get(mode, key)
+	if len(raw) == 0 {
+		raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+	}
 	filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 	if err != nil {
 		return "", false, err
@@ -70,12 +73,14 @@ func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) 
 
 		// send initial msg
 		raw, _ := app.Storage.Get(mode, key)
+		if len(raw) == 0 {
+			raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+		}
 		filteredData, err := app.Filters.Send.check(key, raw, app.Static)
 		if err != nil {
 			app.console.Err("samo: filtered route", err)
 			return
 		}
-
 		app.stream.setCache(poolIndex, filteredData)
 		go app.stream.write(client, app.messages.encode(filteredData), true)
 		app.readClient(mode, key, client)
