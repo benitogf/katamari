@@ -200,3 +200,22 @@ func (sm *stream) broadcast(poolIndex int, data string, snapshot bool) {
 		go sm.write(client, data, snapshot)
 	}
 }
+
+func (sm *stream) writeTime(client *conn, data string) {
+	client.mutex.Lock()
+	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte(data))
+	client.mutex.Unlock()
+	if err != nil {
+		sm.console.Log("writeStreamErr: ", err)
+	}
+}
+
+func (sm *stream) broadcastTime(data string) {
+	sm.mutex.RLock()
+	connections := sm.pools[0].connections
+	sm.mutex.RUnlock()
+
+	for _, client := range connections {
+		go sm.writeTime(client, data)
+	}
+}

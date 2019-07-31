@@ -79,6 +79,7 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 	require.NoError(t, err)
 	started := false
 	got := ""
+	cache := ""
 
 	go func() {
 		for {
@@ -95,6 +96,8 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 				got = event.Data
 				err = c.Close()
 				require.NoError(t, err)
+			} else {
+				cache = event.Data
 			}
 			started = true
 			mutex.Unlock()
@@ -126,8 +129,12 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 		mutex.RLock()
 	}
 	mutex.RUnlock()
+	patch, err := jsonpatch.DecodePatch([]byte(got))
+	require.NoError(t, err)
+	modified, err := patch.Apply([]byte(cache))
+	require.NoError(t, err)
 	var wsObject Object
-	err = json.Unmarshal([]byte(got), &wsObject)
+	err = json.Unmarshal([]byte(modified), &wsObject)
 	require.NoError(t, err)
 	var rPostObject Object
 	err = json.Unmarshal(body, &rPostObject)
