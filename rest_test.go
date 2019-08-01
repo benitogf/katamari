@@ -96,17 +96,6 @@ func TestRestGet(t *testing.T) {
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
 
-	// data, _ = app.Storage.Get("mo", "*")
-	// req = httptest.NewRequest("GET", "/r/mo/*", nil)
-	// w = httptest.NewRecorder()
-	// app.Router.ServeHTTP(w, req)
-	// resp = w.Result()
-	// body, err = ioutil.ReadAll(resp.Body)
-	// require.NoError(t, err)
-	// require.Equal(t, http.StatusOK, resp.StatusCode)
-	// require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-	// require.Equal(t, string(data), "")
-
 	req = httptest.NewRequest("GET", "/r/sa/test/notest", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
