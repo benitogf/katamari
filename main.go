@@ -31,7 +31,6 @@ type Server struct {
 	Subscribe   Subscribe
 	Unsubscribe Unsubscribe
 	Storage     Database
-	separator   string
 	address     string
 	closing     int64
 	active      int64
@@ -42,14 +41,6 @@ type Server struct {
 	objects     *Objects
 	keys        *Keys
 	messages    *Messages
-}
-
-func (app *Server) makeRouteRegex() string {
-	return "[a-zA-Z\\d][a-zA-Z\\d\\" + app.separator + "]+[a-zA-Z\\d]"
-}
-
-func (app *Server) makeRouteRegexGlob() string {
-	return "[a-zA-Z\\*\\d][a-zA-Z\\*\\d\\" + app.separator + "]+[a-zA-Z\\*\\d]"
 }
 
 func (app *Server) waitListen() {
@@ -119,9 +110,6 @@ func (app *Server) Start(address string) {
 	atomic.StoreInt64(&app.active, 1)
 	atomic.StoreInt64(&app.closing, 0)
 	app.address = address
-	if app.separator == "" || len(app.separator) > 1 {
-		app.separator = "/"
-	}
 
 	if app.Router == nil {
 		app.Router = mux.NewRouter()
@@ -131,8 +119,7 @@ func (app *Server) Start(address string) {
 	app.stream.console = app.console
 
 	if app.Storage == nil {
-		app.Storage = &MemoryStorage{
-			Storage: &Storage{Separator: app.separator}}
+		app.Storage = &MemoryStorage{}
 	}
 
 	if app.Tick == 0 {
@@ -163,16 +150,14 @@ func (app *Server) Start(address string) {
 
 	app.stream.Subscribe = app.Subscribe
 	app.stream.Unsubscribe = app.Unsubscribe
-	rr := app.makeRouteRegex()
-	globRegex := app.makeRouteRegexGlob()
 	app.Router.HandleFunc("/", app.getStats)
-	app.Router.HandleFunc("/r/{key:"+rr+"}", app.rDel).Methods("DELETE")
-	app.Router.HandleFunc("/r/mo/{key:"+rr+"}", app.rPost("mo")).Methods("POST")
-	app.Router.HandleFunc("/r/mo/{key:"+globRegex+"}", app.rGet("mo")).Methods("GET")
-	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rPost("sa")).Methods("POST")
-	app.Router.HandleFunc("/r/sa/{key:"+rr+"}", app.rGet("sa")).Methods("GET")
-	app.Router.HandleFunc("/sa/{key:"+rr+"}", app.ws("sa"))
-	app.Router.HandleFunc("/mo/{key:"+globRegex+"}", app.ws("mo"))
+	app.Router.HandleFunc("/r/{key:[a-zA-Z\\d\\/]+}", app.rDel).Methods("DELETE")
+	app.Router.HandleFunc("/r/mo/{key:[a-zA-Z\\d\\/]+}", app.rPost("mo")).Methods("POST")
+	app.Router.HandleFunc("/r/mo/{key:[a-zA-Z\\*\\d\\/]+}", app.rGet("mo")).Methods("GET")
+	app.Router.HandleFunc("/r/sa/{key:[a-zA-Z\\d\\/]+}", app.rPost("sa")).Methods("POST")
+	app.Router.HandleFunc("/r/sa/{key:[a-zA-Z\\d\\/]+}", app.rGet("sa")).Methods("GET")
+	app.Router.HandleFunc("/sa/{key:[a-zA-Z\\d\\/]+}", app.ws("sa"))
+	app.Router.HandleFunc("/mo/{key:[a-zA-Z\\*\\d\\/]+}", app.ws("mo"))
 	app.Router.HandleFunc("/time", app.clock)
 	go app.waitListen()
 	app.waitStart()
@@ -192,11 +177,11 @@ func (app *Server) Close(sig os.Signal) {
 	}
 }
 
-// WaitClose : Blocks waiting for SIGINT or SIGTERM
+// WaitClose : Blocks waiting for SIGINT, SIGTERM, SIGKILL, SIGHUP
 func (app *Server) WaitClose() {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGHUP)
 	go func() {
 		sig := <-sigs
 		app.Close(sig)

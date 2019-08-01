@@ -24,9 +24,8 @@ type Database interface {
 
 // Storage : abstraction of persistent data layer
 type Storage struct {
-	Active    bool
-	Separator string
-	Db        Database
+	Active bool
+	Db     Database
 	*Objects
 	*Keys
 }

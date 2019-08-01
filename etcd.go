@@ -53,9 +53,6 @@ func (db *EtcdStorage) Start() error {
 	if db.timeout == 0 {
 		db.timeout = 30 * time.Second
 	}
-	if db.Storage.Separator == "" {
-		db.Storage.Separator = "/"
-	}
 	if len(db.Peers) == 0 {
 		db.Peers = []string{"localhost:2379"}
 	}
@@ -165,7 +162,7 @@ func (db *EtcdStorage) Get(mode string, key string) ([]byte, error) {
 
 	if mode == "mo" {
 		res := []Object{}
-		globPrefixKey := strings.Split(key, db.Storage.Separator+"*")[0]
+		globPrefixKey := strings.Split(key, "*")[0]
 		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 		resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
 		cancel()
@@ -173,13 +170,15 @@ func (db *EtcdStorage) Get(mode string, key string) ([]byte, error) {
 			return []byte(""), err
 		}
 		for _, ev := range resp.Kvs {
-			if db.Storage.Keys.isSub(key, string(ev.Key), db.Storage.Separator) {
+			if db.Storage.Keys.isSub(key, string(ev.Key)) {
 				newObject, err := db.Storage.Objects.decode(ev.Value)
 				if err == nil {
 					res = append(res, newObject)
 				}
 			}
 		}
+
+		sort.Slice(res, db.Storage.Objects.sort(res))
 
 		return db.Storage.Objects.encode(res)
 	}
@@ -207,7 +206,7 @@ func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
 // Set  :
 func (db *EtcdStorage) Set(key string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).lastIndex(key, db.Storage.Separator)
+	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	_, err := db.cli.Put(ctx, key, string(db.Storage.Objects.new(&Object{

@@ -16,6 +16,12 @@ type Object struct {
 // Objects provide methods to read from bytes and write to bytes
 type Objects struct{}
 
+func (o *Objects) sort(res []Object) func(i, j int) bool {
+	return func(i, j int) bool {
+		return res[i].Created > res[j].Created || res[i].Updated > res[j].Updated
+	}
+}
+
 func (o *Objects) encode(v interface{}) ([]byte, error) {
 	data, err := json.Marshal(v)
 	if err != nil {

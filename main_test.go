@@ -71,7 +71,6 @@ func TestAudit(t *testing.T) {
 func TestDoubleShutdown(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	app.Close(os.Interrupt)
@@ -80,7 +79,6 @@ func TestDoubleShutdown(t *testing.T) {
 func TestDoubleStart(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.separator = ":"
 	app.Start("localhost:9889")
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -90,7 +88,6 @@ func TestRestart(t *testing.T) {
 	t.Skip()
 	app := Server{}
 	app.Silence = true
-	app.separator = ":"
 	app.Start("localhost:9889")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
@@ -114,34 +111,33 @@ func TestGlobKey(t *testing.T) {
 func TestInvalidKey(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/:test"}
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa//test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
-	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test::1"}
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test//1"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
-	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1:"}
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1/"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
 
-	req := httptest.NewRequest("GET", "/r/sa/test::1", nil)
+	req := httptest.NewRequest("GET", "/r/sa/test//1", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, 400, resp.StatusCode)
+	require.Equal(t, http.StatusMovedPermanently, resp.StatusCode)
 
-	req = httptest.NewRequest("DELETE", "/r/test::1", nil)
+	req = httptest.NewRequest("DELETE", "/r/test//1", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	require.Equal(t, 400, resp.StatusCode)
+	require.Equal(t, http.StatusMovedPermanently, resp.StatusCode)
 }

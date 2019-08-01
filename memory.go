@@ -30,9 +30,6 @@ func (db *MemoryStorage) Start() error {
 	if db.Storage == nil {
 		db.Storage = &Storage{}
 	}
-	if db.Storage.Separator == "" {
-		db.Storage.Separator = "/"
-	}
 	// if db.watcher == nil {
 	// 	db.watcher = make(StorageChan)
 	// }
@@ -88,7 +85,7 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 	if mode == "mo" {
 		res := []Object{}
 		db.Memdb.Range(func(k interface{}, value interface{}) bool {
-			if db.Storage.Keys.isSub(key, k.(string), db.Storage.Separator) {
+			if db.Storage.Keys.isSub(key, k.(string)) {
 				newObject, err := db.Storage.Objects.decode(value.([]byte))
 				if err == nil {
 					res = append(res, newObject)
@@ -96,6 +93,8 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 			}
 			return true
 		})
+
+		sort.Slice(res, db.Storage.Objects.sort(res))
 
 		return db.Storage.Objects.encode(res)
 	}
@@ -121,7 +120,7 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 // Set  :
 func (db *MemoryStorage) Set(key string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).lastIndex(key, db.Storage.Separator)
+	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
 	db.Memdb.Store(key, db.Storage.Objects.new(&Object{
 		Created: created,

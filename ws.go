@@ -22,7 +22,7 @@ func (app *Server) getPatch(poolIndex int, mode string, key string) (string, boo
 }
 
 func (app *Server) sendData(key string) {
-	for _, poolIndex := range app.stream.findConnections(key, app.separator) {
+	for _, poolIndex := range app.stream.findConnections(key) {
 		data, snapshot, err := app.getPatch(
 			poolIndex,
 			app.stream.pools[poolIndex].mode,
@@ -48,7 +48,7 @@ func (app *Server) readClient(mode string, key string, client *conn) {
 func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !app.keys.isValid(key, app.separator) {
+		if !app.keys.isValid(mode == "mo", key) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			app.console.Err("socketKeyError", key)
