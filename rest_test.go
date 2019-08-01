@@ -40,15 +40,14 @@ func TestRestPostEmptyData(t *testing.T) {
 func TestRestPostKey(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.separator = ":"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":"test"}`)
-	req := httptest.NewRequest("POST", "/r/sa/test::a", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/r/sa/test//a", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Equal(t, http.StatusMovedPermanently, resp.StatusCode)
 }
 
 func TestRestDel(t *testing.T) {
@@ -158,6 +157,12 @@ func TestRestResponseCode(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	req = httptest.NewRequest("GET", "/r/mo/test", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req = httptest.NewRequest("GET", "/r/mo/*", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()

@@ -30,7 +30,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 	return func(w http.ResponseWriter, r *http.Request) {
 		vkey := mux.Vars(r)["key"]
 		event, err := app.messages.decodePost(r.Body)
-		if !app.keys.isValid(vkey, app.separator) {
+		if !app.keys.isValid(false, vkey) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			return
@@ -49,7 +49,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 		}
 
 		app.console.Log("rpost", vkey)
-		key := app.keys.Build(mode, vkey, app.separator)
+		key := app.keys.Build(mode, vkey)
 		data, err := app.Filters.Receive.check(key, []byte(event.Data), app.Static)
 		if err != nil {
 			app.console.Err("setError["+mode+"/"+key+"]", err)
@@ -81,7 +81,7 @@ func (app *Server) rPost(mode string) func(w http.ResponseWriter, r *http.Reques
 func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := mux.Vars(r)["key"]
-		if !app.keys.isValid(key, app.separator) {
+		if !app.keys.isValid(mode == "mo", key) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 			return
@@ -117,7 +117,7 @@ func (app *Server) rGet(mode string) func(w http.ResponseWriter, r *http.Request
 
 func (app *Server) rDel(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
-	if !app.keys.isValid(key, app.separator) {
+	if !app.keys.isValid(false, key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return

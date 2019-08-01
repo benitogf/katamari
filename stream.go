@@ -56,13 +56,13 @@ func (sm *stream) findPool(mode string, key string) int {
 	return poolIndex
 }
 
-func (sm *stream) findConnections(key string, separator string) []int {
+func (sm *stream) findConnections(key string) []int {
 	var res []int
 	sm.mutex.RLock()
 	for i := range sm.pools {
 		if (sm.pools[i].key == key && sm.pools[i].mode == "sa") ||
 			(sm.pools[i].mode == "mo" &&
-				sm.Keys.isSub(sm.pools[i].key, key, separator)) {
+				sm.Keys.isSub(sm.pools[i].key, key)) {
 			res = append(res, i)
 		}
 	}

@@ -2,6 +2,7 @@ package samo
 
 import (
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,9 +34,6 @@ func (db *LevelStorage) Start() error {
 	defer db.mutex.Unlock()
 	if db.Storage == nil {
 		db.Storage = &Storage{}
-	}
-	if db.Storage.Separator == "" {
-		db.Storage.Separator = "/"
 	}
 	if db.Path == "" {
 		db.Path = "data/db"
@@ -100,11 +98,15 @@ func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 	}
 
 	if mode == "mo" {
-		globPrefixKey := strings.Split(key, db.Storage.Separator+"*")[0]
-		iter := db.client.NewIterator(util.BytesPrefix([]byte(globPrefixKey+db.Storage.Separator)), nil)
+		globPrefixKey := strings.Split(key, "*")[0]
+		rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
+		if globPrefixKey == "" || globPrefixKey == "*" {
+			rangeKey = nil
+		}
+		iter := db.client.NewIterator(rangeKey, nil)
 		res := []Object{}
 		for iter.Next() {
-			if db.Storage.Keys.isSub(key, string(iter.Key()), db.Storage.Separator) {
+			if db.Storage.Keys.isSub(key, string(iter.Key())) {
 				newObject, err := db.Storage.Objects.decode(iter.Value())
 				if err == nil {
 					res = append(res, newObject)
@@ -116,6 +118,8 @@ func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 		if err != nil {
 			return []byte(""), err
 		}
+
+		sort.Slice(res, db.Storage.Objects.sort(res))
 
 		return db.Storage.Objects.encode(res)
 	}
@@ -141,7 +145,7 @@ func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 // Set  :
 func (db *LevelStorage) Set(key string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).lastIndex(key, db.Storage.Separator)
+	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
 	err := db.client.Put(
 		[]byte(key),
