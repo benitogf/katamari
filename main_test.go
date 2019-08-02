@@ -66,6 +66,15 @@ func TestAudit(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, 200, resp.StatusCode)
 
+	app.Audit = func(r *http.Request) bool {
+		return r.Header.Get("Upgrade") != "websocket"
+	}
+
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
+	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+	require.Nil(t, c)
+	app.console.Err(err)
+	require.Error(t, err)
 }
 
 func TestDoubleShutdown(t *testing.T) {
