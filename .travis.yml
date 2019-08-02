@@ -20,7 +20,7 @@ install:
 
 before_script:
   - go get -v go.etcd.io/etcd
-  - nohup $GOPATH/bin/etcd &
+  - $GOPATH/bin/etcd &
 
 script:
   - go vet ./...
