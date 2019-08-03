@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -45,44 +46,46 @@ func (app *Server) readClient(mode string, key string, client *conn) {
 	}
 }
 
-func (app *Server) ws(mode string) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		key := mux.Vars(r)["key"]
-		if !app.keys.isValid(mode == "mo", key) {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
-			app.console.Err("socketKeyError", key)
-			return
-		}
-
-		if !app.Audit(r) {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
-			app.console.Err("socketConnectionUnauthorized", key)
-			return
-		}
-
-		client, poolIndex, err := app.stream.new(mode, key, w, r)
-
-		if err != nil {
-			return
-		}
-
-		// defered client close
-		defer app.stream.close(mode, key, client)
-
-		// send initial msg
-		raw, _ := app.Storage.Get(mode, key)
-		if len(raw) == 0 {
-			raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
-		}
-		filteredData, err := app.Filters.Send.check(key, raw, app.Static)
-		if err != nil {
-			app.console.Err("samo: filtered route", err)
-			return
-		}
-		app.stream.setCache(poolIndex, filteredData)
-		go app.stream.write(client, app.messages.encode(filteredData), true)
-		app.readClient(mode, key, client)
+func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
+	key := mux.Vars(r)["key"]
+	mode := "sa"
+	if strings.Contains(key, "*") {
+		mode = "mo"
 	}
+	if !app.keys.isValid(mode == "mo", key) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
+		app.console.Err("socketKeyError", key)
+		return
+	}
+
+	if !app.Audit(r) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		app.console.Err("socketConnectionUnauthorized", key)
+		return
+	}
+
+	client, poolIndex, err := app.stream.new(mode, key, w, r)
+
+	if err != nil {
+		return
+	}
+
+	// defered client close
+	defer app.stream.close(mode, key, client)
+
+	// send initial msg
+	raw, _ := app.Storage.Get(mode, key)
+	if len(raw) == 0 {
+		raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+	}
+	filteredData, err := app.Filters.Send.check(key, raw, app.Static)
+	if err != nil {
+		app.console.Err("samo: filtered route", err)
+		return
+	}
+	app.stream.setCache(poolIndex, filteredData)
+	go app.stream.write(client, app.messages.encode(filteredData), true)
+	app.readClient(mode, key, client)
 }

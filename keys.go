@@ -52,6 +52,5 @@ func (keys *Keys) Build(mode string, key string) string {
 	}
 
 	index := strconv.FormatInt(now, 16)
-	key += "/" + index
-	return key
+	return strings.Replace(key, "/*", "/"+index, 1)
 }

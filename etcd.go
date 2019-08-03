@@ -1,3 +1,5 @@
+// +build etcd
+
 package samo
 
 import (
@@ -15,15 +17,15 @@ import (
 
 // EtcdStorage : composition of storage
 type EtcdStorage struct {
-	mutex      sync.RWMutex
-	Peers      []string
-	Path       string
-	cli        *clientv3.Client
+	mutex sync.RWMutex
+	Peers []string
+	Path  string
+	cli   *clientv3.Client
 	// server     *embed.Etcd
-	timeout    time.Duration
-	watcher    StorageChan
+	timeout time.Duration
+	watcher StorageChan
 	// OnlyClient bool
-	Debug      bool
+	Debug bool
 	*Storage
 }
 

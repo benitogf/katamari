@@ -25,7 +25,7 @@ func TestWsTime(t *testing.T) {
 	mutex := sync.Mutex{}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/"}
 	c1, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
 	c2, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -74,7 +74,7 @@ func TestWsTime(t *testing.T) {
 func wsRestBroadcast(t *testing.T, app *Server) {
 	mutex := sync.RWMutex{}
 	_ = app.Storage.Del("test")
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
 	started := false
@@ -114,7 +114,7 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 	}
 	mutex.RUnlock()
 	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("Buy coffee and bread for breakfast.")) + `"}`)
-	req := httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
@@ -162,16 +162,6 @@ func TestWsRestBroadcastLevel(t *testing.T) {
 	wsRestBroadcast(t, &app)
 }
 
-func TestWsRestBroadcastEtcd(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.Storage = &EtcdStorage{}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	wsRestBroadcast(t, &app)
-}
-
 func wsBroadcast(t *testing.T, app *Server) {
 	mutex := sync.RWMutex{}
 	key, err := app.Storage.Set("test/1", app.messages.encode([]byte("test")))
@@ -182,8 +172,8 @@ func wsBroadcast(t *testing.T, app *Server) {
 	require.NoError(t, err)
 	require.Equal(t, "2", key)
 
-	u1 := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test"}
-	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1"}
+	u1 := url.URL{Scheme: "ws", Host: app.address, Path: "/test/*"}
+	u2 := url.URL{Scheme: "ws", Host: app.address, Path: "/test/1"}
 	c1, _, err := websocket.DefaultDialer.Dial(u1.String(), nil)
 	require.NoError(t, err)
 	c2, _, err := websocket.DefaultDialer.Dial(u2.String(), nil)
@@ -222,7 +212,7 @@ func wsBroadcast(t *testing.T, app *Server) {
 			}
 			if readCount == 0 {
 				cache1 = event.Data
-				req := httptest.NewRequest("DELETE", "/r/test/2", nil)
+				req := httptest.NewRequest("DELETE", "/test/2", nil)
 				w := httptest.NewRecorder()
 				app.Router.ServeHTTP(w, req)
 				resp := w.Result()
@@ -260,7 +250,7 @@ func wsBroadcast(t *testing.T, app *Server) {
 		} else {
 			cache2 = event.Data
 			app.console.Log("writing from c2")
-			req := httptest.NewRequest("POST", "/r/sa/test/1", bytes.NewBuffer([]byte("{"+
+			req := httptest.NewRequest("POST", "/test/1", bytes.NewBuffer([]byte("{"+
 				"\"index\": \"1\","+
 				"\"data\": \""+app.messages.encode([]byte("test2"))+"\""+
 				"}")))
@@ -326,25 +316,15 @@ func TestWsBroadcastLevel(t *testing.T) {
 	wsBroadcast(t, &app)
 }
 
-func TestWsBroadcastEtcd(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.Storage = &EtcdStorage{}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	wsBroadcast(t, &app)
-}
-
 func TestWsBadRequest(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	req := httptest.NewRequest("GET", "/sa/test", nil)
+	req := httptest.NewRequest("GET", "//test", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 
-	require.Equal(t, 400, resp.StatusCode)
+	require.Equal(t, 301, resp.StatusCode)
 }

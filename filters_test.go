@@ -43,19 +43,19 @@ func TestFilters(t *testing.T) {
 	require.Equal(t, "intercepted:bag/1", string(data))
 
 	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("notest")) + `"}`)
-	req := httptest.NewRequest("POST", "/r/sa/test1", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
 	require.Equal(t, 400, resp.StatusCode)
 
-	req = httptest.NewRequest("POST", "/r/sa/bag/1", bytes.NewBuffer(jsonStr))
+	req = httptest.NewRequest("POST", "/bag/1", bytes.NewBuffer(jsonStr))
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 200, resp.StatusCode)
 
-	req = httptest.NewRequest("GET", "/r/sa/bag/1", nil)
+	req = httptest.NewRequest("GET", "/bag/1", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
