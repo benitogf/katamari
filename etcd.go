@@ -1,3 +1,5 @@
+// +build etcd
+
 package samo
 
 import (
@@ -10,21 +12,20 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/embed"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 )
 
 // EtcdStorage : composition of storage
 type EtcdStorage struct {
-	mutex      sync.RWMutex
-	Peers      []string
-	Path       string
-	cli        *clientv3.Client
-	server     *embed.Etcd
-	timeout    time.Duration
-	watcher    StorageChan
-	OnlyClient bool
-	Debug      bool
+	mutex sync.RWMutex
+	Peers []string
+	Path  string
+	cli   *clientv3.Client
+	// server     *embed.Etcd
+	timeout time.Duration
+	watcher StorageChan
+	// OnlyClient bool
+	Debug bool
 	*Storage
 }
 
@@ -56,29 +57,29 @@ func (db *EtcdStorage) Start() error {
 	if len(db.Peers) == 0 {
 		db.Peers = []string{"localhost:2379"}
 	}
-	if !db.OnlyClient {
-		wg.Add(1)
-		cfg := embed.NewConfig()
-		cfg.Dir = db.Path
-		cfg.Logger = "zap"
-		cfg.Debug = db.Debug
-		// cfg.LogOutputs = []string{db.Path + "/LOG"}
-		db.server, err = embed.StartEtcd(cfg)
-		if err != nil {
-			return err
-		}
-		select {
-		case <-db.server.Server.ReadyNotify():
-			wg.Done()
-		case <-time.After(5 * time.Second):
-			db.server.Server.Stop()
-			err = errors.New("etcd embed server took too long to start")
-			wg.Done()
-		case <-db.server.Err():
-			err = errors.New("etcd embed server error")
-			wg.Done()
-		}
-	}
+	// if !db.OnlyClient {
+	// 	wg.Add(1)
+	// 	cfg := embed.NewConfig()
+	// 	cfg.Dir = db.Path
+	// 	cfg.Logger = "zap"
+	// 	cfg.Debug = db.Debug
+	// 	// cfg.LogOutputs = []string{db.Path + "/LOG"}
+	// 	db.server, err = embed.StartEtcd(cfg)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	select {
+	// 	case <-db.server.Server.ReadyNotify():
+	// 		wg.Done()
+	// 	case <-time.After(5 * time.Second):
+	// 		db.server.Server.Stop()
+	// 		err = errors.New("etcd embed server took too long to start")
+	// 		wg.Done()
+	// 	case <-db.server.Err():
+	// 		err = errors.New("etcd embed server error")
+	// 		wg.Done()
+	// 	}
+	// }
 	wg.Wait()
 	db.cli, err = clientv3.New(clientv3.Config{
 		Endpoints:   db.Peers,
@@ -104,9 +105,9 @@ func (db *EtcdStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.cli.Close()
-	if !db.OnlyClient {
-		db.server.Close()
-	}
+	// if !db.OnlyClient {
+	// 	db.server.Close()
+	// }
 	close(db.watcher)
 	db.Storage.Active = false
 }

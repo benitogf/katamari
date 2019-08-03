@@ -16,9 +16,15 @@ type Object struct {
 // Objects provide methods to read from bytes and write to bytes
 type Objects struct{}
 
-func (o *Objects) sort(res []Object) func(i, j int) bool {
+func (o *Objects) sort(obj []Object) func(i, j int) bool {
 	return func(i, j int) bool {
-		return res[i].Created > res[j].Created || res[i].Updated > res[j].Updated
+		created := obj[i].Created > obj[j].Created
+		updated := obj[i].Updated > obj[j].Updated
+		if updated && obj[j].Updated != 0 {
+			return true
+		}
+
+		return created
 	}
 }
 

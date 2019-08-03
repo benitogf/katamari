@@ -6,16 +6,17 @@
 [build-url]: https://travis-ci.com/benitogf/samo
 [build-image]: https://api.travis-ci.com/benitogf/samo.svg?branch=master&style=flat-square
 
-Zero configuration data persistence and communication layer for your application.
+Zero configuration data persistence and communication layer.
+
+Web service that behaves like a distributed filesystem in the sense that all routes are open by default, oposite to rails like frameworks where the user must define the routes before being able to interact with them.
 
 Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/samo#filters-audit-subscription-events-and-extra-routes).
-
-As stated in this relevant [article](https://medium.com/@brenda.clark/firebase-alternative-3-open-source-ways-to-follow-e45d9347bc8c) there are some similar solutions.
 
 ## features
 
 - dynamic routing
-- glob pattern subscriptions
+- glob pattern routes
+- [patch](http://jsonpatch.com) updates on subscriptions
 - restful CRUD service that reflects interactions to real-time subscriptions
 - storage interfaces for memory, leveldb, and etcd
 - filtering and audit middleware
@@ -53,72 +54,24 @@ finally run the service:
 go run main.go
 ```
 
-# Specs
-
-The service expose four kinds of routes:
-
-- /time: this route will send a timestamp at a configurable interval, default is 1 second
-
-- /r/**: restful CRUD api
-
-- /sa/**: single allocation allows subscriptions to a key->value.
-
-- /mo/**: multiple objects allows subscription to a prefix key/*->list. glob patterns allowed.
-
-## general routes
+# routes
 
 | method | description | url    |
 | ------------- |:-------------:| -----:|
 | GET | key list | http://{host}:{port} |
-| DELETE | del | http://{host}:{port}/r/{key} |
-| websocket| time ticker | ws://{host}:{port}/time |
+| websocket| time ticker | ws://{host}:{port} |
+| POST | create/update | http://{host}:{port}/{key} |
+| GET | read | http://{host}:{port}/{key} |
+| DELETE | delete | http://{host}:{port}/{key} |
+| websocket| subscribe | ws://{host}:{port}/{key} |
 
-## single allocation (sa)
+# filters, audit, subscription events and extra routes
 
-will handle the key as key->value
+    Define ad lib receive and send filter criteria using key glob patterns, audit middleware, and extra routes
 
-| method | description | url    |
-| ------------- |:-------------:| -----:|
-| websocket| subscribe to events on the object | ws://{host}:{port}/sa/{key} |
-| POST | create/update object | http://{host}:{port}/r/sa/{key} |
-| GET | get object | http://{host}:{port}/r/sa/{key} |
-
-## multiple objects (mo)
-
-will handle the key as a prefix to get a list of every key/[index...], excluding the empty index (key->value)
-
-| method  | description | url    |
-| ------------- |:-------------:| -----:|
-| websocket | subscribe to events on the list, glob patterns allowed | ws://{host}:{port}/mo/{key} |
-| POST | create a new object in the list | http://{host}:{port}/r/mo |
-| GET | get list | http://{host}:{port}/r/mo/{key} |
-
-## filters, audit, subscription events and extra routes
-
-    Define ad lib receive and send filter criteria using key glob patterns, audit middleware, subscription events, and extra routes
+### filters
 
 ```go
-package main
-
-import (
-	"errors"
-	"fmt"
-	"log"
-	"net/http"
-
-	"github.com/benitogf/samo"
-	"github.com/gorilla/mux"
-)
-
-func main() {
-	app := samo.Server{}
-	app.Static = true // limit to filtered paths
-
-	// Audit requests
-	app.Audit = func(r *http.Request) bool {
-		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
-  }
-
 	// Filters
 	app.ReceiveFilter("bag/*", func(index string, data []byte) ([]byte, error) {
 		if string(data) != "marbles" {
@@ -130,7 +83,20 @@ func main() {
 	app.SendFilter("bag/1", func(index string, data []byte) ([]byte, error) {
 		return []byte("intercepted"), nil
 	})
+```
 
+### audit
+
+```go
+	// Audit requests
+	app.Audit = func(r *http.Request) bool {
+		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
+  }
+```
+
+### subscribe
+
+```go
 	// Subscription events
 	server.Subscribe = func(mode string, key string, remoteAddr string) error {
 		log.Println(mode, key)
@@ -139,18 +105,20 @@ func main() {
 	server.Unsubscribe = func(mode string, key string, remoteAddr string) {
 		log.Println(mode, key)
 	}
+```
+
+### extra routes
+
+```go
 	// Predefine the router
 	app.Router = mux.NewRouter()
 	app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "123")
 	})
-	app.Start("localhost:8800")
-	app.WaitClose()
-}
 ```
 
-## data persistence layer
+# data persistence layer
 
     Use alternative storages (the default is memory)
 
@@ -169,7 +137,6 @@ func main() {
 }
 ```
 ### etcd
-with this storage an embeded server will run in tandem
 ```go
 package main
 

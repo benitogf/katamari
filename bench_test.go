@@ -42,14 +42,3 @@ func BenchmarkLevelStorageSetGetDel(b *testing.B) {
 	defer app.Close(os.Interrupt)
 	storageSetGetDel(app.Storage, b)
 }
-
-func BenchmarkEtcdStorageSetGetDel(b *testing.B) {
-	b.ReportAllocs()
-	app := Server{}
-	app.Silence = true
-	app.Storage = &EtcdStorage{OnlyClient: true}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	storageSetGetDel(app.Storage, b)
-}

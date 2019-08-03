@@ -76,7 +76,7 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))
 
 	req := httptest.NewRequest(
-		"POST", "/r/mo/test",
+		"POST", "/test/*",
 		bytes.NewBuffer(
 			[]byte(`{"data":"testpost"}`),
 		),
@@ -90,6 +90,7 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	dat, err := app.objects.decode(body)
 	require.NoError(t, err)
 	data, err = app.Storage.Get("mo", "test")
+	app.console.Log(string(data))
 	require.NoError(t, err)
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
@@ -168,18 +169,6 @@ func TestStorageLeveldb(t *testing.T) {
 	app := &Server{}
 	app.Silence = true
 	app.Storage = &LevelStorage{}
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	for i := range units {
-		StorageMO(app, t, app.messages.encode([]byte(units[i])))
-	}
-	StorageSA(app, t)
-}
-
-func TestStorageEtcd(t *testing.T) {
-	app := &Server{}
-	app.Silence = true
-	app.Storage = &EtcdStorage{OnlyClient: true}
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {

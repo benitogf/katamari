@@ -150,15 +150,10 @@ func (app *Server) Start(address string) {
 
 	app.stream.Subscribe = app.Subscribe
 	app.stream.Unsubscribe = app.Unsubscribe
-	app.Router.HandleFunc("/", app.getStats)
-	app.Router.HandleFunc("/r/{key:[a-zA-Z\\d\\/]+}", app.rDel).Methods("DELETE")
-	app.Router.HandleFunc("/r/mo/{key:[a-zA-Z\\d\\/]+}", app.rPost("mo")).Methods("POST")
-	app.Router.HandleFunc("/r/mo/{key:[a-zA-Z\\*\\d\\/]+}", app.rGet("mo")).Methods("GET")
-	app.Router.HandleFunc("/r/sa/{key:[a-zA-Z\\d\\/]+}", app.rPost("sa")).Methods("POST")
-	app.Router.HandleFunc("/r/sa/{key:[a-zA-Z\\d\\/]+}", app.rGet("sa")).Methods("GET")
-	app.Router.HandleFunc("/sa/{key:[a-zA-Z\\d\\/]+}", app.ws("sa"))
-	app.Router.HandleFunc("/mo/{key:[a-zA-Z\\*\\d\\/]+}", app.ws("mo"))
-	app.Router.HandleFunc("/time", app.clock)
+	app.Router.HandleFunc("/", app.getStats).Methods("GET")
+	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.unpublish).Methods("DELETE")
+	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.publish).Methods("POST")
+	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.read).Methods("GET")
 	go app.waitListen()
 	app.waitStart()
 	go app.tick()

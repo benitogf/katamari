@@ -25,7 +25,7 @@ func TestAudit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
-	req := httptest.NewRequest("GET", "/r/sa/test", nil)
+	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
@@ -37,7 +37,7 @@ func TestAudit(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
-	req = httptest.NewRequest("DELETE", "/r/test", nil)
+	req = httptest.NewRequest("DELETE", "/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
@@ -54,18 +54,27 @@ func TestAudit(t *testing.T) {
 	}
 
 	var jsonStr = []byte(`{"data":"test"}`)
-	req = httptest.NewRequest("POST", "/r/sa/test", bytes.NewBuffer(jsonStr))
+	req = httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
-	req = httptest.NewRequest("GET", "/r/sa/test", nil)
+	req = httptest.NewRequest("GET", "/test", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, 200, resp.StatusCode)
 
+	app.Audit = func(r *http.Request) bool {
+		return r.Header.Get("Upgrade") != "websocket"
+	}
+
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
+	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+	require.Nil(t, c)
+	app.console.Err(err)
+	require.Error(t, err)
 }
 
 func TestDoubleShutdown(t *testing.T) {
@@ -100,7 +109,7 @@ func TestGlobKey(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/mo/test/*"}
+	u := url.URL{Scheme: "ws", Host: app.address, Path: "/ws/test/*"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	app.console.Err(err)
 	require.NotNil(t, c)
@@ -129,7 +138,7 @@ func TestInvalidKey(t *testing.T) {
 	app.console.Err(err)
 	require.Error(t, err)
 
-	req := httptest.NewRequest("GET", "/r/sa/test//1", nil)
+	req := httptest.NewRequest("GET", "/test//1", nil)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
