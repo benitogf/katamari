@@ -28,23 +28,22 @@ func (app *Server) tick() {
 }
 
 func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
-	mode := "ws"
-	key := "time"
+	key := ""
 
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
-		app.console.Err("socketConnectionUnauthorized", key)
+		app.console.Err("socketConnectionUnauthorized time")
 		return
 	}
 
-	client, _, err := app.stream.new(mode, key, w, r)
+	client, _, err := app.stream.new(key, w, r)
 
 	if err != nil {
 		return
 	}
 
-	defer app.stream.close(mode, key, client)
+	defer app.stream.close(key, client)
 	go app.stream.writeTime(client, app.getTime())
-	app.readClient(mode, key, client)
+	app.readClient(key, client)
 }

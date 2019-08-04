@@ -13,10 +13,10 @@ func storageSetGetDel(db Database, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ci, err := db.Set("test/1", "test1")
 		require.NoError(b, err)
-		_, err = db.Get("sa", "test/"+ci)
+		_, err = db.Get("test/" + ci)
 		require.NoError(b, err)
 		err = db.Del("test/" + ci)
-		result, err := db.Get("mo", "test")
+		result, err := db.Get("test/*")
 		require.NoError(b, err)
 		require.Equal(b, "[]", string(result))
 	}

@@ -20,23 +20,23 @@ type Router []Filter
 
 // Filters read and write
 type Filters struct {
-	Receive Router
-	Send    Router
+	Write Router
+	Read  Router
 }
 
 // https://github.com/golang/go/issues/11862
 
-// ReceiveFilter add a filter that triggers on receive
-func (app *Server) ReceiveFilter(path string, apply Apply) {
-	app.Filters.Receive = append(app.Filters.Receive, Filter{
+// WriteFilter add a filter that triggers on write
+func (app *Server) WriteFilter(path string, apply Apply) {
+	app.Filters.Write = append(app.Filters.Write, Filter{
 		path:  glob.MustCompile(path),
 		apply: apply,
 	})
 }
 
-// SendFilter add a filter that runs before sending
-func (app *Server) SendFilter(path string, apply Apply) {
-	app.Filters.Send = append(app.Filters.Receive, Filter{
+// ReadFilter add a filter that runs before sending a read result
+func (app *Server) ReadFilter(path string, apply Apply) {
+	app.Filters.Read = append(app.Filters.Read, Filter{
 		path:  glob.MustCompile(path),
 		apply: apply,
 	})

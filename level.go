@@ -87,8 +87,8 @@ func (db *LevelStorage) Keys() ([]byte, error) {
 }
 
 // Get  :
-func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
-	if mode == "sa" {
+func (db *LevelStorage) Get(key string) ([]byte, error) {
+	if !strings.Contains(key, "*") {
 		data, err := db.client.Get([]byte(key), nil)
 		if err != nil {
 			return []byte(""), err
@@ -97,34 +97,30 @@ func (db *LevelStorage) Get(mode string, key string) ([]byte, error) {
 		return data, nil
 	}
 
-	if mode == "mo" {
-		globPrefixKey := strings.Split(key, "*")[0]
-		rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-		if globPrefixKey == "" || globPrefixKey == "*" {
-			rangeKey = nil
-		}
-		iter := db.client.NewIterator(rangeKey, nil)
-		res := []Object{}
-		for iter.Next() {
-			if db.Storage.Keys.isSub(key, string(iter.Key())) {
-				newObject, err := db.Storage.Objects.decode(iter.Value())
-				if err == nil {
-					res = append(res, newObject)
-				}
+	globPrefixKey := strings.Split(key, "*")[0]
+	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
+	if globPrefixKey == "" || globPrefixKey == "*" {
+		rangeKey = nil
+	}
+	iter := db.client.NewIterator(rangeKey, nil)
+	res := []Object{}
+	for iter.Next() {
+		if db.Storage.Keys.isSub(key, string(iter.Key())) {
+			newObject, err := db.Storage.Objects.decode(iter.Value())
+			if err == nil {
+				res = append(res, newObject)
 			}
 		}
-		iter.Release()
-		err := iter.Error()
-		if err != nil {
-			return []byte(""), err
-		}
-
-		sort.Slice(res, db.Storage.Objects.sort(res))
-
-		return db.Storage.Objects.encode(res)
+	}
+	iter.Release()
+	err := iter.Error()
+	if err != nil {
+		return []byte(""), err
 	}
 
-	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
+	sort.Slice(res, db.Storage.Objects.sort(res))
+
+	return db.Storage.Objects.encode(res)
 }
 
 // Peek :
@@ -160,7 +156,7 @@ func (db *LevelStorage) Set(key string, data string) (string, error) {
 		return "", err
 	}
 
-	db.watcher <- StorageEvent{key: key, operation: "set"}
+	db.watcher <- StorageEvent{Key: key, Operation: "set"}
 	return index, nil
 }
 
@@ -179,7 +175,7 @@ func (db *LevelStorage) Del(key string) error {
 	if err != nil {
 		return err
 	}
-	db.watcher <- StorageEvent{key: key, operation: "del"}
+	db.watcher <- StorageEvent{Key: key, Operation: "del"}
 	return nil
 }
 

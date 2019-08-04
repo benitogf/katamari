@@ -64,7 +64,7 @@ func TestRestDel(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	data, _ := app.Storage.Get("sa", "test")
+	data, _ := app.Storage.Get("test")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	require.Empty(t, data)
 
@@ -84,7 +84,7 @@ func TestRestGet(t *testing.T) {
 	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
-	data, _ := app.Storage.Get("sa", "test")
+	data, _ := app.Storage.Get("test")
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()

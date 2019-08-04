@@ -33,14 +33,10 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 
 func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	vkey := mux.Vars(r)["key"]
-	mode := "sa"
-	if strings.Contains(vkey, "*") {
-		mode = "mo"
-	}
 	count := strings.Count(vkey, "*")
 	where := strings.Index(vkey, "*")
 	event, err := app.messages.decodePost(r.Body)
-	if !app.keys.isValid(mode == "mo", vkey) || (mode == "mo" && (count > 1 || where != len(vkey)-1)) {
+	if !app.keys.isValid(vkey) || (count > 1 && where != len(vkey)-1) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
@@ -59,10 +55,10 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("publish", vkey)
-	key := app.keys.Build(mode, vkey)
-	data, err := app.Filters.Receive.check(key, []byte(event.Data), app.Static)
+	key := app.keys.Build(vkey)
+	data, err := app.Filters.Write.check(key, []byte(event.Data), app.Static)
 	if err != nil {
-		app.console.Err("setError["+mode+"/"+key+"]", err)
+		app.console.Err("setError["+key+"]", err)
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
 		return
@@ -93,11 +89,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := mux.Vars(r)["key"]
-	mode := "sa"
-	if strings.Contains(key, "*") {
-		mode = "mo"
-	}
-	if !app.keys.isValid(mode == "mo", key) {
+	if !app.keys.isValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
@@ -109,12 +101,12 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("rget", key)
-	raw, err := app.Storage.Get(mode, key)
+	app.console.Log("read", key)
+	raw, err := app.Storage.Get(key)
 	if err != nil {
 		app.console.Err(err)
 	}
-	filteredData, err := app.Filters.Send.check(key, raw, app.Static)
+	filteredData, err := app.Filters.Read.check(key, raw, app.Static)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
@@ -132,7 +124,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
-	if !app.keys.isValid(false, key) {
+	if !app.keys.isValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
@@ -144,7 +136,7 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("rdel", key)
+	app.console.Log("delete", key)
 	err := app.Storage.Del(key)
 
 	if err != nil {
