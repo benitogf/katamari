@@ -73,6 +73,24 @@ func TestRestDel(t *testing.T) {
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	index, err = app.Storage.Set("test/1", "test1")
+	require.NoError(t, err)
+	require.Equal(t, "1", index)
+	index, err = app.Storage.Set("test/2", "test2")
+	require.NoError(t, err)
+	require.Equal(t, "2", index)
+
+	req = httptest.NewRequest("DELETE", "/test/*", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	_, err = app.Storage.Get("test/1")
+	require.Error(t, err)
+	_, err = app.Storage.Get("test/2")
+	require.Error(t, err)
 }
 
 func TestRestGet(t *testing.T) {

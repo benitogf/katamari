@@ -28,6 +28,7 @@ type Server struct {
 	Filters     Filters
 	Audit       Audit
 	Workers     int
+	ForcePatch  bool
 	Subscribe   Subscribe
 	Unsubscribe Unsubscribe
 	Storage     Database
@@ -83,17 +84,18 @@ func (app *Server) waitStart() {
 
 	if app.Storage.Watch() != nil {
 		for i := 0; i < app.Workers; i++ {
-			go app.broadcast(app.Storage.Watch())
+			go app.watch(app.Storage.Watch())
 		}
 	}
 
 	app.console.Log("glad to serve[" + app.address + "]")
 }
 
-func (app *Server) broadcast(sc StorageChan) {
+func (app *Server) watch(sc StorageChan) {
 	for {
 		ev := <-sc
-		go app.sendData(ev.Key)
+		app.console.Log("broadcast[" + ev.Key + "]")
+		go app.broadcast(ev.Key)
 		if !app.Storage.Active() {
 			break
 		}
@@ -157,6 +159,7 @@ func (app *Server) Start(address string) {
 	atomic.StoreInt64(&app.active, 1)
 	atomic.StoreInt64(&app.closing, 0)
 	app.Defaults()
+	app.stream.forcePatch = app.ForcePatch
 	app.stream.pools = append(
 		app.stream.pools,
 		&pool{

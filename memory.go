@@ -115,6 +115,9 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *MemoryStorage) Set(key string, data string) (string, error) {
+	if !keyRegex.MatchString(key) {
+		return "", errors.New("samo: invalid key")
+	}
 	now := time.Now().UTC().UnixNano()
 	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
@@ -130,11 +133,22 @@ func (db *MemoryStorage) Set(key string, data string) (string, error) {
 
 // Del  :
 func (db *MemoryStorage) Del(key string) error {
-	_, found := db.Memdb.Load(key)
-	if !found {
-		return errors.New("samo: not found")
+	if !strings.Contains(key, "*") {
+		_, found := db.Memdb.Load(key)
+		if !found {
+			return errors.New("samo: not found")
+		}
+		db.Memdb.Delete(key)
+		// db.watcher <- StorageEvent{key: key, operation: "del"}
+		return nil
 	}
-	db.Memdb.Delete(key)
+
+	db.Memdb.Range(func(k interface{}, value interface{}) bool {
+		if db.Storage.Keys.isSub(key, k.(string)) {
+			db.Memdb.Delete(k.(string))
+		}
+		return true
+	})
 	// db.watcher <- StorageEvent{key: key, operation: "del"}
 	return nil
 }

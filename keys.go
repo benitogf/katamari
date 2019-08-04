@@ -20,11 +20,8 @@ func (keys *Keys) isValid(key string) bool {
 	if strings.Contains(key, "//") || strings.Contains(key, "**") {
 		return false
 	}
-	if strings.Contains(key, "*") {
-		return keyGlobRegex.MatchString(key)
-	}
 
-	return keyRegex.MatchString(key)
+	return keyGlobRegex.MatchString(key)
 }
 
 // isSub checks if index is a sub path of the key

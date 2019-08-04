@@ -22,6 +22,7 @@ func TestStorageEtcd(t *testing.T) {
 func TestWsRestBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.ForcePatch = true
 	app.Storage = &EtcdStorage{}
 	app.Start("localhost:9889")
 	app.Storage.Clear()
@@ -32,6 +33,7 @@ func TestWsRestBroadcastEtcd(t *testing.T) {
 func TestWsBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.ForcePatch = true
 	app.Storage = &EtcdStorage{}
 	app.Start("localhost:9889")
 	app.Storage.Clear()

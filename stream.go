@@ -2,6 +2,7 @@ package samo
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,6 +39,7 @@ type stream struct {
 	mutex       sync.RWMutex
 	Subscribe   Subscribe
 	Unsubscribe Unsubscribe
+	forcePatch  bool
 	pools       []*pool
 	console     *coat.Console
 	*Keys
@@ -61,7 +63,7 @@ func (sm *stream) findConnections(key string) []int {
 	sm.mutex.RLock()
 	for i := range sm.pools {
 		isGlob := strings.Contains(key, "*")
-		if (!isGlob && sm.pools[i].key == key) || sm.Keys.isSub(sm.pools[i].key, key) {
+		if i != 0 && ((!isGlob && sm.pools[i].key == key) || sm.Keys.isSub(sm.pools[i].key, key)) {
 			res = append(res, i)
 		}
 	}
@@ -156,6 +158,40 @@ func (sm *stream) getCache(poolIndex int) []byte {
 	return cache
 }
 
+func (sm *stream) setPoolCache(key string, data []byte) {
+	sm.mutex.Lock()
+	poolIndex := sm.findPool(key)
+	if poolIndex == -1 {
+		// create a pool
+		sm.pools = append(
+			sm.pools,
+			&pool{
+				key:         key,
+				cache:       data,
+				connections: []*conn{}})
+		sm.mutex.Unlock()
+		return
+	}
+	sm.pools[poolIndex].cache = data
+	sm.mutex.Unlock()
+}
+
+func (sm *stream) getPoolCache(key string) ([]byte, error) {
+	sm.mutex.RLock()
+	poolIndex := sm.findPool(key)
+	if poolIndex == -1 {
+		sm.mutex.RUnlock()
+		return []byte(""), errors.New("stream pool not found")
+	}
+	cache := sm.pools[poolIndex].cache
+	if len(cache) == 0 {
+		sm.mutex.RUnlock()
+		return cache, errors.New("stream pool cache empty")
+	}
+	sm.mutex.RUnlock()
+	return cache, nil
+}
+
 // patch will return either the snapshot or the patch
 // patch, false (patch)
 // snapshot, true (snapshot)
@@ -171,6 +207,10 @@ func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
 	operations, err := json.Marshal(patch)
 	if err != nil {
 		sm.console.Err("patch decode failed", err)
+		return data, true
+	}
+	// don't send the operations if they exceed the data size
+	if !sm.forcePatch && len(operations) > len(data) {
 		return data, true
 	}
 
