@@ -36,7 +36,7 @@ with [go installed](https://golang.org/doc/install) get the library
 go get github.com/benitogf/samo
 ```
 
-create a file `main.go` as
+create a file `main.go`
 ```golang
 package main
 

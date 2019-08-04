@@ -88,7 +88,7 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 				app.console.Err("read c", err)
 				break
 			}
-			event, err := app.messages.decode(message)
+			event, err := app.messages.decodeTest(message)
 			require.NoError(t, err)
 			app.console.Log("read c", event.Data)
 			mutex.Lock()
@@ -146,6 +146,7 @@ func wsRestBroadcast(t *testing.T, app *Server) {
 func TestWsRestBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.ForcePatch = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	wsRestBroadcast(t, &app)
@@ -154,6 +155,7 @@ func TestWsRestBroadcastMemory(t *testing.T) {
 func TestWsRestBroadcastLevel(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.ForcePatch = true
 	app.Storage = &LevelStorage{
 		Path: "test/db"}
 	app.Start("localhost:9889")
@@ -192,7 +194,7 @@ func wsBroadcast(t *testing.T, app *Server) {
 				app.console.Err("read c1", err)
 				break
 			}
-			event, err := app.messages.decode(message)
+			event, err := app.messages.decodeTest(message)
 			require.NoError(t, err)
 			app.console.Log("read c1", event.Data)
 			mutex.Lock()
@@ -239,7 +241,7 @@ func wsBroadcast(t *testing.T, app *Server) {
 			app.console.Err("read", err)
 			break
 		}
-		event, err := app.messages.decode(message)
+		event, err := app.messages.decodeTest(message)
 		require.NoError(t, err)
 		app.console.Log("read c2", event.Data)
 		mutex.Lock()
@@ -300,6 +302,7 @@ func wsBroadcast(t *testing.T, app *Server) {
 func TestWsBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
+	app.ForcePatch = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	wsBroadcast(t, &app)
@@ -310,6 +313,7 @@ func TestWsBroadcastLevel(t *testing.T) {
 	app.Silence = true
 	app.Storage = &LevelStorage{
 		Path: "test/db"}
+	app.ForcePatch = true
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)

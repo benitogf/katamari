@@ -202,6 +202,9 @@ func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *EtcdStorage) Set(key string, data string) (string, error) {
+	if !keyRegex.MatchString(key) {
+		return "", errors.New("samo: invalid key")
+	}
 	now := time.Now().UTC().UnixNano()
 	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
@@ -221,18 +224,30 @@ func (db *EtcdStorage) Set(key string, data string) (string, error) {
 
 // Del  :
 func (db *EtcdStorage) Del(key string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-	_, err := db.cli.Get(ctx, key)
-	cancel()
-	if err == rpctypes.ErrEmptyKey {
-		return errors.New("samo: not found")
-	}
-	if err != nil {
-		return err
+	if !strings.Contains(key, "*") {
+		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
+		_, err := db.cli.Get(ctx, key)
+		cancel()
+		if err == rpctypes.ErrEmptyKey {
+			return errors.New("samo: not found")
+		}
+		if err != nil {
+			return err
+		}
+
+		ctx, cancel = context.WithTimeout(context.Background(), db.timeout)
+		_, err = db.cli.Delete(ctx, key)
+		cancel()
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), db.timeout)
-	_, err = db.cli.Delete(ctx, key)
+	globPrefixKey := strings.Split(key, "*")[0]
+	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
+	_, err := db.cli.Delete(ctx, globPrefixKey, clientv3.WithPrefix())
 	cancel()
 	if err != nil {
 		return err

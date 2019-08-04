@@ -140,6 +140,9 @@ func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *LevelStorage) Set(key string, data string) (string, error) {
+	if !keyRegex.MatchString(key) {
+		return "", errors.New("samo: invalid key")
+	}
 	now := time.Now().UTC().UnixNano()
 	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
@@ -162,19 +165,48 @@ func (db *LevelStorage) Set(key string, data string) (string, error) {
 
 // Del  :
 func (db *LevelStorage) Del(key string) error {
-	_, err := db.client.Get([]byte(key), nil)
-	if err != nil && err.Error() == "leveldb: not found" {
-		return errors.New("samo: not found")
+	var err error
+	if !strings.Contains(key, "*") {
+		_, err = db.client.Get([]byte(key), nil)
+		if err != nil && err.Error() == "leveldb: not found" {
+			return errors.New("samo: not found")
+		}
+
+		if err != nil {
+			return err
+		}
+
+		err = db.client.Delete([]byte(key), nil)
+		if err != nil {
+			return err
+		}
+		db.watcher <- StorageEvent{Key: key, Operation: "del"}
+		return nil
 	}
 
+	globPrefixKey := strings.Split(key, "*")[0]
+	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
+	if globPrefixKey == "" || globPrefixKey == "*" {
+		rangeKey = nil
+	}
+	iter := db.client.NewIterator(rangeKey, nil)
+	for iter.Next() {
+		if db.Storage.Keys.isSub(key, string(iter.Key())) {
+			err = db.client.Delete(iter.Key(), nil)
+			if err != nil {
+				break
+			}
+		}
+	}
+	if err != nil {
+		return err
+	}
+	iter.Release()
+	err = iter.Error()
 	if err != nil {
 		return err
 	}
 
-	err = db.client.Delete([]byte(key), nil)
-	if err != nil {
-		return err
-	}
 	db.watcher <- StorageEvent{Key: key, Operation: "del"}
 	return nil
 }

@@ -138,6 +138,14 @@ func StorageMO(app *Server, t *testing.T, testData string) {
 	app.console.Log(testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
+	err = app.Storage.Del("*")
+	require.NoError(t, err)
+	data, err = app.Storage.Get("*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(testObjects))
 }
 
 var units = []string{

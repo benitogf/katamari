@@ -21,7 +21,7 @@ func (app *Server) getPatch(poolIndex int, key string) (string, bool, error) {
 	return app.messages.encode(modifiedData), snapshot, nil
 }
 
-func (app *Server) sendData(key string) {
+func (app *Server) broadcast(key string) {
 	for _, poolIndex := range app.stream.findConnections(key) {
 		data, snapshot, err := app.getPatch(
 			poolIndex,
@@ -70,16 +70,20 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	defer app.stream.close(key, client)
 
 	// send initial msg
-	raw, _ := app.Storage.Get(key)
-	if len(raw) == 0 {
-		raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
-	}
-	filteredData, err := app.Filters.Read.check(key, raw, app.Static)
+	cache, err := app.stream.getPoolCache(key)
 	if err != nil {
-		app.console.Err("samo: filtered route", err)
-		return
+		raw, _ := app.Storage.Get(key)
+		if len(raw) == 0 {
+			raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+		}
+		filteredData, err := app.Filters.Read.check(key, raw, app.Static)
+		if err != nil {
+			app.console.Err("samo: filtered route", err)
+			return
+		}
+		app.stream.setCache(poolIndex, filteredData)
+		cache = filteredData
 	}
-	app.stream.setCache(poolIndex, filteredData)
-	go app.stream.write(client, app.messages.encode(filteredData), true)
+	go app.stream.write(client, app.messages.encode(cache), true)
 	app.readClient(key, client)
 }

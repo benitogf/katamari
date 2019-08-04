@@ -6,6 +6,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestKeyRegex(t *testing.T) {
+	require.True(t, keyRegex.MatchString("a"))
+	require.True(t, keyRegex.MatchString("a/b/c"))
+	require.False(t, keyRegex.MatchString("/a/b/c"))
+	require.False(t, keyRegex.MatchString("a/b/c/"))
+	require.False(t, keyRegex.MatchString("a:b/c"))
+	require.True(t, keyGlobRegex.MatchString("*"))
+	require.True(t, keyGlobRegex.MatchString("*/a"))
+	require.True(t, keyGlobRegex.MatchString("a/b/*"))
+	require.True(t, keyGlobRegex.MatchString("a/b/c"))
+	require.False(t, keyGlobRegex.MatchString("/a/b/c"))
+	require.False(t, keyGlobRegex.MatchString("a/b/c/"))
+	require.False(t, keyGlobRegex.MatchString("a:b/c"))
+}
+
 func TestKeyIsValid(t *testing.T) {
 	keys := &Keys{}
 	require.True(t, keys.isValid("test"))

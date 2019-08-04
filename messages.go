@@ -21,7 +21,7 @@ func (messages *Messages) encode(raw []byte) string {
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
-func (messages *Messages) decode(message []byte) (Message, error) {
+func (messages *Messages) decodeTest(message []byte) (Message, error) {
 	var wsEvent Message
 	err := json.Unmarshal(message, &wsEvent)
 	if err != nil {
@@ -36,7 +36,7 @@ func (messages *Messages) decode(message []byte) (Message, error) {
 	return wsEvent, nil
 }
 
-func (messages *Messages) decodePost(r io.Reader) (Message, error) {
+func (messages *Messages) decode(r io.Reader) (Message, error) {
 	var httpEvent Message
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&httpEvent)
