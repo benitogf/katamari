@@ -22,21 +22,21 @@ Provides a dynamic websocket and restful http service to quickly prototype realt
 - filtering and audit middleware
 - auto managed timestamps (created, updated)
 
-# quickstart
+## quickstart
 
-## client
+### client
 
 There's a [js client](https://www.npmjs.com/package/samo-js-client).
 
-## server
+### server
 
-download a [release](https://github.com/benitogf/samo/releases) or with [go installed](https://golang.org/doc/install) get the library:
+with [go installed](https://golang.org/doc/install) get the library
 
 ```bash
 go get github.com/benitogf/samo
 ```
 
-then create a file `main.go` as:
+create a file `main.go` as
 ```golang
 package main
 
@@ -49,7 +49,7 @@ func main() {
 }
 ```
 
-finally run the service:
+run the service:
 ```bash
 go run main.go
 ```
@@ -59,63 +59,112 @@ go run main.go
 | method | description | url    |
 | ------------- |:-------------:| -----:|
 | GET | key list | http://{host}:{port} |
-| websocket| time ticker | ws://{host}:{port} |
+| websocket| clock | ws://{host}:{port} |
 | POST | create/update | http://{host}:{port}/{key} |
 | GET | read | http://{host}:{port}/{key} |
 | DELETE | delete | http://{host}:{port}/{key} |
 | websocket| subscribe | ws://{host}:{port}/{key} |
 
-# filters, audit, subscription events and extra routes
+# creating rules and control
 
     Define ad lib receive and send filter criteria using key glob patterns, audit middleware, and extra routes
 
+Using the default open setting is usefull while prototyping, but maybe not ideal to deploy as a public service.
+
+A one route server example:
+
+```golang
+package main
+
+import "github.com/benitogf/samo"
+import "net/http"
+
+func openFilter(index string, data []byte) ([]byte, error) {
+  return data, nil
+}
+
+func audit(r *http.Request) bool {
+  // allow clock subscription
+  if r.URL.Path == "" {
+    return true
+  }
+  if r.URL.Path == "/open" {
+    return true
+  }
+
+  return false
+}
+
+func main() {
+  app := samo.Server{}
+  app.Static = true
+  app.Audit = audit
+  app.WriteFilter("open", openFilter)
+  app.ReadFilter("open", openFilter)
+  app.Start("localhost:8800")
+  app.WaitClose()
+}
+```
+
+### static routes
+
+Activating this flag will limit the server to process requests defined in read and write filters
+
+```golang
+app := samo.Server{}
+app.Static = true
+```
+
+
 ### filters
 
-```go
-	// Filters
-	app.ReceiveFilter("bag/*", func(index string, data []byte) ([]byte, error) {
-		if string(data) != "marbles" {
-			return nil, errors.New("filtered")
-		}
+- Write filters will be called before processing a write operation
+- Read filters will be called before sending the results of a read operation
 
-		return data, nil
-	})
-	app.SendFilter("bag/1", func(index string, data []byte) ([]byte, error) {
-		return []byte("intercepted"), nil
-	})
+```golang
+app.WriteFilter("books/*", func(index string, data []byte) ([]byte, error) {
+  // returning an error will deny the write
+  return data, nil
+})
+app.ReadFilter("books/taup", func(index string, data []byte) ([]byte, error) {
+  // returning an error will deny the read
+  return []byte("intercepted"), nil
+})
 ```
 
 ### audit
 
-```go
-	// Audit requests
-	app.Audit = func(r *http.Request) bool {
-		return r.Method == "GET" && r.Header.Get("Upgrade") != "websocket"
-  }
+```golang
+app.Audit = func(r *http.Request) bool {
+  return false // condition to allow access to the resource
+}
 ```
 
 ### subscribe
 
-```go
-	// Subscription events
-	server.Subscribe = func(mode string, key string, remoteAddr string) error {
-		log.Println(mode, key)
-		return nil
-	}
-	server.Unsubscribe = func(mode string, key string, remoteAddr string) {
-		log.Println(mode, key)
-	}
+```golang
+// new subscription
+server.Subscribe = func(key string) error {
+  log.Println(key)
+  // returning an error will deny the subscription
+  return nil
+}
+// closing subscription
+server.Unsubscribe = func(key string) {
+  log.Println(key)
+}
 ```
 
 ### extra routes
 
-```go
-	// Predefine the router
-	app.Router = mux.NewRouter()
-	app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, "123")
-	})
+```golang
+// Predefine the router
+app.Defaults()
+app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+  w.Header().Set("Content-Type", "application/json")
+  fmt.Fprintf(w, "123")
+})
+app.Start("localhost:8800")
 ```
 
 # data persistence layer
@@ -129,11 +178,10 @@ package main
 import "github.com/benitogf/samo"
 
 func main() {
-	app := samo.Server{}
-	app.Storage = &samo.LevelStorage{
-		Path:    "data/db"}
-	app.Start("localhost:8800")
-	app.WaitClose()
+  app := samo.Server{}
+  app.Storage = &samo.LevelStorage{Path:"data/db"}
+  app.Start("localhost:8800")
+  app.WaitClose()
 }
 ```
 ### etcd
@@ -143,12 +191,12 @@ package main
 import "github.com/benitogf/samo"
 
 func main() {
-	app := samo.Server{}
-	app.Storage = &samo.EtcdStorage{
-            Path:    "data/default.etcd",
-            Peers: []string{"localhost:2379"}}
-	app.Start("localhost:8800")
-	app.WaitClose()
+  app := samo.Server{}
+  app.Storage = &samo.EtcdStorage{
+    Path:    "data/default.etcd",
+    Peers: []string{"localhost:2379"}}
+  app.Start("localhost:8800")
+  app.WaitClose()
 }
 ```
 

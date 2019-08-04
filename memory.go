@@ -72,8 +72,8 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 }
 
 // Get :
-func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
-	if mode == "sa" {
+func (db *MemoryStorage) Get(key string) ([]byte, error) {
+	if !strings.Contains(key, "*") {
 		data, found := db.Memdb.Load(key)
 		if !found {
 			return []byte(""), errors.New("samo: not found")
@@ -82,24 +82,20 @@ func (db *MemoryStorage) Get(mode string, key string) ([]byte, error) {
 		return data.([]byte), nil
 	}
 
-	if mode == "mo" {
-		res := []Object{}
-		db.Memdb.Range(func(k interface{}, value interface{}) bool {
-			if db.Storage.Keys.isSub(key, k.(string)) {
-				newObject, err := db.Storage.Objects.decode(value.([]byte))
-				if err == nil {
-					res = append(res, newObject)
-				}
+	res := []Object{}
+	db.Memdb.Range(func(k interface{}, value interface{}) bool {
+		if db.Storage.Keys.isSub(key, k.(string)) {
+			newObject, err := db.Storage.Objects.decode(value.([]byte))
+			if err == nil {
+				res = append(res, newObject)
 			}
-			return true
-		})
+		}
+		return true
+	})
 
-		sort.Slice(res, db.Storage.Objects.sort(res))
+	sort.Slice(res, db.Storage.Objects.sort(res))
 
-		return db.Storage.Objects.encode(res)
-	}
-
-	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
+	return db.Storage.Objects.encode(res)
 }
 
 // Peek will check the object stored in the key if any, returns created and updated times accordingly

@@ -93,30 +93,26 @@ func (app *Server) waitStart() {
 func (app *Server) broadcast(sc StorageChan) {
 	for {
 		ev := <-sc
-		go app.sendData(ev.key)
+		go app.sendData(ev.Key)
 		if !app.Storage.Active() {
 			break
 		}
 	}
 }
 
-// Start : initialize and start the http server and database connection
-func (app *Server) Start(address string) {
-	if atomic.LoadInt64(&app.active) == 1 {
-		app.console.Err("server already active")
-		return
-	}
-
-	atomic.StoreInt64(&app.active, 1)
-	atomic.StoreInt64(&app.closing, 0)
-	app.address = address
-
+// Defaults will populate the server fields with their zero values
+func (app *Server) Defaults() {
 	if app.Router == nil {
 		app.Router = mux.NewRouter()
 	}
 
-	app.console = coat.NewConsole(app.address, app.Silence)
-	app.stream.console = app.console
+	if app.console == nil {
+		app.console = coat.NewConsole(app.address, app.Silence)
+	}
+
+	if app.stream.console == nil {
+		app.stream.console = app.console
+	}
 
 	if app.Storage == nil {
 		app.Storage = &MemoryStorage{}
@@ -131,25 +127,41 @@ func (app *Server) Start(address string) {
 	}
 
 	if app.Subscribe == nil {
-		app.Subscribe = func(mode string, key string, remoteAddr string) error { return nil }
+		app.Subscribe = func(key string) error { return nil }
+	}
+
+	if app.stream.Subscribe == nil {
+		app.stream.Subscribe = app.Subscribe
 	}
 
 	if app.Unsubscribe == nil {
-		app.Unsubscribe = func(mode string, key string, remoteAddr string) {}
+		app.Unsubscribe = func(key string) {}
 	}
+
+	if app.stream.Unsubscribe == nil {
+		app.stream.Unsubscribe = app.Unsubscribe
+	}
+
 	if app.Workers == 0 {
 		app.Workers = 2
 	}
+}
 
+// Start : initialize and start the http server and database connection
+func (app *Server) Start(address string) {
+	app.address = address
+	if atomic.LoadInt64(&app.active) == 1 {
+		app.console.Err("server already active")
+		return
+	}
+	atomic.StoreInt64(&app.active, 1)
+	atomic.StoreInt64(&app.closing, 0)
+	app.Defaults()
 	app.stream.pools = append(
 		app.stream.pools,
 		&pool{
-			key:         "time",
-			mode:        "ws",
+			key:         "",
 			connections: []*conn{}})
-
-	app.stream.Subscribe = app.Subscribe
-	app.stream.Unsubscribe = app.Unsubscribe
 	app.Router.HandleFunc("/", app.getStats).Methods("GET")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.unpublish).Methods("DELETE")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.publish).Methods("POST")

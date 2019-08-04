@@ -88,7 +88,7 @@ func (db *EtcdStorage) Start() error {
 	go func() {
 		for wresp := range db.cli.Watch(context.Background(), "", clientv3.WithPrefix()) {
 			for _, ev := range wresp.Events {
-				db.watcher <- StorageEvent{key: string(ev.Kv.Key), operation: string(ev.Type)}
+				db.watcher <- StorageEvent{Key: string(ev.Kv.Key), Operation: string(ev.Type)}
 			}
 			if !db.Active() {
 				return
@@ -146,8 +146,8 @@ func (db *EtcdStorage) Keys() ([]byte, error) {
 }
 
 // Get :
-func (db *EtcdStorage) Get(mode string, key string) ([]byte, error) {
-	if mode == "sa" {
+func (db *EtcdStorage) Get(key string) ([]byte, error) {
+	if !strings.Contains(key, "*") {
 		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 		resp, err := db.cli.Get(ctx, key)
 		cancel()
@@ -161,30 +161,26 @@ func (db *EtcdStorage) Get(mode string, key string) ([]byte, error) {
 		return resp.Kvs[0].Value, nil
 	}
 
-	if mode == "mo" {
-		res := []Object{}
-		globPrefixKey := strings.Split(key, "*")[0]
-		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-		resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
-		cancel()
-		if err != nil {
-			return []byte(""), err
-		}
-		for _, ev := range resp.Kvs {
-			if db.Storage.Keys.isSub(key, string(ev.Key)) {
-				newObject, err := db.Storage.Objects.decode(ev.Value)
-				if err == nil {
-					res = append(res, newObject)
-				}
+	res := []Object{}
+	globPrefixKey := strings.Split(key, "*")[0]
+	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
+	resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
+	cancel()
+	if err != nil {
+		return []byte(""), err
+	}
+	for _, ev := range resp.Kvs {
+		if db.Storage.Keys.isSub(key, string(ev.Key)) {
+			newObject, err := db.Storage.Objects.decode(ev.Value)
+			if err == nil {
+				res = append(res, newObject)
 			}
 		}
-
-		sort.Slice(res, db.Storage.Objects.sort(res))
-
-		return db.Storage.Objects.encode(res)
 	}
 
-	return []byte(""), errors.New("samo: unrecognized mode: " + mode)
+	sort.Slice(res, db.Storage.Objects.sort(res))
+
+	return db.Storage.Objects.encode(res)
 }
 
 // Peek will check the object stored in the key if any, returns created and updated times accordingly

@@ -15,12 +15,12 @@ type Keys struct{}
 var keyRegex = regexp.MustCompile(`^[a-zA-Z\d]$|^[a-zA-Z\d][a-zA-Z\d\/]+[a-zA-Z\d]$`)
 var keyGlobRegex = regexp.MustCompile(`^[a-zA-Z\*\d]$|^[a-zA-Z\*\d][a-zA-Z\*\d\/]+[a-zA-Z\*\d]$`)
 
-// isValid checks that the key doesn't contain two consecutive separators
-func (keys *Keys) isValid(glob bool, key string) bool {
-	if strings.Contains(key, "//") {
+// isValid checks that the key for unsuported patterns
+func (keys *Keys) isValid(key string) bool {
+	if strings.Contains(key, "//") || strings.Contains(key, "**") {
 		return false
 	}
-	if glob {
+	if strings.Contains(key, "*") {
 		return keyGlobRegex.MatchString(key)
 	}
 
@@ -44,10 +44,10 @@ func (keys *Keys) lastIndex(key string) string {
 	return key[strings.LastIndexAny(key, "/")+1:]
 }
 
-// Build the key but returns the components as well
-func (keys *Keys) Build(mode string, key string) string {
+// Build checks the key glob pattern
+func (keys *Keys) Build(key string) string {
 	now := time.Now().UTC().UnixNano()
-	if mode == "sa" {
+	if !strings.Contains(key, "*") {
 		return key
 	}
 

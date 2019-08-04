@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/benitogf/jsonpatch"
@@ -12,11 +13,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Subscribe : function to provide approval or denial of subscription
-type Subscribe func(mode string, key string, remoteAddr string) error
+// Subscribe : function to monitoring or filtering of subscription
+type Subscribe func(key string) error
 
 // Unsubscribe : function callback on subscription closing
-type Unsubscribe func(mode string, key string, remoteAddr string)
+type Unsubscribe func(key string)
 
 // conn extends the websocket connection with a mutex
 // https://godoc.org/github.com/gorilla/websocket#hdr-Concurrency
@@ -25,10 +26,9 @@ type conn struct {
 	conn  *websocket.Conn
 }
 
-// pool of mode/key filtered websocket connections
+// pool of key filtered websocket connections
 type pool struct {
 	key         string
-	mode        string
 	cache       []byte
 	connections []*conn
 }
@@ -44,10 +44,10 @@ type stream struct {
 	*Messages
 }
 
-func (sm *stream) findPool(mode string, key string) int {
+func (sm *stream) findPool(key string) int {
 	poolIndex := -1
 	for i := range sm.pools {
-		if sm.pools[i].key == key && sm.pools[i].mode == mode {
+		if sm.pools[i].key == key {
 			poolIndex = i
 			break
 		}
@@ -60,9 +60,8 @@ func (sm *stream) findConnections(key string) []int {
 	var res []int
 	sm.mutex.RLock()
 	for i := range sm.pools {
-		if (sm.pools[i].key == key && sm.pools[i].mode == "sa") ||
-			(sm.pools[i].mode == "mo" &&
-				sm.Keys.isSub(sm.pools[i].key, key)) {
+		isGlob := strings.Contains(key, "*")
+		if (!isGlob && sm.pools[i].key == key) || sm.Keys.isSub(sm.pools[i].key, key) {
 			res = append(res, i)
 		}
 	}
@@ -71,13 +70,13 @@ func (sm *stream) findConnections(key string) []int {
 	return res
 }
 
-func (sm *stream) close(mode string, key string, client *conn) {
+func (sm *stream) close(key string, client *conn) {
 	// auxiliar clients array
 	na := []*conn{}
 
 	// loop to remove this client
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(mode, key)
+	poolIndex := sm.findPool(key)
 	for _, v := range sm.pools[poolIndex].connections {
 		if v != client {
 			na = append(na, v)
@@ -87,11 +86,11 @@ func (sm *stream) close(mode string, key string, client *conn) {
 	// replace clients array with the auxiliar
 	sm.pools[poolIndex].connections = na
 	sm.mutex.Unlock()
-	go sm.Unsubscribe(mode, key, client.conn.UnderlyingConn().RemoteAddr().String())
+	go sm.Unsubscribe(key)
 	client.conn.Close()
 }
 
-func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Request) (*conn, int, error) {
+func (sm *stream) new(key string, w http.ResponseWriter, r *http.Request) (*conn, int, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -103,34 +102,33 @@ func (sm *stream) new(mode string, key string, w http.ResponseWriter, r *http.Re
 	wsClient, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		sm.console.Err("socketUpgradeError["+mode+"/"+key+"]", err)
+		sm.console.Err("socketUpgradeError["+key+"]", err)
 		return nil, -1, err
 	}
 
-	err = sm.Subscribe(mode, key, wsClient.UnderlyingConn().RemoteAddr().String())
+	err = sm.Subscribe(key)
 	if err != nil {
 		return nil, -1, err
 	}
 
-	client, poolIndex := sm.open(mode, key, wsClient)
+	client, poolIndex := sm.open(key, wsClient)
 	return client, poolIndex, nil
 }
 
-func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn, int) {
+func (sm *stream) open(key string, wsClient *websocket.Conn) (*conn, int) {
 	client := &conn{
 		conn:  wsClient,
 		mutex: sync.Mutex{},
 	}
 
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(mode, key)
+	poolIndex := sm.findPool(key)
 	if poolIndex == -1 {
 		// create a pool
 		sm.pools = append(
 			sm.pools,
 			&pool{
 				key:         key,
-				mode:        mode,
 				connections: []*conn{client}})
 		poolIndex = len(sm.pools) - 1
 	} else {
@@ -139,7 +137,7 @@ func (sm *stream) open(mode string, key string, wsClient *websocket.Conn) (*conn
 			sm.pools[poolIndex].connections,
 			client)
 	}
-	sm.console.Log("connections["+mode+"/"+key+"]: ", len(sm.pools[poolIndex].connections))
+	sm.console.Log("connections["+key+"]: ", len(sm.pools[poolIndex].connections))
 	sm.mutex.Unlock()
 
 	return client, poolIndex

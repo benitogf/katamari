@@ -5,8 +5,8 @@ type StorageChan chan StorageEvent
 
 // StorageEvent : an operation event
 type StorageEvent struct {
-	key       string
-	operation string
+	Key       string
+	Operation string
 }
 
 // Database : methods of the persistent data layer
@@ -15,7 +15,7 @@ type Database interface {
 	Start() error
 	Close()
 	Keys() ([]byte, error)
-	Get(mode string, key string) ([]byte, error)
+	Get(key string) ([]byte, error)
 	Set(key string, data string) (string, error)
 	Del(key string) error
 	Clear()

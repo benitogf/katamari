@@ -8,10 +8,10 @@ import (
 
 func TestKeyIsValid(t *testing.T) {
 	keys := &Keys{}
-	require.True(t, keys.isValid(false, "test"))
-	require.True(t, keys.isValid(false, "test/1"))
-	require.False(t, keys.isValid(false, "test//1"))
-	require.False(t, keys.isValid(false, "test///1"))
+	require.True(t, keys.isValid("test"))
+	require.True(t, keys.isValid("test/1"))
+	require.False(t, keys.isValid("test//1"))
+	require.False(t, keys.isValid("test///1"))
 }
 
 func TestKeyIsSub(t *testing.T) {

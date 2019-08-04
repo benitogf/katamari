@@ -16,15 +16,18 @@ type Object struct {
 // Objects provide methods to read from bytes and write to bytes
 type Objects struct{}
 
+func max(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (o *Objects) sort(obj []Object) func(i, j int) bool {
 	return func(i, j int) bool {
-		created := obj[i].Created > obj[j].Created
-		updated := obj[i].Updated > obj[j].Updated
-		if updated && obj[j].Updated != 0 {
-			return true
-		}
-
-		return created
+		maxi := max(obj[i].Updated, obj[i].Created)
+		maxj := max(obj[j].Updated, obj[j].Created)
+		return maxi > maxj
 	}
 }
 
