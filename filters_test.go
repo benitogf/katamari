@@ -32,6 +32,14 @@ func TestFilters(t *testing.T) {
 	app.ReadFilter("bag/*", func(key string, data []byte) ([]byte, error) {
 		return []byte("intercepted:" + key), nil
 	})
+
+	app.WriteFilter("book/*", func(key string, data []byte) ([]byte, error) {
+		return data, nil
+	})
+	app.ReadFilter("book/*", func(key string, data []byte) ([]byte, error) {
+		return data, nil
+	})
+
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_, err := app.Filters.Write.check("test1", []byte("notest"), false)
@@ -41,7 +49,25 @@ func TestFilters(t *testing.T) {
 	data, err := app.Filters.Read.check("bag/1", []byte("test"), false)
 	require.NoError(t, err)
 	require.Equal(t, "intercepted:bag/1", string(data))
-
+	_, err = app.Filters.Write.check("test1", []byte("test1"), false)
+	require.NoError(t, err)
+	// test static
+	_, err = app.Filters.Write.check("book", []byte("testbook"), true)
+	require.Error(t, err)
+	_, err = app.Filters.Write.check("book/1/1", []byte("testbook"), true)
+	require.Error(t, err)
+	_, err = app.Filters.Write.check("book/1/1/1", []byte("testbook"), true)
+	require.Error(t, err)
+	_, err = app.Filters.Read.check("book", []byte("testbook"), true)
+	require.Error(t, err)
+	_, err = app.Filters.Read.check("book/1/1", []byte("testbook"), true)
+	require.Error(t, err)
+	_, err = app.Filters.Read.check("book/1/1/1", []byte("testbook"), true)
+	require.Error(t, err)
+	_, err = app.Filters.Write.check("book/1", []byte("test1"), true)
+	require.NoError(t, err)
+	_, err = app.Filters.Read.check("book/1", []byte("test1"), true)
+	require.NoError(t, err)
 	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("notest")) + `"}`)
 	req := httptest.NewRequest("POST", "/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()

@@ -2,6 +2,7 @@ package samo
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/gobwas/glob"
 )
@@ -11,7 +12,8 @@ type Apply func(key string, data []byte) ([]byte, error)
 
 // Filter path -> match
 type Filter struct {
-	path  glob.Glob
+	glob  glob.Glob
+	path  string
 	apply Apply
 }
 
@@ -29,7 +31,8 @@ type Filters struct {
 // WriteFilter add a filter that triggers on write
 func (app *Server) WriteFilter(path string, apply Apply) {
 	app.Filters.Write = append(app.Filters.Write, Filter{
-		path:  glob.MustCompile(path),
+		glob:  glob.MustCompile(path),
+		path:  path,
 		apply: apply,
 	})
 }
@@ -37,15 +40,17 @@ func (app *Server) WriteFilter(path string, apply Apply) {
 // ReadFilter add a filter that runs before sending a read result
 func (app *Server) ReadFilter(path string, apply Apply) {
 	app.Filters.Read = append(app.Filters.Read, Filter{
-		path:  glob.MustCompile(path),
+		glob:  glob.MustCompile(path),
+		path:  path,
 		apply: apply,
 	})
 }
 
 func (r Router) check(key string, data []byte, static bool) ([]byte, error) {
 	match := -1
+	countKey := strings.Count(key, "/")
 	for i, filter := range r {
-		if filter.path.Match(key) {
+		if filter.glob.Match(key) && countKey == strings.Count(filter.path, "/") {
 			match = i
 			break
 		}
