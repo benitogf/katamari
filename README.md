@@ -10,7 +10,7 @@ Zero configuration data persistence and communication layer.
 
 Web service that behaves like a distributed filesystem in the sense that all routes are open by default, oposite to rails like frameworks where the user must define the routes before being able to interact with them.
 
-Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/samo#filters-audit-subscription-events-and-extra-routes).
+Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/samo#creating-rules-and-control).
 
 ## features
 
