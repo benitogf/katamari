@@ -73,7 +73,7 @@ func (app *Server) waitListen() {
 	app.mutex.Unlock()
 	ln, err := net.Listen("tcp", app.address)
 	if err != nil {
-		log.Fatal("failed to start tcp ", err)
+		log.Fatal("failed to start tcp, ", err)
 	}
 	atomic.StoreInt64(&app.active, 1)
 	err = app.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
@@ -108,8 +108,10 @@ func (app *Server) waitStart() {
 func (app *Server) watch(sc StorageChan) {
 	for {
 		ev := <-sc
-		app.console.Log("broadcast[" + ev.Key + "]")
-		go app.broadcast(ev.Key)
+		if ev.Key != "" {
+			app.console.Log("broadcast[" + ev.Key + "]")
+			go app.broadcast(ev.Key)
+		}
 		if !app.Storage.Active() {
 			break
 		}
