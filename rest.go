@@ -112,6 +112,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", err)
+			return
 		}
 		app.stream.setPoolCache(key, filteredData)
 		if len(filteredData) == 0 {
