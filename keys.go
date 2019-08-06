@@ -12,11 +12,12 @@ import (
 // Keys methods
 type Keys struct{}
 
-var keyRegex = regexp.MustCompile(`^[a-zA-Z\d]$|^[a-zA-Z\d][a-zA-Z\d\/]+[a-zA-Z\d]$`)
+// var keyRegex = regexp.MustCompile(`^[a-zA-Z\d]$|^[a-zA-Z\d][a-zA-Z\d\/]+[a-zA-Z\d]$`)
 var keyGlobRegex = regexp.MustCompile(`^[a-zA-Z\*\d]$|^[a-zA-Z\*\d][a-zA-Z\*\d\/]+[a-zA-Z\*\d]$`)
+var globsCache = map[string]glob.Glob{}
 
-// isValid checks that the key for unsuported patterns
-func (keys *Keys) isValid(key string) bool {
+// IsValid checks that the key pattern issuported
+func (keys *Keys) IsValid(key string) bool {
 	if strings.Contains(key, "//") || strings.Contains(key, "**") {
 		return false
 	}
@@ -24,16 +25,19 @@ func (keys *Keys) isValid(key string) bool {
 	return keyGlobRegex.MatchString(key)
 }
 
-// isSub checks if index is a sub path of the key
-func (keys *Keys) isSub(key string, index string) bool {
-	if strings.Contains(key, "*") {
-		re := glob.MustCompile(key)
-		keyPath := strings.Split(key, "/")
-		indexPath := strings.Split(index, "/")
-		return re.Match(index) && len(keyPath) == len(indexPath)
+// Match checks that the key is part of the path
+func (keys *Keys) Match(path string, key string) bool {
+	if !strings.Contains(path, "*") {
+		return false
 	}
-	moIndex := strings.Split(strings.Replace(index, key+"/", "", 1), "/")
-	return len(moIndex) == 1 && moIndex[0] != key
+	globPath, found := globsCache[path]
+	if !found {
+		globPath = glob.MustCompile(path)
+		globsCache[path] = globPath
+	}
+	countPath := strings.Count(path, "/")
+	countKey := strings.Count(key, "/")
+	return globPath.Match(key) && countPath == countKey
 }
 
 // lastIndex will return the last sub path of the key

@@ -46,7 +46,7 @@ func (app *Server) readClient(key string, client *conn) {
 
 func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
-	if !app.keys.isValid(key) {
+	if !app.keys.IsValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		app.console.Err("socketKeyError", key)

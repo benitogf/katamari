@@ -84,7 +84,7 @@ func (db *MemoryStorage) Get(key string) ([]byte, error) {
 
 	res := []Object{}
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
-		if db.Storage.Keys.isSub(key, k.(string)) {
+		if db.Storage.Keys.Match(key, k.(string)) {
 			newObject, err := db.Storage.Objects.decode(value.([]byte))
 			if err == nil {
 				res = append(res, newObject)
@@ -115,9 +115,6 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *MemoryStorage) Set(key string, data string) (string, error) {
-	if !keyRegex.MatchString(key) {
-		return "", errors.New("samo: invalid key")
-	}
 	now := time.Now().UTC().UnixNano()
 	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
@@ -144,7 +141,7 @@ func (db *MemoryStorage) Del(key string) error {
 	}
 
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
-		if db.Storage.Keys.isSub(key, k.(string)) {
+		if db.Storage.Keys.Match(key, k.(string)) {
 			db.Memdb.Delete(k.(string))
 		}
 		return true

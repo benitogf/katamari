@@ -36,7 +36,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	count := strings.Count(vkey, "*")
 	where := strings.Index(vkey, "*")
 	event, err := app.messages.decode(r.Body)
-	if !app.keys.isValid(vkey) || (count > 1 && where != len(vkey)-1) {
+	if !app.keys.IsValid(vkey) || count > 1 || (count == 1 && where != len(vkey)-1) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
@@ -89,7 +89,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := mux.Vars(r)["key"]
-	if !app.keys.isValid(key) {
+	if !app.keys.IsValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
@@ -129,7 +129,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
-	if !app.keys.isValid(key) {
+	if !app.keys.IsValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
 		return
