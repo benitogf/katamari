@@ -12,7 +12,6 @@ import (
 // Keys methods
 type Keys struct{}
 
-// var keyRegex = regexp.MustCompile(`^[a-zA-Z\d]$|^[a-zA-Z\d][a-zA-Z\d\/]+[a-zA-Z\d]$`)
 var keyGlobRegex = regexp.MustCompile(`^[a-zA-Z\*\d]$|^[a-zA-Z\*\d][a-zA-Z\*\d\/]+[a-zA-Z\*\d]$`)
 var globsCache = map[string]glob.Glob{}
 
