@@ -170,7 +170,7 @@ func (db *EtcdStorage) Get(key string) ([]byte, error) {
 		return []byte(""), err
 	}
 	for _, ev := range resp.Kvs {
-		if db.Storage.Keys.isSub(key, string(ev.Key)) {
+		if db.Storage.Keys.Match(key, string(ev.Key)) {
 			newObject, err := db.Storage.Objects.decode(ev.Value)
 			if err == nil {
 				res = append(res, newObject)
@@ -202,9 +202,6 @@ func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *EtcdStorage) Set(key string, data string) (string, error) {
-	if !keyRegex.MatchString(key) {
-		return "", errors.New("samo: invalid key")
-	}
 	now := time.Now().UTC().UnixNano()
 	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)

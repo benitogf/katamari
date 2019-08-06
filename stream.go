@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/benitogf/jsonpatch"
@@ -62,8 +61,7 @@ func (sm *stream) findConnections(key string) []int {
 	var res []int
 	sm.mutex.RLock()
 	for i := range sm.pools {
-		isGlob := strings.Contains(key, "*")
-		if i != 0 && ((!isGlob && sm.pools[i].key == key) || sm.Keys.isSub(sm.pools[i].key, key)) {
+		if i != 0 && (sm.pools[i].key == key || sm.Keys.Match(sm.pools[i].key, key)) {
 			res = append(res, i)
 		}
 	}

@@ -105,7 +105,7 @@ func (db *LevelStorage) Get(key string) ([]byte, error) {
 	iter := db.client.NewIterator(rangeKey, nil)
 	res := []Object{}
 	for iter.Next() {
-		if db.Storage.Keys.isSub(key, string(iter.Key())) {
+		if db.Storage.Keys.Match(key, string(iter.Key())) {
 			newObject, err := db.Storage.Objects.decode(iter.Value())
 			if err == nil {
 				res = append(res, newObject)
@@ -140,9 +140,6 @@ func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set  :
 func (db *LevelStorage) Set(key string, data string) (string, error) {
-	if !keyRegex.MatchString(key) {
-		return "", errors.New("samo: invalid key")
-	}
 	now := time.Now().UTC().UnixNano()
 	index := (&Keys{}).lastIndex(key)
 	created, updated := db.Peek(key, now)
@@ -191,7 +188,7 @@ func (db *LevelStorage) Del(key string) error {
 	}
 	iter := db.client.NewIterator(rangeKey, nil)
 	for iter.Next() {
-		if db.Storage.Keys.isSub(key, string(iter.Key())) {
+		if db.Storage.Keys.Match(key, string(iter.Key())) {
 			err = db.client.Delete(iter.Key(), nil)
 			if err != nil {
 				break
