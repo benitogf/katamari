@@ -3,6 +3,7 @@ package samo
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -44,6 +45,14 @@ type Server struct {
 	messages    *Messages
 }
 
+// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
 func (app *Server) waitListen() {
 	var err error
 	err = app.Storage.Start()
@@ -62,7 +71,12 @@ func (app *Server) waitListen() {
 			// Debug:          true,
 		}).Handler(app.Router)}
 	app.mutex.Unlock()
-	err = app.server.ListenAndServe()
+	ln, err := net.Listen("tcp", app.address)
+	if err != nil {
+		log.Fatal("failed to start tcp, ", err)
+	}
+	atomic.StoreInt64(&app.active, 1)
+	err = app.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 	if atomic.LoadInt64(&app.closing) != 1 {
 		log.Fatal(err)
 	}
@@ -71,7 +85,7 @@ func (app *Server) waitListen() {
 func (app *Server) waitStart() {
 	tryes := 0
 	app.mutex.RLock()
-	for (app.server == nil || !app.Storage.Active()) && tryes < 1000 {
+	for (atomic.LoadInt64(&app.active) == 0 || !app.Storage.Active()) && tryes < 1000 {
 		tryes++
 		app.mutex.RUnlock()
 		time.Sleep(10 * time.Millisecond)
@@ -94,16 +108,18 @@ func (app *Server) waitStart() {
 func (app *Server) watch(sc StorageChan) {
 	for {
 		ev := <-sc
-		app.console.Log("broadcast[" + ev.Key + "]")
-		go app.broadcast(ev.Key)
+		if ev.Key != "" {
+			app.console.Log("broadcast[" + ev.Key + "]")
+			go app.broadcast(ev.Key)
+		}
 		if !app.Storage.Active() {
 			break
 		}
 	}
 }
 
-// Defaults will populate the server fields with their zero values
-func (app *Server) Defaults() {
+// defaults will populate the server fields with their zero values
+func (app *Server) defaults() {
 	if app.Router == nil {
 		app.Router = mux.NewRouter()
 	}
@@ -156,9 +172,9 @@ func (app *Server) Start(address string) {
 		app.console.Err("server already active")
 		return
 	}
-	atomic.StoreInt64(&app.active, 1)
+	atomic.StoreInt64(&app.active, 0)
 	atomic.StoreInt64(&app.closing, 0)
-	app.Defaults()
+	app.defaults()
 	app.stream.forcePatch = app.ForcePatch
 	app.stream.pools = append(
 		app.stream.pools,

@@ -79,13 +79,19 @@ package main
 import "github.com/benitogf/samo"
 import "net/http"
 
+
+// if the filter is not defined for a route while static is enabled
+// the route will return 400
 func openFilter(index string, data []byte) ([]byte, error) {
   return data, nil
 }
 
+// perform audits on the request path/headers/referer
+// if the function returns false the request will return
+// status 401
 func audit(r *http.Request) bool {
   // allow clock subscription
-  if r.URL.Path == "" {
+  if r.URL.Path == "/" {
     return true
   }
   if r.URL.Path == "/open" {
@@ -120,6 +126,7 @@ app.Static = true
 
 - Write filters will be called before processing a write operation
 - Read filters will be called before sending the results of a read operation
+- if the static flag is enabled only filtered routes will be available
 
 ```golang
 app.WriteFilter("books/*", func(index string, data []byte) ([]byte, error) {
@@ -159,7 +166,7 @@ server.Unsubscribe = func(key string) {
 
 ```golang
 // Predefine the router
-app.Defaults()
+app.Router = mux.NewRouter()
 app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
   w.Header().Set("Content-Type", "application/json")
   fmt.Fprintf(w, "123")
