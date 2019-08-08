@@ -70,7 +70,7 @@ func TestAudit(t *testing.T) {
 		return r.Header.Get("Upgrade") != "websocket"
 	}
 
-	u = url.URL{Scheme: "ws", Host: app.address, Path: "/time"}
+	u = url.URL{Scheme: "ws", Host: app.address, Path: "/"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)

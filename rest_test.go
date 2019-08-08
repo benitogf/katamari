@@ -204,3 +204,55 @@ func TestRestResponseCode(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
+
+func TestRestGetBadRequest(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	req := httptest.NewRequest("GET", "//test", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, 301, resp.StatusCode)
+}
+
+func TestRestPostInvalidKey(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	req := httptest.NewRequest("POST", "/test/*/*", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRestGetInvalidKey(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	req := httptest.NewRequest("GET", "/test/*/**", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRestDeleteInvalidKey(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.Start("localhost:9889")
+	defer app.Close(os.Interrupt)
+	req := httptest.NewRequest("DELETE", "/test/*/**", nil)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
