@@ -15,6 +15,7 @@ install:
   - go get github.com/gobwas/glob
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/benitogf/jsonpatch
+  - go get github.com/benitogf/nsocket
   - go get github.com/nsf/jsondiff
 
 script:
