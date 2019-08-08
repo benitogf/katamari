@@ -172,7 +172,7 @@ func (sm *stream) open(key string, wsClient *websocket.Conn) (*conn, int) {
 	return client, poolIndex
 }
 
-func (sm *stream) openNs(nsClient *nsocket.Client) *nconn {
+func (sm *stream) openNs(nsClient *nsocket.Client) (*nconn, int) {
 	client := &nconn{
 		conn:  nsClient,
 		mutex: sync.Mutex{},
@@ -198,7 +198,7 @@ func (sm *stream) openNs(nsClient *nsocket.Client) *nconn {
 	sm.console.Log("nconnections["+client.conn.Path+"]: ", len(sm.pools[poolIndex].nconnections))
 	sm.mutex.Unlock()
 
-	return client
+	return client, poolIndex
 }
 
 func (sm *stream) setCache(poolIndex int, data []byte) {

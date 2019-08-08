@@ -202,7 +202,7 @@ func (app *Server) Close(sig os.Signal) {
 		atomic.StoreInt64(&app.closing, 1)
 		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
-		app.ns.Close()
+		app.ns.Server.Close()
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
 			app.server.Shutdown(context.Background())
