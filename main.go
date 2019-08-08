@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/benitogf/coat"
+	"github.com/benitogf/nsocket"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
@@ -43,6 +44,7 @@ type Server struct {
 	objects     *Objects
 	keys        *Keys
 	messages    *Messages
+	ns          *nsocket.Server
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -59,7 +61,11 @@ func (app *Server) waitListen() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	app.ns, err = nsocket.NewServer("samo")
+	if err != nil {
+		log.Fatal(err)
+	}
+	go app.serveNs()
 	app.mutex.Lock()
 	app.server = &http.Server{
 		Addr: app.address,
@@ -92,7 +98,7 @@ func (app *Server) waitStart() {
 		app.mutex.RLock()
 	}
 	app.mutex.RUnlock()
-	if app.server == nil || !app.Storage.Active() {
+	if atomic.LoadInt64(&app.active) == 0 || !app.Storage.Active() {
 		log.Fatal("server start failed")
 	}
 
@@ -196,6 +202,7 @@ func (app *Server) Close(sig os.Signal) {
 		atomic.StoreInt64(&app.closing, 1)
 		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
+		app.ns.Close()
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
 			app.server.Shutdown(context.Background())

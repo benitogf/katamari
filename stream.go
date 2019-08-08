@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/benitogf/nsocket"
+
 	"github.com/benitogf/jsonpatch"
 
 	"github.com/benitogf/coat"
@@ -26,11 +28,17 @@ type conn struct {
 	conn  *websocket.Conn
 }
 
+type nconn struct {
+	mutex sync.Mutex
+	conn  *nsocket.Client
+}
+
 // pool of key filtered websocket connections
 type pool struct {
-	key         string
-	cache       []byte
-	connections []*conn
+	key          string
+	cache        []byte
+	connections  []*conn
+	nconnections []*nconn
 }
 
 // stream a group of pools
@@ -115,6 +123,26 @@ func (sm *stream) new(key string, w http.ResponseWriter, r *http.Request) (*conn
 	return client, poolIndex, nil
 }
 
+func (sm *stream) closeNs(client *nconn) {
+	// auxiliar clients array
+	na := []*nconn{}
+
+	// loop to remove this client
+	sm.mutex.Lock()
+	poolIndex := sm.findPool(client.conn.Path)
+	for _, v := range sm.pools[poolIndex].nconnections {
+		if v != client {
+			na = append(na, v)
+		}
+	}
+
+	// replace clients array with the auxiliar
+	sm.pools[poolIndex].nconnections = na
+	sm.mutex.Unlock()
+	go sm.Unsubscribe(client.conn.Path)
+	client.conn.Close()
+}
+
 func (sm *stream) open(key string, wsClient *websocket.Conn) (*conn, int) {
 	client := &conn{
 		conn:  wsClient,
@@ -128,8 +156,9 @@ func (sm *stream) open(key string, wsClient *websocket.Conn) (*conn, int) {
 		sm.pools = append(
 			sm.pools,
 			&pool{
-				key:         key,
-				connections: []*conn{client}})
+				key:          key,
+				connections:  []*conn{client},
+				nconnections: []*nconn{}})
 		poolIndex = len(sm.pools) - 1
 	} else {
 		// use existing pool
@@ -141,6 +170,35 @@ func (sm *stream) open(key string, wsClient *websocket.Conn) (*conn, int) {
 	sm.mutex.Unlock()
 
 	return client, poolIndex
+}
+
+func (sm *stream) openNs(nsClient *nsocket.Client) *nconn {
+	client := &nconn{
+		conn:  nsClient,
+		mutex: sync.Mutex{},
+	}
+
+	sm.mutex.Lock()
+	poolIndex := sm.findPool(client.conn.Path)
+	if poolIndex == -1 {
+		// create a pool
+		sm.pools = append(
+			sm.pools,
+			&pool{
+				key:          client.conn.Path,
+				connections:  []*conn{},
+				nconnections: []*nconn{client}})
+		poolIndex = len(sm.pools) - 1
+	} else {
+		// use existing pool
+		sm.pools[poolIndex].nconnections = append(
+			sm.pools[poolIndex].nconnections,
+			client)
+	}
+	sm.console.Log("nconnections["+client.conn.Path+"]: ", len(sm.pools[poolIndex].nconnections))
+	sm.mutex.Unlock()
+
+	return client
 }
 
 func (sm *stream) setCache(poolIndex int, data []byte) {
@@ -227,13 +285,29 @@ func (sm *stream) write(client *conn, data string, snapshot bool) {
 	}
 }
 
+func (sm *stream) writeNs(client *nconn, data string, snapshot bool) {
+	client.mutex.Lock()
+	err := client.conn.Write("{" +
+		"\"snapshot\": " + strconv.FormatBool(snapshot) + "," +
+		"\"data\": \"" + data + "\"" +
+		"}")
+	client.mutex.Unlock()
+	if err != nil {
+		sm.console.Log("writeStreamErr: ", err)
+	}
+}
+
 func (sm *stream) broadcast(poolIndex int, data string, snapshot bool) {
 	sm.mutex.RLock()
 	connections := sm.pools[poolIndex].connections
+	nconnections := sm.pools[poolIndex].nconnections
 	sm.mutex.RUnlock()
 
 	for _, client := range connections {
 		go sm.write(client, data, snapshot)
+	}
+	for _, client := range nconnections {
+		go sm.writeNs(client, data, snapshot)
 	}
 }
 
