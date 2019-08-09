@@ -18,6 +18,7 @@ Provides a dynamic websocket and restful http service to quickly prototype realt
 - glob pattern routes
 - [patch](http://jsonpatch.com) updates on subscriptions
 - restful CRUD service that reflects interactions to real-time subscriptions
+- named socket ipc
 - storage interfaces for memory, leveldb, and etcd
 - filtering and audit middleware
 - auto managed timestamps (created, updated)
@@ -172,6 +173,52 @@ app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintf(w, "123")
 })
 app.Start("localhost:8800")
+```
+
+# ipc named socket
+
+Subscribe on a separated process without websocket
+
+### client
+
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/benitogf/nsocket"
+)
+
+func main() {
+	client, err := nsocket.Dial("testns", "books/*")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		msg, err = client.Read()
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		log.Println(msg)
+	}
+}
+```
+
+### server
+
+```go
+package main
+
+import "github.com/benitogf/samo"
+
+func main() {
+  app := samo.Server{}
+  app.NamedSocket = "testns" // set this field to the name to use
+  app.Start("localhost:8800")
+  app.WaitClose()
+}
 ```
 
 # data persistence layer

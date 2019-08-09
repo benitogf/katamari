@@ -19,7 +19,7 @@ func (app *Server) readNs(client *nconn) {
 
 func (app *Server) serveNs() {
 	for {
-		newConn, err := app.ns.Server.Accept()
+		newConn, err := app.nss.Server.Accept()
 		if err != nil {
 			app.console.Err(err)
 			break
