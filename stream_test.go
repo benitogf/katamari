@@ -31,7 +31,7 @@ func streamBroadcast(t *testing.T, app *Server) {
 	wsURL := url.URL{Scheme: "ws", Host: app.address, Path: "/test"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
-	nsClient, err := nsocket.Dial("samo", "test")
+	nsClient, err := nsocket.Dial(app.NamedSocket, "test")
 	require.NoError(t, err)
 	wg.Add(2)
 	go func() {
@@ -157,7 +157,7 @@ func streamGlobBroadcast(t *testing.T, app *Server) {
 	wsURL := url.URL{Scheme: "ws", Host: app.address, Path: "/test/*"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
-	nsClient, err := nsocket.Dial("samo", "test/*")
+	nsClient, err := nsocket.Dial(app.NamedSocket, "test/*")
 	require.NoError(t, err)
 	wg.Add(2)
 	go func() {
@@ -273,6 +273,7 @@ func TestStreamBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
+	app.NamedSocket = "samotest"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	streamBroadcast(t, &app)
@@ -282,6 +283,7 @@ func TestStreamBroadcastLevel(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
+	app.NamedSocket = "samotest"
 	app.Storage = &LevelStorage{
 		Path: "test/db"}
 	app.Start("localhost:9889")
@@ -294,6 +296,7 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
+	app.NamedSocket = "samotest"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	streamGlobBroadcast(t, &app)
@@ -303,6 +306,7 @@ func TestStreamGlobBroadcastLevel(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
+	app.NamedSocket = "samotest"
 	app.Storage = &LevelStorage{
 		Path: "test/db"}
 	app.Start("localhost:9889")

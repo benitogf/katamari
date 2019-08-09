@@ -44,7 +44,8 @@ type Server struct {
 	objects     *Objects
 	keys        *Keys
 	messages    *Messages
-	ns          *nsocket.Server
+	nss         *nsocket.Server
+	NamedSocket string
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -61,11 +62,13 @@ func (app *Server) waitListen() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	app.ns, err = nsocket.NewServer("samo")
-	if err != nil {
-		log.Fatal(err)
+	if app.NamedSocket != "" {
+		app.nss, err = nsocket.NewServer(app.NamedSocket)
+		if err != nil {
+			log.Fatal(err)
+		}
+		go app.serveNs()
 	}
-	go app.serveNs()
 	app.server = &http.Server{
 		Addr: app.address,
 		Handler: cors.New(cors.Options{
@@ -195,7 +198,9 @@ func (app *Server) Close(sig os.Signal) {
 		atomic.StoreInt64(&app.closing, 1)
 		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
-		app.ns.Server.Close()
+		if app.NamedSocket != "" {
+			app.nss.Server.Close()
+		}
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
 			app.server.Shutdown(context.Background())
