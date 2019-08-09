@@ -23,7 +23,7 @@ type Audit func(r *http.Request) bool
 
 // Server : SAMO application server
 type Server struct {
-	mutex       sync.RWMutex
+	wg          sync.WaitGroup
 	server      *http.Server
 	Router      *mux.Router
 	stream      stream
@@ -66,7 +66,6 @@ func (app *Server) waitListen() {
 		log.Fatal(err)
 	}
 	go app.serveNs()
-	app.mutex.Lock()
 	app.server = &http.Server{
 		Addr: app.address,
 		Handler: cors.New(cors.Options{
@@ -76,12 +75,12 @@ func (app *Server) waitListen() {
 			AllowedHeaders: []string{"Authorization", "Content-Type"},
 			// Debug:          true,
 		}).Handler(app.Router)}
-	app.mutex.Unlock()
 	ln, err := net.Listen("tcp", app.address)
 	if err != nil {
 		log.Fatal("failed to start tcp, ", err)
 	}
 	atomic.StoreInt64(&app.active, 1)
+	app.wg.Done()
 	err = app.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 	if atomic.LoadInt64(&app.closing) != 1 {
 		log.Fatal(err)
@@ -89,15 +88,6 @@ func (app *Server) waitListen() {
 }
 
 func (app *Server) waitStart() {
-	tryes := 0
-	app.mutex.RLock()
-	for (atomic.LoadInt64(&app.active) == 0 || !app.Storage.Active()) && tryes < 1000 {
-		tryes++
-		app.mutex.RUnlock()
-		time.Sleep(10 * time.Millisecond)
-		app.mutex.RLock()
-	}
-	app.mutex.RUnlock()
 	if atomic.LoadInt64(&app.active) == 0 || !app.Storage.Active() {
 		log.Fatal("server start failed")
 	}
@@ -162,13 +152,20 @@ func (app *Server) defaults() {
 		app.Unsubscribe = func(key string) {}
 	}
 
+	if app.Workers == 0 {
+		app.Workers = 2
+	}
+
 	if app.stream.Unsubscribe == nil {
 		app.stream.Unsubscribe = app.Unsubscribe
 	}
 
-	if app.Workers == 0 {
-		app.Workers = 2
-	}
+	app.stream.forcePatch = app.ForcePatch
+	app.stream.pools = append(
+		app.stream.pools,
+		&pool{
+			key:         "",
+			connections: []*conn{}})
 }
 
 // Start : initialize and start the http server and database connection
@@ -181,17 +178,13 @@ func (app *Server) Start(address string) {
 	atomic.StoreInt64(&app.active, 0)
 	atomic.StoreInt64(&app.closing, 0)
 	app.defaults()
-	app.stream.forcePatch = app.ForcePatch
-	app.stream.pools = append(
-		app.stream.pools,
-		&pool{
-			key:         "",
-			connections: []*conn{}})
 	app.Router.HandleFunc("/", app.getStats).Methods("GET")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.unpublish).Methods("DELETE")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.publish).Methods("POST")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.read).Methods("GET")
+	app.wg.Add(1)
 	go app.waitListen()
+	app.wg.Wait()
 	app.waitStart()
 	go app.tick()
 }

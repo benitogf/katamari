@@ -31,10 +31,12 @@ func (app *Server) serveNs() {
 		// handshake message
 		newClient.Path, err = newClient.Read()
 		if err != nil {
+			newClient.Close()
 			app.console.Err("failedNsHandshake", err)
 			continue
 		}
 		if !app.keys.IsValid(newClient.Path) {
+			newClient.Close()
 			app.console.Err("invalidKeyNs[" + newClient.Path + "]")
 			continue
 		}
@@ -48,8 +50,10 @@ func (app *Server) serveNs() {
 			}
 			filteredData, err := app.Filters.Read.check(newClient.Path, raw, app.Static)
 			if err != nil {
+				app.stream.closeNs(client)
+				client.conn.Close()
 				app.console.Err("samo: filtered route", err)
-				return
+				continue
 			}
 			app.stream.setCache(poolIndex, filteredData)
 			cache = filteredData

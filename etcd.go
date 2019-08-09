@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
+	// "go.etcd.io/etcd/embed"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 )
 
@@ -21,7 +22,7 @@ type EtcdStorage struct {
 	Peers []string
 	Path  string
 	cli   *clientv3.Client
-	// server     *embed.Etcd
+	// server  *embed.Etcd
 	timeout time.Duration
 	watcher StorageChan
 	// OnlyClient bool
@@ -58,27 +59,28 @@ func (db *EtcdStorage) Start() error {
 		db.Peers = []string{"localhost:2379"}
 	}
 	// if !db.OnlyClient {
-	// 	wg.Add(1)
-	// 	cfg := embed.NewConfig()
-	// 	cfg.Dir = db.Path
-	// 	cfg.Logger = "zap"
-	// 	cfg.Debug = db.Debug
-	// 	// cfg.LogOutputs = []string{db.Path + "/LOG"}
-	// 	db.server, err = embed.StartEtcd(cfg)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	select {
-	// 	case <-db.server.Server.ReadyNotify():
-	// 		wg.Done()
-	// 	case <-time.After(5 * time.Second):
-	// 		db.server.Server.Stop()
-	// 		err = errors.New("etcd embed server took too long to start")
-	// 		wg.Done()
-	// 	case <-db.server.Err():
-	// 		err = errors.New("etcd embed server error")
-	// 		wg.Done()
-	// 	}
+	// wg.Add(1)
+	// cfg := embed.NewConfig()
+	// cfg.Dir = db.Path
+	// cfg.Logger = "zap"
+	// cfg.Debug = false
+	// cfg.LogLevel = "fatal"
+	// // cfg.LogOutputs = []string{db.Path + "/LOG"}
+	// db.server, err = embed.StartEtcd(cfg)
+	// if err != nil {
+	// 	return err
+	// }
+	// select {
+	// case <-db.server.Server.ReadyNotify():
+	// 	wg.Done()
+	// case <-time.After(5 * time.Second):
+	// 	db.server.Server.Stop()
+	// 	err = errors.New("etcd embed server took too long to start")
+	// 	wg.Done()
+	// case <-db.server.Err():
+	// 	err = errors.New("etcd embed server error")
+	// 	wg.Done()
+	// }
 	// }
 	wg.Wait()
 	db.cli, err = clientv3.New(clientv3.Config{
@@ -106,7 +108,7 @@ func (db *EtcdStorage) Close() {
 	defer db.mutex.Unlock()
 	db.cli.Close()
 	// if !db.OnlyClient {
-	// 	db.server.Close()
+	// db.server.Close()
 	// }
 	close(db.watcher)
 	db.Storage.Active = false

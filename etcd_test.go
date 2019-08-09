@@ -19,7 +19,7 @@ func TestStorageEtcd(t *testing.T) {
 	StorageSA(app, t)
 }
 
-func TestWsRestBroadcastEtcd(t *testing.T) {
+func TestStreamBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
@@ -27,10 +27,10 @@ func TestWsRestBroadcastEtcd(t *testing.T) {
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	wsRestBroadcast(t, &app)
+	streamBroadcast(t, &app)
 }
 
-func TestWsBroadcastEtcd(t *testing.T) {
+func TestStreamGlobBroadcastEtcd(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
@@ -38,5 +38,5 @@ func TestWsBroadcastEtcd(t *testing.T) {
 	app.Start("localhost:9889")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
-	wsBroadcast(t, &app)
+	streamGlobBroadcast(t, &app)
 }
