@@ -114,17 +114,20 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", err)
 			return
 		}
-		app.stream.setPoolCache(key, filteredData)
+		version := app.stream.setPoolCache(key, filteredData)
 		if len(filteredData) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "%s", errors.New("samo: empty key"))
 			return
 		}
-		cache = filteredData
+		cache = vCache{
+			version: version,
+			data:    filteredData,
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(cache))
+	fmt.Fprintf(w, string(cache.data))
 }
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
