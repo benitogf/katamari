@@ -10,7 +10,8 @@ import (
 
 // Message expected from websocket connections
 type Message struct {
-	Data string `json:"data"`
+	Data    string `json:"data"`
+	Version string `json:"version"`
 }
 
 // Messages handle extract, write and read messages

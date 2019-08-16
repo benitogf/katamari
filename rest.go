@@ -84,10 +84,6 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Server) read(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Upgrade") == "websocket" {
-		app.ws(w, r)
-		return
-	}
 	key := mux.Vars(r)["key"]
 	if !app.keys.IsValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -98,6 +94,11 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		return
+	}
+
+	if r.Header.Get("Upgrade") == "websocket" {
+		app.ws(w, r)
 		return
 	}
 
@@ -114,17 +115,20 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", err)
 			return
 		}
-		app.stream.setPoolCache(key, filteredData)
 		if len(filteredData) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "%s", errors.New("samo: empty key"))
 			return
 		}
-		cache = filteredData
+		version := app.stream.setPoolCache(key, filteredData)
+		cache = vCache{
+			version: version,
+			data:    filteredData,
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(cache))
+	fmt.Fprintf(w, string(cache.data))
 }
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/benitogf/nsocket"
 
@@ -33,10 +34,15 @@ type nconn struct {
 	conn  *nsocket.Client
 }
 
+type vCache struct {
+	version int64
+	data    []byte
+}
+
 // pool of key filtered websocket connections
 type pool struct {
 	key          string
-	cache        []byte
+	cache        vCache
 	connections  []*conn
 	nconnections []*nconn
 }
@@ -201,46 +207,60 @@ func (sm *stream) openNs(nsClient *nsocket.Client) (*nconn, int) {
 	return client, poolIndex
 }
 
-func (sm *stream) setCache(poolIndex int, data []byte) {
+func (sm *stream) setCache(poolIndex int, data []byte) int64 {
 	sm.mutex.Lock()
-	sm.pools[poolIndex].cache = data
+	now := time.Now().UTC().UnixNano()
+	sm.pools[poolIndex].cache = vCache{
+		version: now,
+		data:    data,
+	}
 	sm.mutex.Unlock()
+	return now
 }
 
-func (sm *stream) getCache(poolIndex int) []byte {
+func (sm *stream) getCache(poolIndex int) vCache {
 	sm.mutex.RLock()
 	cache := sm.pools[poolIndex].cache
 	sm.mutex.RUnlock()
 	return cache
 }
 
-func (sm *stream) setPoolCache(key string, data []byte) {
+func (sm *stream) setPoolCache(key string, data []byte) int64 {
 	sm.mutex.Lock()
 	poolIndex := sm.findPool(key)
+	now := time.Now().UTC().UnixNano()
 	if poolIndex == -1 {
 		// create a pool
 		sm.pools = append(
 			sm.pools,
 			&pool{
-				key:         key,
-				cache:       data,
+				key: key,
+				cache: vCache{
+					version: now,
+					data:    data,
+				},
 				connections: []*conn{}})
 		sm.mutex.Unlock()
-		return
+		return now
 	}
-	sm.pools[poolIndex].cache = data
+	sm.pools[poolIndex].cache = vCache{
+		version: now,
+		data:    data,
+	}
 	sm.mutex.Unlock()
+
+	return now
 }
 
-func (sm *stream) getPoolCache(key string) ([]byte, error) {
+func (sm *stream) getPoolCache(key string) (vCache, error) {
 	sm.mutex.RLock()
 	poolIndex := sm.findPool(key)
 	if poolIndex == -1 {
 		sm.mutex.RUnlock()
-		return []byte(""), errors.New("stream pool not found")
+		return vCache{}, errors.New("stream pool not found")
 	}
 	cache := sm.pools[poolIndex].cache
-	if len(cache) == 0 {
+	if len(cache.data) == 0 {
 		sm.mutex.RUnlock()
 		return cache, errors.New("stream pool cache empty")
 	}
@@ -251,32 +271,33 @@ func (sm *stream) getPoolCache(key string) ([]byte, error) {
 // patch will return either the snapshot or the patch
 // patch, false (patch)
 // snapshot, true (snapshot)
-func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool) {
+func (sm *stream) patch(poolIndex int, data []byte) ([]byte, bool, int64) {
 	cache := sm.getCache(poolIndex)
-	patch, err := jsonpatch.CreatePatch(cache, data)
+	patch, err := jsonpatch.CreatePatch(cache.data, data)
 	if err != nil {
 		sm.console.Err("patch create failed", err)
-		sm.setCache(poolIndex, data)
-		return data, true
+		version := sm.setCache(poolIndex, data)
+		return data, true, version
 	}
-	sm.setCache(poolIndex, data)
+	version := sm.setCache(poolIndex, data)
 	operations, err := json.Marshal(patch)
 	if err != nil {
 		sm.console.Err("patch decode failed", err)
-		return data, true
+		return data, true, version
 	}
 	// don't send the operations if they exceed the data size
 	if !sm.forcePatch && len(operations) > len(data) {
-		return data, true
+		return data, true, version
 	}
 
-	return operations, false
+	return operations, false, version
 }
 
-func (sm *stream) write(client *conn, data string, snapshot bool) {
+func (sm *stream) write(client *conn, data string, snapshot bool, version int64) {
 	client.mutex.Lock()
 	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte("{"+
 		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
+		"\"version\": \""+strconv.FormatInt(version, 16)+"\","+
 		"\"data\": \""+data+"\""+
 		"}"))
 	client.mutex.Unlock()
@@ -297,14 +318,14 @@ func (sm *stream) writeNs(client *nconn, data string, snapshot bool) {
 	}
 }
 
-func (sm *stream) broadcast(poolIndex int, data string, snapshot bool) {
+func (sm *stream) broadcast(poolIndex int, data string, snapshot bool, version int64) {
 	sm.mutex.RLock()
 	connections := sm.pools[poolIndex].connections
 	nconnections := sm.pools[poolIndex].nconnections
 	sm.mutex.RUnlock()
 
 	for _, client := range connections {
-		go sm.write(client, data, snapshot)
+		go sm.write(client, data, snapshot, version)
 	}
 	for _, client := range nconnections {
 		go sm.writeNs(client, data, snapshot)

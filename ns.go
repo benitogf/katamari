@@ -50,15 +50,19 @@ func (app *Server) serveNs() {
 			}
 			filteredData, err := app.Filters.Read.check(newClient.Path, raw, app.Static)
 			if err != nil {
+				app.console.Err("samo: filtered route", err)
 				app.stream.closeNs(client)
 				client.conn.Close()
-				app.console.Err("samo: filtered route", err)
 				continue
 			}
-			app.stream.setCache(poolIndex, filteredData)
-			cache = filteredData
+			newVersion := app.stream.setCache(poolIndex, filteredData)
+			cache = vCache{
+				version: newVersion,
+				data:    filteredData,
+			}
 		}
-		go app.stream.writeNs(client, app.messages.encode(cache), true)
+
+		go app.stream.writeNs(client, app.messages.encode(cache.data), true)
 		go app.readNs(client)
 	}
 }
