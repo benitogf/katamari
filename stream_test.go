@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -78,6 +79,11 @@ func streamBroadcast(t *testing.T, app *Server) {
 	mutex.Lock()
 	wsCache = wsEvent.Data
 	nsCache = nsEvent.Data
+	wsVersion, err := strconv.ParseInt(wsEvent.Version, 16, 64)
+	require.NoError(t, err)
+	streamCache, err := app.stream.getPoolCache("test")
+	require.NoError(t, err)
+	require.Equal(t, wsVersion, streamCache.version)
 	mutex.Unlock()
 	wg.Wait()
 	wg.Add(2)

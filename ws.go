@@ -1,8 +1,6 @@
 package samo
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -48,19 +46,6 @@ func (app *Server) readClient(key string, client *conn) {
 func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	version := r.FormValue("v")
-	if !app.keys.IsValid(key) {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
-		app.console.Err("socketKeyError", key)
-		return
-	}
-
-	if !app.Audit(r) {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
-		app.console.Err("socketConnectionUnauthorized", key)
-		return
-	}
 
 	client, poolIndex, err := app.stream.new(key, w, r)
 
