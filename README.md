@@ -17,6 +17,7 @@ Provides a dynamic websocket and restful http service to quickly prototype realt
 - dynamic routing
 - glob pattern routes
 - [patch](http://jsonpatch.com) updates on subscriptions
+- version check on subscriptions (no message on version match)
 - restful CRUD service that reflects interactions to real-time subscriptions
 - named socket ipc
 - storage interfaces for memory, leveldb, and etcd
