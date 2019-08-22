@@ -8,37 +8,37 @@ import (
 	"strings"
 )
 
-// Message expected from websocket connections
-type Message struct {
+// Message sent through websocket connections
+type message struct {
 	Data    string `json:"data"`
 	Version string `json:"version"`
 }
 
-// Messages handle extract, write and read messages
-type Messages struct{}
+// Messages encoding and decoding
+type messages struct{}
 
 // write base64 string from bytes
-func (messages *Messages) encode(raw []byte) string {
+func (messages *messages) encode(raw []byte) string {
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
-func (messages *Messages) decodeTest(message []byte) (Message, error) {
-	var wsEvent Message
-	err := json.Unmarshal(message, &wsEvent)
+func (messages *messages) decodeTest(data []byte) (message, error) {
+	var wsEvent message
+	err := json.Unmarshal(data, &wsEvent)
 	if err != nil {
 		return wsEvent, err
 	}
-	data, err := base64.StdEncoding.DecodeString(wsEvent.Data)
+	decoded, err := base64.StdEncoding.DecodeString(wsEvent.Data)
 	if err != nil {
 		return wsEvent, err
 	}
-	wsEvent.Data = strings.Trim(string(data), "\n")
+	wsEvent.Data = strings.Trim(string(decoded), "\n")
 
 	return wsEvent, nil
 }
 
-func (messages *Messages) decode(r io.Reader) (Message, error) {
-	var httpEvent Message
+func (messages *messages) decode(r io.Reader) (message, error) {
+	var httpEvent message
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&httpEvent)
 	if err != nil {

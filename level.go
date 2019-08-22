@@ -69,7 +69,7 @@ func (db *LevelStorage) Clear() {
 // Keys  :
 func (db *LevelStorage) Keys() ([]byte, error) {
 	iter := db.client.NewIterator(nil, nil)
-	stats := Stats{}
+	stats := stats{}
 	for iter.Next() {
 		stats.Keys = append(stats.Keys, string(iter.Key()))
 	}

@@ -8,29 +8,35 @@ import (
 )
 
 // Apply filter function
-type Apply func(key string, data []byte) ([]byte, error)
+// type for functions will serve as filters
+// key: the key to filter
+// data: the data received or about to be sent
+// returns
+// data: to be stored or sent to the client
+// error: will prevent data to pass the filter
+type apply func(key string, data []byte) ([]byte, error)
 
 // Filter path -> match
-type Filter struct {
+type filter struct {
 	glob  glob.Glob
 	path  string
-	apply Apply
+	apply apply
 }
 
 // Router group of filters
-type Router []Filter
+type router []filter
 
 // Filters read and write
-type Filters struct {
-	Write Router
-	Read  Router
+type filters struct {
+	Write router
+	Read  router
 }
 
 // https://github.com/golang/go/issues/11862
 
 // WriteFilter add a filter that triggers on write
-func (app *Server) WriteFilter(path string, apply Apply) {
-	app.Filters.Write = append(app.Filters.Write, Filter{
+func (app *Server) WriteFilter(path string, apply apply) {
+	app.filters.Write = append(app.filters.Write, filter{
 		glob:  glob.MustCompile(path),
 		path:  path,
 		apply: apply,
@@ -38,15 +44,15 @@ func (app *Server) WriteFilter(path string, apply Apply) {
 }
 
 // ReadFilter add a filter that runs before sending a read result
-func (app *Server) ReadFilter(path string, apply Apply) {
-	app.Filters.Read = append(app.Filters.Read, Filter{
+func (app *Server) ReadFilter(path string, apply apply) {
+	app.filters.Read = append(app.filters.Read, filter{
 		glob:  glob.MustCompile(path),
 		path:  path,
 		apply: apply,
 	})
 }
 
-func (r Router) check(key string, data []byte, static bool) ([]byte, error) {
+func (r router) check(key string, data []byte, static bool) ([]byte, error) {
 	match := -1
 	countKey := strings.Count(key, "/")
 	for i, filter := range r {

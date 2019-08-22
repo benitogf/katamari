@@ -55,7 +55,7 @@ func (db *MemoryStorage) Clear() {
 
 // Keys  :
 func (db *MemoryStorage) Keys() ([]byte, error) {
-	stats := Stats{}
+	stats := stats{}
 	db.Memdb.Range(func(key interface{}, value interface{}) bool {
 		stats.Keys = append(stats.Keys, key.(string))
 		return true

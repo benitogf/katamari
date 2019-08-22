@@ -12,7 +12,7 @@ func (app *Server) getPatch(poolIndex int, key string) (string, bool, int64, err
 	if len(raw) == 0 {
 		raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
 	}
-	filteredData, err := app.Filters.Read.check(key, raw, app.Static)
+	filteredData, err := app.filters.Read.check(key, raw, app.Static)
 	if err != nil {
 		return "", false, 0, err
 	}
@@ -63,7 +63,7 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if len(raw) == 0 {
 			raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
 		}
-		filteredData, err := app.Filters.Read.check(key, raw, app.Static)
+		filteredData, err := app.filters.Read.check(key, raw, app.Static)
 		if err != nil {
 			app.console.Err("samo: filtered route", err)
 			return

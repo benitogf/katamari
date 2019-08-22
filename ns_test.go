@@ -11,7 +11,7 @@ import (
 func TestStreamInvalidNsKey(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.NamedSocket = "samotest"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -24,7 +24,7 @@ func TestStreamInvalidNsKey(t *testing.T) {
 func TestStreamFilteredNsKey(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.Static = true
 	app.NamedSocket = "samotest"
 	app.Start("localhost:9889")
@@ -38,7 +38,7 @@ func TestStreamFilteredNsKey(t *testing.T) {
 func TestStreamNoNss(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.Static = true
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)

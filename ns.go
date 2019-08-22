@@ -48,7 +48,7 @@ func (app *Server) serveNs() {
 			if len(raw) == 0 {
 				raw = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
 			}
-			filteredData, err := app.Filters.Read.check(newClient.Path, raw, app.Static)
+			filteredData, err := app.filters.Read.check(newClient.Path, raw, app.Static)
 			if err != nil {
 				app.console.Err("samo: filtered route", err)
 				app.stream.closeNs(client)

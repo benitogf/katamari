@@ -18,34 +18,49 @@ import (
 	"github.com/rs/cors"
 )
 
-// Audit : function to define approval or denial of requests
-type Audit func(r *http.Request) bool
+// audit requests function
+// will define approval or denial by the return value
+// r: the request to be audited
+// returns
+// true: approve the request
+// false: deny the request
+type audit func(r *http.Request) bool
 
-// Server : SAMO application server
+// Server application
+// Router: can be predefined with routes and passed to be extended
+// Audit: function to audit requests
+// Workers: number of workers to use as readers of the storage->broadcast channel
+// OnSubscribe: function to monitor subscribe events
+// OnUnsubscribe: function to monitor unsubscribe events
+// Storage: database interdace implementation
+// Silence: output silence flag
+// Static: static routing flag
+// Tick: time interval between ticks on the clock subscription
+// NamedSocket: name of the ipc socket
 type Server struct {
-	wg          sync.WaitGroup
-	server      *http.Server
-	Router      *mux.Router
-	stream      stream
-	Filters     Filters
-	Audit       Audit
-	Workers     int
-	ForcePatch  bool
-	Subscribe   Subscribe
-	Unsubscribe Unsubscribe
-	Storage     Database
-	address     string
-	closing     int64
-	active      int64
-	Silence     bool
-	Static      bool
-	Tick        time.Duration
-	console     *coat.Console
-	objects     *Objects
-	keys        *Keys
-	messages    *Messages
-	nss         *nsocket.Server
-	NamedSocket string
+	wg            sync.WaitGroup
+	server        *http.Server
+	Router        *mux.Router
+	stream        stream
+	filters       filters
+	Audit         audit
+	Workers       int
+	forcePatch    bool
+	OnSubscribe   Subscribe
+	OnUnsubscribe Unsubscribe
+	Storage       Database
+	address       string
+	closing       int64
+	active        int64
+	Silence       bool
+	Static        bool
+	Tick          time.Duration
+	console       *coat.Console
+	objects       *Objects
+	keys          *Keys
+	messages      *messages
+	nss           *nsocket.Server
+	NamedSocket   string
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -143,27 +158,27 @@ func (app *Server) defaults() {
 		app.Audit = func(r *http.Request) bool { return true }
 	}
 
-	if app.Subscribe == nil {
-		app.Subscribe = func(key string) error { return nil }
+	if app.OnSubscribe == nil {
+		app.OnSubscribe = func(key string) error { return nil }
 	}
 
-	if app.stream.Subscribe == nil {
-		app.stream.Subscribe = app.Subscribe
+	if app.stream.OnSubscribe == nil {
+		app.stream.OnSubscribe = app.OnSubscribe
 	}
 
-	if app.Unsubscribe == nil {
-		app.Unsubscribe = func(key string) {}
+	if app.OnUnsubscribe == nil {
+		app.OnUnsubscribe = func(key string) {}
+	}
+
+	if app.stream.OnUnsubscribe == nil {
+		app.stream.OnUnsubscribe = app.OnUnsubscribe
 	}
 
 	if app.Workers == 0 {
 		app.Workers = 2
 	}
 
-	if app.stream.Unsubscribe == nil {
-		app.stream.Unsubscribe = app.Unsubscribe
-	}
-
-	app.stream.forcePatch = app.ForcePatch
+	app.stream.forcePatch = app.forcePatch
 	app.stream.pools = append(
 		app.stream.pools,
 		&pool{
