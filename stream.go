@@ -17,10 +17,10 @@ import (
 )
 
 // Subscribe : function to monitoring or filtering of subscription
-type Subscribe func(key string) error
+type subscribe func(key string) error
 
 // Unsubscribe : function callback on subscription closing
-type Unsubscribe func(key string)
+type unsubscribe func(key string)
 
 // conn extends the websocket connection with a mutex
 // https://godoc.org/github.com/gorilla/websocket#hdr-Concurrency
@@ -50,8 +50,8 @@ type pool struct {
 // stream a group of pools
 type stream struct {
 	mutex         sync.RWMutex
-	OnSubscribe   Subscribe
-	OnUnsubscribe Unsubscribe
+	OnSubscribe   subscribe
+	OnUnsubscribe unsubscribe
 	forcePatch    bool
 	pools         []*pool
 	console       *coat.Console
