@@ -56,7 +56,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 
 	app.console.Log("publish", vkey)
 	key := app.keys.Build(vkey)
-	data, err := app.Filters.Write.check(key, []byte(event.Data), app.Static)
+	data, err := app.filters.Write.check(key, []byte(event.Data), app.Static)
 	if err != nil {
 		app.console.Err("setError["+key+"]", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -109,7 +109,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			app.console.Err(err)
 		}
-		filteredData, err := app.Filters.Read.check(key, raw, app.Static)
+		filteredData, err := app.filters.Read.check(key, raw, app.Static)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", err)

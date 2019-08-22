@@ -153,13 +153,13 @@ app.Audit = func(r *http.Request) bool {
 
 ```golang
 // new subscription
-server.Subscribe = func(key string) error {
+server.OnSubscribe = func(key string) error {
   log.Println(key)
   // returning an error will deny the subscription
   return nil
 }
 // closing subscription
-server.Unsubscribe = func(key string) {
+server.OnUnsubscribe = func(key string) {
   log.Println(key)
 }
 ```

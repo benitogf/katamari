@@ -49,14 +49,14 @@ type pool struct {
 
 // stream a group of pools
 type stream struct {
-	mutex       sync.RWMutex
-	Subscribe   Subscribe
-	Unsubscribe Unsubscribe
-	forcePatch  bool
-	pools       []*pool
-	console     *coat.Console
+	mutex         sync.RWMutex
+	OnSubscribe   Subscribe
+	OnUnsubscribe Unsubscribe
+	forcePatch    bool
+	pools         []*pool
+	console       *coat.Console
 	*Keys
-	*Messages
+	*messages
 }
 
 func (sm *stream) findPool(key string) int {
@@ -100,7 +100,7 @@ func (sm *stream) close(key string, client *conn) {
 	// replace clients array with the auxiliar
 	sm.pools[poolIndex].connections = na
 	sm.mutex.Unlock()
-	go sm.Unsubscribe(key)
+	go sm.OnUnsubscribe(key)
 	client.conn.Close()
 }
 
@@ -120,7 +120,7 @@ func (sm *stream) new(key string, w http.ResponseWriter, r *http.Request) (*conn
 		return nil, -1, err
 	}
 
-	err = sm.Subscribe(key)
+	err = sm.OnSubscribe(key)
 	if err != nil {
 		return nil, -1, err
 	}
@@ -145,7 +145,7 @@ func (sm *stream) closeNs(client *nconn) {
 	// replace clients array with the auxiliar
 	sm.pools[poolIndex].nconnections = na
 	sm.mutex.Unlock()
-	go sm.Unsubscribe(client.conn.Path)
+	go sm.OnUnsubscribe(client.conn.Path)
 	client.conn.Close()
 }
 

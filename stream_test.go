@@ -24,8 +24,8 @@ func streamBroadcast(t *testing.T, app *Server) {
 	var postObject Object
 	var wsObject Object
 	var nsObject Object
-	var wsEvent Message
-	var nsEvent Message
+	var wsEvent message
+	var nsEvent message
 	var wsCache string
 	var nsCache string
 	testData := app.messages.encode([]byte("something 🧰"))
@@ -155,8 +155,8 @@ func streamGlobBroadcast(t *testing.T, app *Server) {
 	var postObject Object
 	var wsObject []Object
 	var nsObject []Object
-	var wsEvent Message
-	var nsEvent Message
+	var wsEvent message
+	var nsEvent message
 	var wsCache string
 	var nsCache string
 	testData := app.messages.encode([]byte("something 🧰"))
@@ -278,7 +278,7 @@ func streamGlobBroadcast(t *testing.T, app *Server) {
 func TestStreamBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.NamedSocket = "samotest"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -288,7 +288,7 @@ func TestStreamBroadcastMemory(t *testing.T) {
 func TestStreamBroadcastLevel(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.NamedSocket = "samotest"
 	app.Storage = &LevelStorage{
 		Path: "test/db"}
@@ -301,7 +301,7 @@ func TestStreamBroadcastLevel(t *testing.T) {
 func TestStreamGlobBroadcastMemory(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.NamedSocket = "samotest"
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
@@ -311,7 +311,7 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 func TestStreamGlobBroadcastLevel(t *testing.T) {
 	app := Server{}
 	app.Silence = true
-	app.ForcePatch = true
+	app.forcePatch = true
 	app.NamedSocket = "samotest"
 	app.Storage = &LevelStorage{
 		Path: "test/db"}
