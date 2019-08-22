@@ -27,15 +27,25 @@ import (
 type audit func(r *http.Request) bool
 
 // Server application
+//
 // Router: can be predefined with routes and passed to be extended
+//
 // Audit: function to audit requests
+//
 // Workers: number of workers to use as readers of the storage->broadcast channel
+//
 // OnSubscribe: function to monitor subscribe events
+//
 // OnUnsubscribe: function to monitor unsubscribe events
+//
 // Storage: database interdace implementation
+//
 // Silence: output silence flag
+//
 // Static: static routing flag
+//
 // Tick: time interval between ticks on the clock subscription
+//
 // NamedSocket: name of the ipc socket
 type Server struct {
 	wg            sync.WaitGroup
@@ -46,8 +56,8 @@ type Server struct {
 	Audit         audit
 	Workers       int
 	forcePatch    bool
-	OnSubscribe   Subscribe
-	OnUnsubscribe Unsubscribe
+	OnSubscribe   subscribe
+	OnUnsubscribe unsubscribe
 	Storage       Database
 	address       string
 	closing       int64
