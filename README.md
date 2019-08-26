@@ -227,7 +227,7 @@ func main() {
 
     Use alternative storages (the default is memory)
 
-### [level](https://github.com/benitogf/katamari-level)
-### [etcd](https://github.com/benitogf/katamari-etcd)
+### [level](https://github.com/benitogf/katamari/tree/master/level)
+### [etcd](https://github.com/benitogf/katamari/tree/master/etcd)
 
 
