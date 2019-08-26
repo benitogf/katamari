@@ -2,9 +2,10 @@
 
 [![Build Status][build-image]][build-url]
 
-
 [build-url]: https://travis-ci.com/benitogf/katamari
 [build-image]: https://api.travis-ci.com/benitogf/katamari.svg?branch=master&style=flat-square
+
+![katamari](katamari.jpg)
 
 Zero configuration data persistence and communication layer.
 
