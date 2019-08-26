@@ -1,6 +1,7 @@
 # katamari
 
 [![Build Status][build-image]][build-url]
+[![Documentation](https://godoc.org/github.com/benitogf/katamari?status.svg)](http://godoc.org/github.com/benitogf/katamari)
 
 [build-url]: https://travis-ci.com/benitogf/katamari
 [build-image]: https://api.travis-ci.com/benitogf/katamari.svg?branch=master&style=flat-square
