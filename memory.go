@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"errors"
@@ -8,44 +8,44 @@ import (
 	"time"
 )
 
-// MemoryStorage : composition of storage
+// MemoryStorage composition of Database interface
 type MemoryStorage struct {
-	Memdb sync.Map
-	mutex sync.RWMutex
-	// watcher StorageChan
-	*Storage
+	Memdb   sync.Map
+	mutex   sync.RWMutex
+	watcher StorageChan
+	storage *Storage
 }
 
-// Active  :
+// Active provides access to the status of the storage client
 func (db *MemoryStorage) Active() bool {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	return db.Storage.Active
+	return db.storage.Active
 }
 
-// Start  :
+// Start the storage client
 func (db *MemoryStorage) Start() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	if db.Storage == nil {
-		db.Storage = &Storage{}
+	if db.storage == nil {
+		db.storage = &Storage{}
 	}
-	// if db.watcher == nil {
-	// 	db.watcher = make(StorageChan)
-	// }
-	db.Storage.Active = true
+	if db.watcher == nil {
+		db.watcher = make(StorageChan)
+	}
+	db.storage.Active = true
 	return nil
 }
 
-// Close  :
+// Close the storage client
 func (db *MemoryStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	// close(db.watcher)
-	db.Storage.Active = false
+	close(db.watcher)
+	db.storage.Active = false
 }
 
-// Clear  :
+// Clear all keys in the storage
 func (db *MemoryStorage) Clear() {
 	db.Memdb.Range(func(key interface{}, value interface{}) bool {
 		db.Memdb.Delete(key)
@@ -53,9 +53,9 @@ func (db *MemoryStorage) Clear() {
 	})
 }
 
-// Keys  :
+// Keys list all the keys in the storage
 func (db *MemoryStorage) Keys() ([]byte, error) {
-	stats := stats{}
+	stats := Stats{}
 	db.Memdb.Range(func(key interface{}, value interface{}) bool {
 		stats.Keys = append(stats.Keys, key.(string))
 		return true
@@ -68,15 +68,15 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
 	})
 
-	return db.Storage.Objects.encode(stats)
+	return db.storage.Objects.Encode(stats)
 }
 
-// Get :
+// Get a key/pattern related value(s)
 func (db *MemoryStorage) Get(key string) ([]byte, error) {
 	if !strings.Contains(key, "*") {
 		data, found := db.Memdb.Load(key)
 		if !found {
-			return []byte(""), errors.New("samo: not found")
+			return []byte(""), errors.New("katamari: not found")
 		}
 
 		return data.([]byte), nil
@@ -84,8 +84,8 @@ func (db *MemoryStorage) Get(key string) ([]byte, error) {
 
 	res := []Object{}
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
-		if db.Storage.Keys.Match(key, k.(string)) {
-			newObject, err := db.Storage.Objects.decode(value.([]byte))
+		if db.storage.Keys.Match(key, k.(string)) {
+			newObject, err := db.storage.Objects.Decode(value.([]byte))
 			if err == nil {
 				res = append(res, newObject)
 			}
@@ -93,19 +93,19 @@ func (db *MemoryStorage) Get(key string) ([]byte, error) {
 		return true
 	})
 
-	sort.Slice(res, db.Storage.Objects.sort(res))
+	sort.Slice(res, db.storage.Objects.Sort(res))
 
-	return db.Storage.Objects.encode(res)
+	return db.storage.Objects.Encode(res)
 }
 
-// Peek will check the object stored in the key if any, returns created and updated times accordingly
+// Peek a value timestamps
 func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 	previous, found := db.Memdb.Load(key)
 	if !found {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.decode(previous.([]byte))
+	oldObject, err := db.storage.Objects.Decode(previous.([]byte))
 	if err != nil {
 		return now, 0
 	}
@@ -113,45 +113,44 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 	return oldObject.Created, now
 }
 
-// Set  :
+// Set a value
 func (db *MemoryStorage) Set(key string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).lastIndex(key)
+	index := (&Keys{}).LastIndex(key)
 	created, updated := db.Peek(key, now)
-	db.Memdb.Store(key, db.Storage.Objects.new(&Object{
+	db.Memdb.Store(key, db.storage.Objects.New(&Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
 		Data:    data,
 	}))
-	// db.watcher <- StorageEvent{key: key, operation: "set"}
+	db.watcher <- StorageEvent{Key: key, Operation: "set"}
 	return index, nil
 }
 
-// Del  :
+// Del a key/pattern value(s)
 func (db *MemoryStorage) Del(key string) error {
 	if !strings.Contains(key, "*") {
 		_, found := db.Memdb.Load(key)
 		if !found {
-			return errors.New("samo: not found")
+			return errors.New("katamari: not found")
 		}
 		db.Memdb.Delete(key)
-		// db.watcher <- StorageEvent{key: key, operation: "del"}
+		db.watcher <- StorageEvent{Key: key, Operation: "del"}
 		return nil
 	}
 
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
-		if db.Storage.Keys.Match(key, k.(string)) {
+		if db.storage.Keys.Match(key, k.(string)) {
 			db.Memdb.Delete(k.(string))
 		}
 		return true
 	})
-	// db.watcher <- StorageEvent{key: key, operation: "del"}
+	db.watcher <- StorageEvent{Key: key, Operation: "del"}
 	return nil
 }
 
-// Watch :
+// Watch the storage set/del events
 func (db *MemoryStorage) Watch() StorageChan {
-	// return db.watcher
-	return nil
+	return db.watcher
 }

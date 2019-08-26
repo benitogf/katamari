@@ -19,5 +19,8 @@ install:
   - go get github.com/nsf/jsondiff
 
 script:
-  - go vet ./...
+  - go vet .
+  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
+  - cd level
+  - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .

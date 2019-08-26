@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	}
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
 		return
 	}
 
@@ -35,16 +35,16 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	vkey := mux.Vars(r)["key"]
 	count := strings.Count(vkey, "*")
 	where := strings.Index(vkey, "*")
-	event, err := app.messages.decode(r.Body)
+	event, err := app.messages.Decode(r.Body)
 	if !app.keys.IsValid(vkey) || count > 1 || (count == 1 && where != len(vkey)-1) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
 		return
 	}
 
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
 		return
 	}
 
@@ -72,9 +72,10 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if app.Storage.Watch() == nil {
-		go app.broadcast(key)
-	}
+	// this performs better than the watch channel
+	// if app.Storage.Watch() == nil {
+	// 	go app.broadcast(key)
+	// }
 	app.console.Log("publish", key)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "{"+
@@ -87,13 +88,13 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	if !app.keys.IsValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
 		return
 	}
 
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
 		return
 	}
 
@@ -117,7 +118,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(filteredData) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "%s", errors.New("samo: empty key"))
+			fmt.Fprintf(w, "%s", errors.New("katamari: empty key"))
 			return
 		}
 		version := app.stream.setPoolCache(key, filteredData)
@@ -135,13 +136,13 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	if !app.keys.IsValid(key) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s", errors.New("samo: pathKeyError key is not valid"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
 		return
 	}
 
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("samo: this request is not authorized"))
+		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
 		return
 	}
 
@@ -150,7 +151,7 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		app.console.Err(err.Error())
-		if err.Error() == "leveldb: not found" || err.Error() == "samo: not found" {
+		if err.Error() == "leveldb: not found" || err.Error() == "katamari: not found" {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -159,9 +160,10 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if app.Storage.Watch() == nil {
-		go app.broadcast(key)
-	}
+	// this performs better than the watch channel
+	// if app.Storage.Watch() == nil {
+	// 	go app.broadcast(key)
+	// }
 
 	w.WriteHeader(http.StatusNoContent)
 	fmt.Fprintf(w, "unpublish "+key)

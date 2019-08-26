@@ -1,4 +1,4 @@
-package samo
+package level
 
 import (
 	"errors"
@@ -7,58 +7,59 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benitogf/katamari"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// LevelStorage : composition of storage
-type LevelStorage struct {
+// Storage composition of Database interface
+type Storage struct {
 	Path    string
 	client  *leveldb.DB
 	mutex   sync.RWMutex
-	watcher StorageChan
-	*Storage
+	watcher katamari.StorageChan
+	storage *katamari.Storage
 }
 
-// Active  :
-func (db *LevelStorage) Active() bool {
+// Active provides access to the status of the storage client
+func (db *Storage) Active() bool {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	return db.Storage.Active
+	return db.storage.Active
 }
 
-// Start  :
-func (db *LevelStorage) Start() error {
+// Start the storage client
+func (db *Storage) Start() error {
 	var err error
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	if db.Storage == nil {
-		db.Storage = &Storage{}
+	if db.storage == nil {
+		db.storage = &katamari.Storage{}
 	}
 	if db.Path == "" {
 		db.Path = "data/db"
 	}
 	if db.watcher == nil {
-		db.watcher = make(StorageChan)
+		db.watcher = make(katamari.StorageChan)
 	}
 	db.client, err = leveldb.OpenFile(db.Path, nil)
 	if err == nil {
-		db.Storage.Active = true
+		db.storage.Active = true
 	}
 	return err
 }
 
-// Close  :
-func (db *LevelStorage) Close() {
+// Close the storage client
+func (db *Storage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
-	db.Storage.Active = false
+	db.storage.Active = false
 	db.client.Close()
 	close(db.watcher)
 }
 
-// Clear  :
-func (db *LevelStorage) Clear() {
+// Clear all keys in the storage
+func (db *Storage) Clear() {
 	iter := db.client.NewIterator(nil, nil)
 	for iter.Next() {
 		_ = db.client.Delete(iter.Key(), nil)
@@ -66,10 +67,10 @@ func (db *LevelStorage) Clear() {
 	iter.Release()
 }
 
-// Keys  :
-func (db *LevelStorage) Keys() ([]byte, error) {
+// Keys list all the keys in the storage
+func (db *Storage) Keys() ([]byte, error) {
 	iter := db.client.NewIterator(nil, nil)
-	stats := stats{}
+	stats := katamari.Stats{}
 	for iter.Next() {
 		stats.Keys = append(stats.Keys, string(iter.Key()))
 	}
@@ -83,11 +84,11 @@ func (db *LevelStorage) Keys() ([]byte, error) {
 		stats.Keys = []string{}
 	}
 
-	return db.Storage.Objects.encode(stats)
+	return db.storage.Objects.Encode(stats)
 }
 
-// Get  :
-func (db *LevelStorage) Get(key string) ([]byte, error) {
+// Get a key/pattern related value(s)
+func (db *Storage) Get(key string) ([]byte, error) {
 	if !strings.Contains(key, "*") {
 		data, err := db.client.Get([]byte(key), nil)
 		if err != nil {
@@ -103,10 +104,10 @@ func (db *LevelStorage) Get(key string) ([]byte, error) {
 		rangeKey = nil
 	}
 	iter := db.client.NewIterator(rangeKey, nil)
-	res := []Object{}
+	res := []katamari.Object{}
 	for iter.Next() {
-		if db.Storage.Keys.Match(key, string(iter.Key())) {
-			newObject, err := db.Storage.Objects.decode(iter.Value())
+		if db.storage.Keys.Match(key, string(iter.Key())) {
+			newObject, err := db.storage.Objects.Decode(iter.Value())
 			if err == nil {
 				res = append(res, newObject)
 			}
@@ -118,19 +119,19 @@ func (db *LevelStorage) Get(key string) ([]byte, error) {
 		return []byte(""), err
 	}
 
-	sort.Slice(res, db.Storage.Objects.sort(res))
+	sort.Slice(res, db.storage.Objects.Sort(res))
 
-	return db.Storage.Objects.encode(res)
+	return db.storage.Objects.Encode(res)
 }
 
-// Peek :
-func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
+// Peek a value timestamps
+func (db *Storage) Peek(key string, now int64) (int64, int64) {
 	previous, err := db.client.Get([]byte(key), nil)
 	if err != nil {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.decode(previous)
+	oldObject, err := db.storage.Objects.Decode(previous)
 	if err != nil {
 		return now, 0
 	}
@@ -138,14 +139,14 @@ func (db *LevelStorage) Peek(key string, now int64) (int64, int64) {
 	return oldObject.Created, now
 }
 
-// Set  :
-func (db *LevelStorage) Set(key string, data string) (string, error) {
+// Set a value
+func (db *Storage) Set(key string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).lastIndex(key)
+	index := (&katamari.Keys{}).LastIndex(key)
 	created, updated := db.Peek(key, now)
 	err := db.client.Put(
 		[]byte(key),
-		db.Storage.Objects.new(&Object{
+		db.storage.Objects.New(&katamari.Object{
 			Created: created,
 			Updated: updated,
 			Index:   index,
@@ -156,17 +157,17 @@ func (db *LevelStorage) Set(key string, data string) (string, error) {
 		return "", err
 	}
 
-	db.watcher <- StorageEvent{Key: key, Operation: "set"}
+	db.watcher <- katamari.StorageEvent{Key: key, Operation: "set"}
 	return index, nil
 }
 
-// Del  :
-func (db *LevelStorage) Del(key string) error {
+// Del a key/pattern value(s)
+func (db *Storage) Del(key string) error {
 	var err error
 	if !strings.Contains(key, "*") {
 		_, err = db.client.Get([]byte(key), nil)
 		if err != nil && err.Error() == "leveldb: not found" {
-			return errors.New("samo: not found")
+			return errors.New("katamari: not found")
 		}
 
 		if err != nil {
@@ -177,7 +178,7 @@ func (db *LevelStorage) Del(key string) error {
 		if err != nil {
 			return err
 		}
-		db.watcher <- StorageEvent{Key: key, Operation: "del"}
+		db.watcher <- katamari.StorageEvent{Key: key, Operation: "del"}
 		return nil
 	}
 
@@ -188,7 +189,7 @@ func (db *LevelStorage) Del(key string) error {
 	}
 	iter := db.client.NewIterator(rangeKey, nil)
 	for iter.Next() {
-		if db.Storage.Keys.Match(key, string(iter.Key())) {
+		if db.storage.Keys.Match(key, string(iter.Key())) {
 			err = db.client.Delete(iter.Key(), nil)
 			if err != nil {
 				break
@@ -204,11 +205,11 @@ func (db *LevelStorage) Del(key string) error {
 		return err
 	}
 
-	db.watcher <- StorageEvent{Key: key, Operation: "del"}
+	db.watcher <- katamari.StorageEvent{Key: key, Operation: "del"}
 	return nil
 }
 
-// Watch :
-func (db *LevelStorage) Watch() StorageChan {
+// Watch the storage set/del events
+func (db *Storage) Watch() katamari.StorageChan {
 	return db.watcher
 }

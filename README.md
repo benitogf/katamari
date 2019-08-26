@@ -1,16 +1,16 @@
-# samo
+# katamari
 
 [![Build Status][build-image]][build-url]
 
 
-[build-url]: https://travis-ci.com/benitogf/samo
-[build-image]: https://api.travis-ci.com/benitogf/samo.svg?branch=master&style=flat-square
+[build-url]: https://travis-ci.com/benitogf/katamari
+[build-image]: https://api.travis-ci.com/benitogf/katamari.svg?branch=master&style=flat-square
 
 Zero configuration data persistence and communication layer.
 
 Web service that behaves like a distributed filesystem in the sense that all routes are open by default, oposite to rails like frameworks where the user must define the routes before being able to interact with them.
 
-Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/samo#creating-rules-and-control).
+Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/katamari#creating-rules-and-control).
 
 ## features
 
@@ -28,24 +28,24 @@ Provides a dynamic websocket and restful http service to quickly prototype realt
 
 ### client
 
-There's a [js client](https://www.npmjs.com/package/samo-js-client).
+There's a [js client](https://www.npmjs.com/package/katamari-client).
 
 ### server
 
 with [go installed](https://golang.org/doc/install) get the library
 
 ```bash
-go get github.com/benitogf/samo
+go get github.com/benitogf/katamari
 ```
 
 create a file `main.go`
 ```golang
 package main
 
-import "github.com/benitogf/samo"
+import "github.com/benitogf/katamari"
 
 func main() {
-  app := samo.Server{}
+  app := katamari.Server{}
   app.Start("localhost:8800")
   app.WaitClose()
 }
@@ -78,7 +78,7 @@ A one route server example:
 ```golang
 package main
 
-import "github.com/benitogf/samo"
+import "github.com/benitogf/katamari"
 import "net/http"
 
 
@@ -104,7 +104,7 @@ func audit(r *http.Request) bool {
 }
 
 func main() {
-  app := samo.Server{}
+  app := katamari.Server{}
   app.Static = true
   app.Audit = audit
   app.WriteFilter("open", openFilter)
@@ -119,7 +119,7 @@ func main() {
 Activating this flag will limit the server to process requests defined in read and write filters
 
 ```golang
-app := samo.Server{}
+app := katamari.Server{}
 app.Static = true
 ```
 
@@ -212,10 +212,10 @@ func main() {
 ```go
 package main
 
-import "github.com/benitogf/samo"
+import "github.com/benitogf/katamari"
 
 func main() {
-  app := samo.Server{}
+  app := katamari.Server{}
   app.NamedSocket = "testns" // set this field to the name to use
   app.Start("localhost:8800")
   app.WaitClose()
@@ -226,33 +226,7 @@ func main() {
 
     Use alternative storages (the default is memory)
 
-### level
-```go
-package main
-
-import "github.com/benitogf/samo"
-
-func main() {
-  app := samo.Server{}
-  app.Storage = &samo.LevelStorage{Path:"data/db"}
-  app.Start("localhost:8800")
-  app.WaitClose()
-}
-```
-### etcd
-```go
-package main
-
-import "github.com/benitogf/samo"
-
-func main() {
-  app := samo.Server{}
-  app.Storage = &samo.EtcdStorage{
-    Path:    "data/default.etcd",
-    Peers: []string{"localhost:2379"}}
-  app.Start("localhost:8800")
-  app.WaitClose()
-}
-```
+### [level](https://github.com/benitogf/katamari-level)
+### [etcd](https://github.com/benitogf/katamari-etcd)
 
 

@@ -1,12 +1,12 @@
 /data
 /test
+/level/test
 cover.out
 trace.out
 cover.html
 debug.test
-samo
 .vscode
-samo-fuzz.zip
+katamari-fuzz.zip
 cpu.prof
 mem.prof
-samo.test.exe
+katamari.test.exe

@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"bytes"
@@ -68,7 +68,7 @@ func TestFilters(t *testing.T) {
 	require.NoError(t, err)
 	_, err = app.filters.Read.check("book/1", []byte("test1"), true)
 	require.NoError(t, err)
-	var jsonStr = []byte(`{"data":"` + app.messages.encode([]byte("notest")) + `"}`)
+	var jsonStr = []byte(`{"data":"` + app.messages.Encode([]byte("notest")) + `"}`)
 	req := httptest.NewRequest("POST", "/test1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)

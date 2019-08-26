@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -18,17 +17,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func streamBroadcast(t *testing.T, app *Server) {
+// StreamBroadcastTest testing stream function
+func StreamBroadcastTest(t *testing.T, app *Server) {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	var postObject Object
 	var wsObject Object
 	var nsObject Object
-	var wsEvent message
-	var nsEvent message
+	var wsEvent Message
+	var nsEvent Message
 	var wsCache string
 	var nsCache string
-	testData := app.messages.encode([]byte("something 🧰"))
+	testData := app.messages.Encode([]byte("something 🧰"))
 	wsURL := url.URL{Scheme: "ws", Host: app.address, Path: "/test"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func streamBroadcast(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			nsEvent, err = app.messages.decodeTest([]byte(message))
+			nsEvent, err = app.messages.DecodeTest([]byte(message))
 			require.NoError(t, err)
 			app.console.Log("read nsClient", nsEvent.Data)
 			mutex.Unlock()
@@ -56,7 +56,7 @@ func streamBroadcast(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			wsEvent, err = app.messages.decodeTest(message)
+			wsEvent, err = app.messages.DecodeTest(message)
 			require.NoError(t, err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			mutex.Unlock()
@@ -149,17 +149,18 @@ func streamBroadcast(t *testing.T, app *Server) {
 	require.Equal(t, nsObject.Created, int64(0))
 }
 
-func streamGlobBroadcast(t *testing.T, app *Server) {
+// StreamGlobBroadcastTest testing stream function
+func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	var postObject Object
 	var wsObject []Object
 	var nsObject []Object
-	var wsEvent message
-	var nsEvent message
+	var wsEvent Message
+	var nsEvent Message
 	var wsCache string
 	var nsCache string
-	testData := app.messages.encode([]byte("something 🧰"))
+	testData := app.messages.Encode([]byte("something 🧰"))
 	wsURL := url.URL{Scheme: "ws", Host: app.address, Path: "/test/*"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -173,7 +174,7 @@ func streamGlobBroadcast(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			nsEvent, err = app.messages.decodeTest([]byte(message))
+			nsEvent, err = app.messages.DecodeTest([]byte(message))
 			require.NoError(t, err)
 			app.console.Log("read nsClient", nsEvent.Data)
 			mutex.Unlock()
@@ -187,7 +188,7 @@ func streamGlobBroadcast(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			wsEvent, err = app.messages.decodeTest(message)
+			wsEvent, err = app.messages.DecodeTest(message)
 			require.NoError(t, err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			mutex.Unlock()
@@ -273,50 +274,4 @@ func streamGlobBroadcast(t *testing.T, app *Server) {
 
 	require.Equal(t, len(wsObject), 0)
 	require.Equal(t, len(nsObject), 0)
-}
-
-func TestStreamBroadcastMemory(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.forcePatch = true
-	app.NamedSocket = "samotest"
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	streamBroadcast(t, &app)
-}
-
-func TestStreamBroadcastLevel(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.forcePatch = true
-	app.NamedSocket = "samotest"
-	app.Storage = &LevelStorage{
-		Path: "test/db"}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	streamBroadcast(t, &app)
-}
-
-func TestStreamGlobBroadcastMemory(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.forcePatch = true
-	app.NamedSocket = "samotest"
-	app.Start("localhost:9889")
-	defer app.Close(os.Interrupt)
-	streamGlobBroadcast(t, &app)
-}
-
-func TestStreamGlobBroadcastLevel(t *testing.T) {
-	app := Server{}
-	app.Silence = true
-	app.forcePatch = true
-	app.NamedSocket = "samotest"
-	app.Storage = &LevelStorage{
-		Path: "test/db"}
-	app.Start("localhost:9889")
-	app.Storage.Clear()
-	defer app.Close(os.Interrupt)
-	streamGlobBroadcast(t, &app)
 }
