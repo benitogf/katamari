@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"encoding/base64"
@@ -9,21 +9,22 @@ import (
 )
 
 // Message sent through websocket connections
-type message struct {
+type Message struct {
 	Data    string `json:"data"`
 	Version string `json:"version"`
 }
 
 // Messages encoding and decoding
-type messages struct{}
+type Messages struct{}
 
-// write base64 string from bytes
-func (messages *messages) encode(raw []byte) string {
+// Encode to base64 string from bytes
+func (Messages *Messages) Encode(raw []byte) string {
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
-func (messages *messages) decodeTest(data []byte) (message, error) {
-	var wsEvent message
+// DecodeTest base64 data (testing function)
+func (Messages *Messages) DecodeTest(data []byte) (Message, error) {
+	var wsEvent Message
 	err := json.Unmarshal(data, &wsEvent)
 	if err != nil {
 		return wsEvent, err
@@ -37,15 +38,16 @@ func (messages *messages) decodeTest(data []byte) (message, error) {
 	return wsEvent, nil
 }
 
-func (messages *messages) decode(r io.Reader) (message, error) {
-	var httpEvent message
+// Decode message
+func (Messages *Messages) Decode(r io.Reader) (Message, error) {
+	var httpEvent Message
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&httpEvent)
 	if err != nil {
 		return httpEvent, err
 	}
 	if httpEvent.Data == "" {
-		return httpEvent, errors.New("samo: empty post data")
+		return httpEvent, errors.New("katamari: empty post data")
 	}
 	_, err = base64.StdEncoding.DecodeString(httpEvent.Data)
 	if err != nil {

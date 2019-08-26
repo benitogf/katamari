@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"bytes"
@@ -23,7 +23,8 @@ func max(a, b int64) int64 {
 	return b
 }
 
-func (o *Objects) sort(obj []Object) func(i, j int) bool {
+// Sort by created/updated
+func (o *Objects) Sort(obj []Object) func(i, j int) bool {
 	return func(i, j int) bool {
 		maxi := max(obj[i].Updated, obj[i].Created)
 		maxj := max(obj[j].Updated, obj[j].Created)
@@ -31,7 +32,8 @@ func (o *Objects) sort(obj []Object) func(i, j int) bool {
 	}
 }
 
-func (o *Objects) encode(v interface{}) ([]byte, error) {
+// Encode objects in json
+func (o *Objects) Encode(v interface{}) ([]byte, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return []byte(""), err
@@ -40,14 +42,16 @@ func (o *Objects) encode(v interface{}) ([]byte, error) {
 	return data, nil
 }
 
-func (o *Objects) decode(data []byte) (Object, error) {
+// Decode json object
+func (o *Objects) Decode(data []byte) (Object, error) {
 	var obj Object
 	err := json.Unmarshal(data, &obj)
 
 	return obj, err
 }
 
-func (o *Objects) new(obj *Object) []byte {
+// New object as json
+func (o *Objects) New(obj *Object) []byte {
 	dataBytes := new(bytes.Buffer)
 	json.NewEncoder(dataBytes).Encode(obj)
 

@@ -1,6 +1,6 @@
 // +build gofuzz
 
-package samo
+package katamari
 
 import (
 	"encoding/base64"
@@ -11,8 +11,8 @@ import (
 // https://medium.com/@dgryski/go-fuzz-github-com-arolek-ase-3c74d5a3150c
 // go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
 // go get -u github.com/dvyukov/go-fuzz/go-fuzz
-// go-fuzz-build github.com/benitogf/samo
-// go-fuzz -bin='samo-fuzz.zip' -workdir=fuzz
+// go-fuzz-build github.com/benitogf/katamari
+// go-fuzz -bin='katamari-fuzz.zip' -workdir=fuzz
 func Fuzz(fdata []byte) int {
 	data := fmt.Sprintf("%#v", string(fdata))
 	memory := &MemoryStorage{}
@@ -27,8 +27,6 @@ func Fuzz(fdata []byte) int {
 		Address: "localhost:27017"}
 	fuzzStorage(memory, data)
 	fuzzStorage(level, data)
-	fuzzStorage(redis, data)
-	fuzzStorage(mongo, data)
 	fuzzStorage(etcd, data)
 	return 1
 }

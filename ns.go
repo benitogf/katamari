@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"bufio"
@@ -50,7 +50,7 @@ func (app *Server) serveNs() {
 			}
 			filteredData, err := app.filters.Read.check(newClient.Path, raw, app.Static)
 			if err != nil {
-				app.console.Err("samo: filtered route", err)
+				app.console.Err("katamari: filtered route", err)
 				app.stream.closeNs(client)
 				client.conn.Close()
 				continue
@@ -62,7 +62,7 @@ func (app *Server) serveNs() {
 			}
 		}
 
-		go app.stream.writeNs(client, app.messages.encode(cache.data), true)
+		go app.stream.writeNs(client, app.messages.Encode(cache.data), true)
 		go app.readNs(client)
 	}
 }

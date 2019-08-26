@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"errors"

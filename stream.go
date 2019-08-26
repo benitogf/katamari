@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"encoding/json"
@@ -56,7 +56,7 @@ type stream struct {
 	pools         []*pool
 	console       *coat.Console
 	*Keys
-	*messages
+	*Messages
 }
 
 func (sm *stream) findPool(key string) int {

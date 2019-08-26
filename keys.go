@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"regexp"
@@ -24,7 +24,7 @@ func (keys *Keys) IsValid(key string) bool {
 	return keyGlobRegex.MatchString(key)
 }
 
-// Match checks that the key is part of the path
+// Match checks if a key is part of a path (glob)
 func (keys *Keys) Match(path string, key string) bool {
 	if !strings.Contains(path, "*") {
 		return false
@@ -39,12 +39,12 @@ func (keys *Keys) Match(path string, key string) bool {
 	return globPath.Match(key) && countPath == countKey
 }
 
-// lastIndex will return the last sub path of the key
-func (keys *Keys) lastIndex(key string) string {
+// LastIndex will return the last sub path of the key
+func (keys *Keys) LastIndex(key string) string {
 	return key[strings.LastIndexAny(key, "/")+1:]
 }
 
-// Build checks the key glob pattern
+// Build a new key for a path
 func (keys *Keys) Build(key string) string {
 	now := time.Now().UTC().UnixNano()
 	if !strings.Contains(key, "*") {

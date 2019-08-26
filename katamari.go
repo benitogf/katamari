@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"context"
@@ -34,6 +34,8 @@ type audit func(r *http.Request) bool
 //
 // Workers: number of workers to use as readers of the storage->broadcast channel
 //
+// ForcePatch: flag to force patch operations
+//
 // OnSubscribe: function to monitor subscribe events
 //
 // OnUnsubscribe: function to monitor unsubscribe events
@@ -55,7 +57,7 @@ type Server struct {
 	filters       filters
 	Audit         audit
 	Workers       int
-	forcePatch    bool
+	ForcePatch    bool
 	OnSubscribe   subscribe
 	OnUnsubscribe unsubscribe
 	Storage       Database
@@ -68,7 +70,7 @@ type Server struct {
 	console       *coat.Console
 	objects       *Objects
 	keys          *Keys
-	messages      *messages
+	messages      *Messages
 	nss           *nsocket.Server
 	NamedSocket   string
 }
@@ -120,11 +122,11 @@ func (app *Server) waitStart() {
 		log.Fatal("server start failed")
 	}
 
-	if app.Storage.Watch() != nil {
-		for i := 0; i < app.Workers; i++ {
-			go app.watch(app.Storage.Watch())
-		}
+	// if app.Storage.Watch() != nil {
+	for i := 0; i < app.Workers; i++ {
+		go app.watch(app.Storage.Watch())
 	}
+	// }
 
 	app.console.Log("glad to serve[" + app.address + "]")
 }
@@ -188,7 +190,7 @@ func (app *Server) defaults() {
 		app.Workers = 2
 	}
 
-	app.stream.forcePatch = app.forcePatch
+	app.stream.forcePatch = app.ForcePatch
 	app.stream.pools = append(
 		app.stream.pools,
 		&pool{

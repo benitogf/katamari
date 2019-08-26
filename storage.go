@@ -1,9 +1,9 @@
-package samo
+package katamari
 
-// StorageChan : an operation events channel
+// StorageChan an operation events channel
 type StorageChan chan StorageEvent
 
-// StorageEvent : an operation event
+// StorageEvent an operation event
 type StorageEvent struct {
 	Key       string
 	Operation string
@@ -40,7 +40,7 @@ type Database interface {
 	Watch() StorageChan
 }
 
-// Storage : abstraction of persistent data layer
+// Storage abstraction of persistent data layer
 type Storage struct {
 	Active bool
 	Db     Database
@@ -48,7 +48,7 @@ type Storage struct {
 	*Keys
 }
 
-// Stats : data structure of global keys
-type stats struct {
+// Stats data structure of global keys
+type Stats struct {
 	Keys []string `json:"keys"`
 }

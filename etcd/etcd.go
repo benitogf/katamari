@@ -1,6 +1,4 @@
-// +build etcd
-
-package samo
+package etcd
 
 import (
 	"context"
@@ -11,43 +9,45 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benitogf/katamari"
 	"go.etcd.io/etcd/clientv3"
+
 	// "go.etcd.io/etcd/embed"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 )
 
-// EtcdStorage : composition of storage
-type EtcdStorage struct {
+// Etcd : composition of storage
+type Etcd struct {
 	mutex sync.RWMutex
 	Peers []string
 	Path  string
 	cli   *clientv3.Client
 	// server  *embed.Etcd
 	timeout time.Duration
-	watcher StorageChan
+	watcher katamari.StorageChan
 	// OnlyClient bool
 	Debug bool
-	*Storage
+	*katamari.Storage
 }
 
 // Active  :
-func (db *EtcdStorage) Active() bool {
+func (db *Etcd) Active() bool {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	return db.Storage.Active
 }
 
 // Start  :
-func (db *EtcdStorage) Start() error {
+func (db *Etcd) Start() error {
 	var wg sync.WaitGroup
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	var err error
 	if db.Storage == nil {
-		db.Storage = &Storage{}
+		db.Storage = &katamari.Storage{}
 	}
 	if db.watcher == nil {
-		db.watcher = make(StorageChan)
+		db.watcher = make(katamari.StorageChan)
 	}
 	if db.Path == "" {
 		db.Path = "data/default.etcd"
@@ -90,7 +90,7 @@ func (db *EtcdStorage) Start() error {
 	go func() {
 		for wresp := range db.cli.Watch(context.Background(), "", clientv3.WithPrefix()) {
 			for _, ev := range wresp.Events {
-				db.watcher <- StorageEvent{Key: string(ev.Kv.Key), Operation: string(ev.Type)}
+				db.watcher <- katamari.StorageEvent{Key: string(ev.Kv.Key), Operation: string(ev.Type)}
 			}
 			if !db.Active() {
 				return
@@ -103,7 +103,7 @@ func (db *EtcdStorage) Start() error {
 }
 
 // Close  :
-func (db *EtcdStorage) Close() {
+func (db *Etcd) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.cli.Close()
@@ -115,7 +115,7 @@ func (db *EtcdStorage) Close() {
 }
 
 // Clear  :
-func (db *EtcdStorage) Clear() {
+func (db *Etcd) Clear() {
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	_, err := db.cli.Delete(ctx, "", clientv3.WithPrefix())
 	cancel()
@@ -125,8 +125,8 @@ func (db *EtcdStorage) Clear() {
 }
 
 // Keys  :
-func (db *EtcdStorage) Keys() ([]byte, error) {
-	stats := Stats{}
+func (db *Etcd) Keys() ([]byte, error) {
+	stats := katamari.Stats{}
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	resp, err := db.cli.Get(ctx, "", clientv3.WithPrefix())
 	cancel()
@@ -144,11 +144,11 @@ func (db *EtcdStorage) Keys() ([]byte, error) {
 		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
 	})
 
-	return db.Storage.Objects.encode(stats)
+	return db.Storage.Objects.Encode(stats)
 }
 
 // Get :
-func (db *EtcdStorage) Get(key string) ([]byte, error) {
+func (db *Etcd) Get(key string) ([]byte, error) {
 	if !strings.Contains(key, "*") {
 		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 		resp, err := db.cli.Get(ctx, key)
@@ -157,13 +157,13 @@ func (db *EtcdStorage) Get(key string) ([]byte, error) {
 			return []byte(""), err
 		}
 		if len(resp.Kvs) == 0 {
-			return []byte(""), errors.New("samo: not found")
+			return []byte(""), errors.New("katamari: not found")
 		}
 
 		return resp.Kvs[0].Value, nil
 	}
 
-	res := []Object{}
+	res := []katamari.Object{}
 	globPrefixKey := strings.Split(key, "*")[0]
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
@@ -173,20 +173,20 @@ func (db *EtcdStorage) Get(key string) ([]byte, error) {
 	}
 	for _, ev := range resp.Kvs {
 		if db.Storage.Keys.Match(key, string(ev.Key)) {
-			newObject, err := db.Storage.Objects.decode(ev.Value)
+			newObject, err := db.Storage.Objects.Decode(ev.Value)
 			if err == nil {
 				res = append(res, newObject)
 			}
 		}
 	}
 
-	sort.Slice(res, db.Storage.Objects.sort(res))
+	sort.Slice(res, db.Storage.Objects.Sort(res))
 
-	return db.Storage.Objects.encode(res)
+	return db.Storage.Objects.Encode(res)
 }
 
 // Peek will check the object stored in the key if any, returns created and updated times accordingly
-func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
+func (db *Etcd) Peek(key string, now int64) (int64, int64) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	resp, err := db.cli.Get(ctx, key)
 	cancel()
@@ -194,7 +194,7 @@ func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.decode(resp.Kvs[0].Value)
+	oldObject, err := db.Storage.Objects.Decode(resp.Kvs[0].Value)
 	if err != nil {
 		return now, 0
 	}
@@ -203,12 +203,12 @@ func (db *EtcdStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set  :
-func (db *EtcdStorage) Set(key string, data string) (string, error) {
+func (db *Etcd) Set(key string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).lastIndex(key)
+	index := (&katamari.Keys{}).LastIndex(key)
 	created, updated := db.Peek(key, now)
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-	_, err := db.cli.Put(ctx, key, string(db.Storage.Objects.new(&Object{
+	_, err := db.cli.Put(ctx, key, string(db.Storage.Objects.New(&katamari.Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
@@ -222,13 +222,13 @@ func (db *EtcdStorage) Set(key string, data string) (string, error) {
 }
 
 // Del  :
-func (db *EtcdStorage) Del(key string) error {
+func (db *Etcd) Del(key string) error {
 	if !strings.Contains(key, "*") {
 		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 		_, err := db.cli.Get(ctx, key)
 		cancel()
 		if err == rpctypes.ErrEmptyKey {
-			return errors.New("samo: not found")
+			return errors.New("katamari: not found")
 		}
 		if err != nil {
 			return err
@@ -256,6 +256,6 @@ func (db *EtcdStorage) Del(key string) error {
 }
 
 // Watch :
-func (db *EtcdStorage) Watch() StorageChan {
+func (db *Etcd) Watch() katamari.StorageChan {
 	return db.watcher
 }

@@ -1,4 +1,4 @@
-package samo
+package katamari
 
 import (
 	"net/http"
@@ -17,7 +17,7 @@ func (app *Server) getPatch(poolIndex int, key string) (string, bool, int64, err
 		return "", false, 0, err
 	}
 	modifiedData, snapshot, version := app.stream.patch(poolIndex, filteredData)
-	return app.messages.encode(modifiedData), snapshot, version, nil
+	return app.messages.Encode(modifiedData), snapshot, version, nil
 }
 
 func (app *Server) broadcast(key string) {
@@ -65,7 +65,7 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 		}
 		filteredData, err := app.filters.Read.check(key, raw, app.Static)
 		if err != nil {
-			app.console.Err("samo: filtered route", err)
+			app.console.Err("katamari: filtered route", err)
 			return
 		}
 		newVersion := app.stream.setCache(poolIndex, filteredData)
@@ -76,7 +76,7 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if version != strconv.FormatInt(cache.version, 16) {
-		go app.stream.write(client, app.messages.encode(cache.data), true, cache.version)
+		go app.stream.write(client, app.messages.Encode(cache.data), true, cache.version)
 	}
 	app.readClient(key, client)
 }
