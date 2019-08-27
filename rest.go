@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/mux"
 )
 
@@ -36,7 +38,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	count := strings.Count(vkey, "*")
 	where := strings.Index(vkey, "*")
 	event, err := app.messages.Decode(r.Body)
-	if !app.keys.IsValid(vkey) || count > 1 || (count == 1 && where != len(vkey)-1) {
+	if !key.IsValid(vkey) || count > 1 || (count == 1 && where != len(vkey)-1) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
 		return
@@ -55,16 +57,16 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("publish", vkey)
-	key := app.keys.Build(vkey)
-	data, err := app.filters.Write.check(key, []byte(event.Data), app.Static)
+	_key := key.Build(vkey)
+	data, err := app.filters.Write.check(_key, []byte(event.Data), app.Static)
 	if err != nil {
-		app.console.Err("setError["+key+"]", err)
+		app.console.Err("setError["+_key+"]", err)
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
 		return
 	}
 
-	index, err := app.Storage.Set(key, string(data))
+	index, err := app.Storage.Set(_key, string(data))
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -74,9 +76,9 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 
 	// this performs better than the watch channel
 	// if app.Storage.Watch() == nil {
-	// 	go app.broadcast(key)
+	// 	go app.broadcast(_key)
 	// }
-	app.console.Log("publish", key)
+	app.console.Log("publish", _key)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "{"+
 		"\"index\": \""+index+"\""+
@@ -85,8 +87,8 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Server) read(w http.ResponseWriter, r *http.Request) {
-	key := mux.Vars(r)["key"]
-	if !app.keys.IsValid(key) {
+	_key := mux.Vars(r)["key"]
+	if !key.IsValid(_key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
 		return
@@ -103,14 +105,14 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("read", key)
-	cache, err := app.stream.getPoolCache(key)
+	app.console.Log("read", _key)
+	cache, err := app.stream.GetPoolCache(_key)
 	if err != nil {
-		raw, err := app.Storage.Get(key)
+		raw, err := app.Storage.Get(_key)
 		if err != nil {
 			app.console.Err(err)
 		}
-		filteredData, err := app.filters.Read.check(key, raw, app.Static)
+		filteredData, err := app.filters.Read.check(_key, raw, app.Static)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%s", err)
@@ -121,20 +123,20 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", errors.New("katamari: empty key"))
 			return
 		}
-		version := app.stream.setPoolCache(key, filteredData)
-		cache = vCache{
-			version: version,
-			data:    filteredData,
+		version := app.stream.SetPoolCache(_key, filteredData)
+		cache = stream.Cache{
+			Version: version,
+			Data:    filteredData,
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(cache.data))
+	fmt.Fprintf(w, string(cache.Data))
 }
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
-	key := mux.Vars(r)["key"]
-	if !app.keys.IsValid(key) {
+	_key := mux.Vars(r)["key"]
+	if !key.IsValid(_key) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
 		return
@@ -146,8 +148,8 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("unpublish", key)
-	err := app.Storage.Del(key)
+	app.console.Log("unpublish", _key)
+	err := app.Storage.Del(_key)
 
 	if err != nil {
 		app.console.Err(err.Error())
@@ -162,9 +164,9 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 
 	// this performs better than the watch channel
 	// if app.Storage.Watch() == nil {
-	// 	go app.broadcast(key)
+	// 	go app.broadcast(_key)
 	// }
 
 	w.WriteHeader(http.StatusNoContent)
-	fmt.Fprintf(w, "unpublish "+key)
+	fmt.Fprintf(w, "unpublish "+_key)
 }

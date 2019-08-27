@@ -16,6 +16,8 @@ type Object struct {
 // Objects provide methods to read from bytes and write to bytes
 type Objects struct{}
 
+var emptyObject = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+
 func max(a, b int64) int64 {
 	if a > b {
 		return a

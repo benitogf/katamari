@@ -65,7 +65,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	}()
 	wg.Wait()
 	wg.Add(2)
-	streamCache, err := app.stream.getPoolCache("test")
+	streamCache, err := app.stream.GetPoolCache("test")
 	require.NoError(t, err)
 	app.console.Log("post data")
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
@@ -83,7 +83,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	nsCache = nsEvent.Data
 	wsVersion, err := strconv.ParseInt(wsEvent.Version, 16, 64)
 	require.NoError(t, err)
-	require.Equal(t, wsVersion, streamCache.version)
+	require.Equal(t, wsVersion, streamCache.Version)
 	mutex.Unlock()
 	wg.Wait()
 	wg.Add(2)

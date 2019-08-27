@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/key"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -88,9 +89,9 @@ func (db *Storage) Keys() ([]byte, error) {
 }
 
 // Get a key/pattern related value(s)
-func (db *Storage) Get(key string) ([]byte, error) {
-	if !strings.Contains(key, "*") {
-		data, err := db.client.Get([]byte(key), nil)
+func (db *Storage) Get(path string) ([]byte, error) {
+	if !strings.Contains(path, "*") {
+		data, err := db.client.Get([]byte(path), nil)
 		if err != nil {
 			return []byte(""), err
 		}
@@ -98,7 +99,7 @@ func (db *Storage) Get(key string) ([]byte, error) {
 		return data, nil
 	}
 
-	globPrefixKey := strings.Split(key, "*")[0]
+	globPrefixKey := strings.Split(path, "*")[0]
 	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
 	if globPrefixKey == "" || globPrefixKey == "*" {
 		rangeKey = nil
@@ -106,7 +107,7 @@ func (db *Storage) Get(key string) ([]byte, error) {
 	iter := db.client.NewIterator(rangeKey, nil)
 	res := []katamari.Object{}
 	for iter.Next() {
-		if db.storage.Keys.Match(key, string(iter.Key())) {
+		if key.Match(path, string(iter.Key())) {
 			newObject, err := db.storage.Objects.Decode(iter.Value())
 			if err == nil {
 				res = append(res, newObject)
@@ -140,12 +141,12 @@ func (db *Storage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set a value
-func (db *Storage) Set(key string, data string) (string, error) {
+func (db *Storage) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&katamari.Keys{}).LastIndex(key)
-	created, updated := db.Peek(key, now)
+	index := key.LastIndex(path)
+	created, updated := db.Peek(path, now)
 	err := db.client.Put(
-		[]byte(key),
+		[]byte(path),
 		db.storage.Objects.New(&katamari.Object{
 			Created: created,
 			Updated: updated,
@@ -157,15 +158,15 @@ func (db *Storage) Set(key string, data string) (string, error) {
 		return "", err
 	}
 
-	db.watcher <- katamari.StorageEvent{Key: key, Operation: "set"}
+	db.watcher <- katamari.StorageEvent{Key: path, Operation: "set"}
 	return index, nil
 }
 
 // Del a key/pattern value(s)
-func (db *Storage) Del(key string) error {
+func (db *Storage) Del(path string) error {
 	var err error
-	if !strings.Contains(key, "*") {
-		_, err = db.client.Get([]byte(key), nil)
+	if !strings.Contains(path, "*") {
+		_, err = db.client.Get([]byte(path), nil)
 		if err != nil && err.Error() == "leveldb: not found" {
 			return errors.New("katamari: not found")
 		}
@@ -174,22 +175,22 @@ func (db *Storage) Del(key string) error {
 			return err
 		}
 
-		err = db.client.Delete([]byte(key), nil)
+		err = db.client.Delete([]byte(path), nil)
 		if err != nil {
 			return err
 		}
-		db.watcher <- katamari.StorageEvent{Key: key, Operation: "del"}
+		db.watcher <- katamari.StorageEvent{Key: path, Operation: "del"}
 		return nil
 	}
 
-	globPrefixKey := strings.Split(key, "*")[0]
+	globPrefixKey := strings.Split(path, "*")[0]
 	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
 	if globPrefixKey == "" || globPrefixKey == "*" {
 		rangeKey = nil
 	}
 	iter := db.client.NewIterator(rangeKey, nil)
 	for iter.Next() {
-		if db.storage.Keys.Match(key, string(iter.Key())) {
+		if key.Match(path, string(iter.Key())) {
 			err = db.client.Delete(iter.Key(), nil)
 			if err != nil {
 				break
@@ -205,7 +206,7 @@ func (db *Storage) Del(key string) error {
 		return err
 	}
 
-	db.watcher <- katamari.StorageEvent{Key: key, Operation: "del"}
+	db.watcher <- katamari.StorageEvent{Key: path, Operation: "del"}
 	return nil
 }
 

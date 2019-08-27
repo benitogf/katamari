@@ -45,7 +45,6 @@ type Storage struct {
 	Active bool
 	Db     Database
 	*Objects
-	*Keys
 }
 
 // Stats data structure of global keys

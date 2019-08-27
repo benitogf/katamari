@@ -21,6 +21,6 @@ install:
 script:
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
-  - cd level
+  - cd storages/level
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
