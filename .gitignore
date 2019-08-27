@@ -1,6 +1,9 @@
 /data
 /test
 /storages/level/test
+/storages/maria
+/storages/redis
+/storages/mongo
 cover.out
 trace.out
 cover.html

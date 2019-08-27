@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/mux"
 )
@@ -37,7 +38,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	vkey := mux.Vars(r)["key"]
 	count := strings.Count(vkey, "*")
 	where := strings.Index(vkey, "*")
-	event, err := app.messages.Decode(r.Body)
+	event, err := messages.Decode(r.Body)
 	if !key.IsValid(vkey) || count > 1 || (count == 1 && where != len(vkey)-1) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
@@ -106,7 +107,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("read", _key)
-	cache, err := app.stream.GetPoolCache(_key)
+	cache, err := app.Stream.GetPoolCache(_key)
 	if err != nil {
 		raw, err := app.Storage.Get(_key)
 		if err != nil {
@@ -123,7 +124,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", errors.New("katamari: empty key"))
 			return
 		}
-		version := app.stream.SetPoolCache(_key, filteredData)
+		version := app.Stream.SetPoolCache(_key, filteredData)
 		cache = stream.Cache{
 			Version: version,
 			Data:    filteredData,

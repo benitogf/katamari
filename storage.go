@@ -44,7 +44,6 @@ type Database interface {
 type Storage struct {
 	Active bool
 	Db     Database
-	*Objects
 }
 
 // Stats data structure of global keys

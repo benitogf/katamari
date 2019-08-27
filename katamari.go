@@ -12,6 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/benitogf/katamari/objects"
+
+	"github.com/benitogf/katamari/messages"
+
 	"github.com/benitogf/katamari/stream"
 
 	"github.com/benitogf/coat"
@@ -55,7 +59,7 @@ type Server struct {
 	wg            sync.WaitGroup
 	server        *http.Server
 	Router        *mux.Router
-	stream        stream.Pools
+	Stream        stream.Pools
 	filters       filters
 	Audit         audit
 	Workers       int
@@ -70,8 +74,6 @@ type Server struct {
 	Static        bool
 	Tick          time.Duration
 	console       *coat.Console
-	objects       *Objects
-	messages      *Messages
 	nss           *nsocket.Server
 	NamedSocket   string
 }
@@ -135,25 +137,25 @@ func (app *Server) waitStart() {
 func (app *Server) getPatch(poolIndex int, key string) (string, bool, int64, error) {
 	raw, _ := app.Storage.Get(key)
 	if len(raw) == 0 {
-		raw = emptyObject
+		raw = objects.EmptyObject
 	}
 	filteredData, err := app.filters.Read.check(key, raw, app.Static)
 	if err != nil {
 		return "", false, 0, err
 	}
-	modifiedData, snapshot, version := app.stream.Patch(poolIndex, filteredData)
-	return app.messages.Encode(modifiedData), snapshot, version, nil
+	modifiedData, snapshot, version := app.Stream.Patch(poolIndex, filteredData)
+	return messages.Encode(modifiedData), snapshot, version, nil
 }
 
 func (app *Server) broadcast(key string) {
-	for _, poolIndex := range app.stream.FindConnections(key) {
+	for _, poolIndex := range app.Stream.FindConnections(key) {
 		data, snapshot, version, err := app.getPatch(
 			poolIndex,
-			app.stream.Pools[poolIndex].Key)
+			app.Stream.Pools[poolIndex].Key)
 		if err != nil {
 			continue
 		}
-		go app.stream.Broadcast(poolIndex, data, snapshot, version)
+		go app.Stream.Broadcast(poolIndex, data, snapshot, version)
 	}
 }
 
@@ -180,8 +182,8 @@ func (app *Server) defaults() {
 		app.console = coat.NewConsole(app.address, app.Silence)
 	}
 
-	if app.stream.Console == nil {
-		app.stream.Console = app.console
+	if app.Stream.Console == nil {
+		app.Stream.Console = app.console
 	}
 
 	if app.Storage == nil {
@@ -200,26 +202,26 @@ func (app *Server) defaults() {
 		app.OnSubscribe = func(key string) error { return nil }
 	}
 
-	if app.stream.OnSubscribe == nil {
-		app.stream.OnSubscribe = app.OnSubscribe
+	if app.Stream.OnSubscribe == nil {
+		app.Stream.OnSubscribe = app.OnSubscribe
 	}
 
 	if app.OnUnsubscribe == nil {
 		app.OnUnsubscribe = func(key string) {}
 	}
 
-	if app.stream.OnUnsubscribe == nil {
-		app.stream.OnUnsubscribe = app.OnUnsubscribe
+	if app.Stream.OnUnsubscribe == nil {
+		app.Stream.OnUnsubscribe = app.OnUnsubscribe
 	}
 
 	if app.Workers == 0 {
 		app.Workers = 2
 	}
 
-	app.stream.ForcePatch = app.ForcePatch
-	if len(app.stream.Pools) == 0 {
-		app.stream.Pools = append(
-			app.stream.Pools,
+	app.Stream.ForcePatch = app.ForcePatch
+	if len(app.Stream.Pools) == 0 {
+		app.Stream.Pools = append(
+			app.Stream.Pools,
 			&stream.Pool{Key: ""})
 	}
 }

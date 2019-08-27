@@ -1,4 +1,4 @@
-package katamari
+package objects
 
 import (
 	"bytes"
@@ -13,10 +13,8 @@ type Object struct {
 	Data    string `json:"data"`
 }
 
-// Objects provide methods to read from bytes and write to bytes
-type Objects struct{}
-
-var emptyObject = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+// EmptyObject byte array value
+var EmptyObject = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
 
 func max(a, b int64) int64 {
 	if a > b {
@@ -26,7 +24,7 @@ func max(a, b int64) int64 {
 }
 
 // Sort by created/updated
-func (o *Objects) Sort(obj []Object) func(i, j int) bool {
+func Sort(obj []Object) func(i, j int) bool {
 	return func(i, j int) bool {
 		maxi := max(obj[i].Updated, obj[i].Created)
 		maxj := max(obj[j].Updated, obj[j].Created)
@@ -35,7 +33,7 @@ func (o *Objects) Sort(obj []Object) func(i, j int) bool {
 }
 
 // Encode objects in json
-func (o *Objects) Encode(v interface{}) ([]byte, error) {
+func Encode(v interface{}) ([]byte, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return []byte(""), err
@@ -45,15 +43,23 @@ func (o *Objects) Encode(v interface{}) ([]byte, error) {
 }
 
 // Decode json object
-func (o *Objects) Decode(data []byte) (Object, error) {
+func Decode(data []byte) (Object, error) {
 	var obj Object
 	err := json.Unmarshal(data, &obj)
 
 	return obj, err
 }
 
+// DecodeList json objects
+func DecodeList(data []byte) ([]Object, error) {
+	var obj []Object
+	err := json.Unmarshal(data, &obj)
+
+	return obj, err
+}
+
 // New object as json
-func (o *Objects) New(obj *Object) []byte {
+func New(obj *Object) []byte {
 	dataBytes := new(bytes.Buffer)
 	json.NewEncoder(dataBytes).Encode(obj)
 

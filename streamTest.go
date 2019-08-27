@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/benitogf/jsonpatch"
+	"github.com/benitogf/katamari/messages"
+	"github.com/benitogf/katamari/objects"
 	"github.com/benitogf/nsocket"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
@@ -21,14 +23,14 @@ import (
 func StreamBroadcastTest(t *testing.T, app *Server) {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
-	var postObject Object
-	var wsObject Object
-	var nsObject Object
-	var wsEvent Message
-	var nsEvent Message
+	var postObject objects.Object
+	var wsObject objects.Object
+	var nsObject objects.Object
+	var wsEvent messages.Message
+	var nsEvent messages.Message
 	var wsCache string
 	var nsCache string
-	testData := app.messages.Encode([]byte("something 🧰"))
+	testData := messages.Encode([]byte("something 🧰"))
 	wsURL := url.URL{Scheme: "ws", Host: app.address, Path: "/test"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -42,7 +44,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			nsEvent, err = app.messages.DecodeTest([]byte(message))
+			nsEvent, err = messages.DecodeTest([]byte(message))
 			require.NoError(t, err)
 			app.console.Log("read nsClient", nsEvent.Data)
 			mutex.Unlock()
@@ -56,7 +58,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			wsEvent, err = app.messages.DecodeTest(message)
+			wsEvent, err = messages.DecodeTest(message)
 			require.NoError(t, err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			mutex.Unlock()
@@ -65,7 +67,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	}()
 	wg.Wait()
 	wg.Add(2)
-	streamCache, err := app.stream.GetPoolCache("test")
+	streamCache, err := app.Stream.GetPoolCache("test")
 	require.NoError(t, err)
 	app.console.Log("post data")
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
@@ -153,14 +155,14 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
-	var postObject Object
-	var wsObject []Object
-	var nsObject []Object
-	var wsEvent Message
-	var nsEvent Message
+	var postObject objects.Object
+	var wsObject []objects.Object
+	var nsObject []objects.Object
+	var wsEvent messages.Message
+	var nsEvent messages.Message
 	var wsCache string
 	var nsCache string
-	testData := app.messages.Encode([]byte("something 🧰"))
+	testData := messages.Encode([]byte("something 🧰"))
 	wsURL := url.URL{Scheme: "ws", Host: app.address, Path: "/test/*"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -174,7 +176,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			nsEvent, err = app.messages.DecodeTest([]byte(message))
+			nsEvent, err = messages.DecodeTest([]byte(message))
 			require.NoError(t, err)
 			app.console.Log("read nsClient", nsEvent.Data)
 			mutex.Unlock()
@@ -188,7 +190,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			mutex.Lock()
-			wsEvent, err = app.messages.DecodeTest(message)
+			wsEvent, err = messages.DecodeTest(message)
 			require.NoError(t, err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			mutex.Unlock()

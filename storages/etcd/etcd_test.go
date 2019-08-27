@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/messages"
 )
 
 var units = []string{
@@ -28,7 +29,7 @@ func TestStorageEtcd(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		katamari.StorageListTest(&app, t, (&katamari.Messages{}).Encode([]byte(units[i])))
+		katamari.StorageListTest(&app, t, messages.Encode([]byte(units[i])))
 	}
 	katamari.StorageObjectTest(&app, t)
 }

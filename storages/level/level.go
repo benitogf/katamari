@@ -9,6 +9,7 @@ import (
 
 	"github.com/benitogf/katamari"
 	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/objects"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -85,7 +86,7 @@ func (db *Storage) Keys() ([]byte, error) {
 		stats.Keys = []string{}
 	}
 
-	return db.storage.Objects.Encode(stats)
+	return objects.Encode(stats)
 }
 
 // Get a key/pattern related value(s)
@@ -105,10 +106,10 @@ func (db *Storage) Get(path string) ([]byte, error) {
 		rangeKey = nil
 	}
 	iter := db.client.NewIterator(rangeKey, nil)
-	res := []katamari.Object{}
+	res := []objects.Object{}
 	for iter.Next() {
 		if key.Match(path, string(iter.Key())) {
-			newObject, err := db.storage.Objects.Decode(iter.Value())
+			newObject, err := objects.Decode(iter.Value())
 			if err == nil {
 				res = append(res, newObject)
 			}
@@ -120,9 +121,9 @@ func (db *Storage) Get(path string) ([]byte, error) {
 		return []byte(""), err
 	}
 
-	sort.Slice(res, db.storage.Objects.Sort(res))
+	sort.Slice(res, objects.Sort(res))
 
-	return db.storage.Objects.Encode(res)
+	return objects.Encode(res)
 }
 
 // Peek a value timestamps
@@ -132,7 +133,7 @@ func (db *Storage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := db.storage.Objects.Decode(previous)
+	oldObject, err := objects.Decode(previous)
 	if err != nil {
 		return now, 0
 	}
@@ -147,7 +148,7 @@ func (db *Storage) Set(path string, data string) (string, error) {
 	created, updated := db.Peek(path, now)
 	err := db.client.Put(
 		[]byte(path),
-		db.storage.Objects.New(&katamari.Object{
+		objects.New(&objects.Object{
 			Created: created,
 			Updated: updated,
 			Index:   index,

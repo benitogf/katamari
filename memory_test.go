@@ -3,6 +3,8 @@ package katamari
 import (
 	"os"
 	"testing"
+
+	"github.com/benitogf/katamari/messages"
 )
 
 func TestStorageMemory(t *testing.T) {
@@ -11,7 +13,7 @@ func TestStorageMemory(t *testing.T) {
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	for i := range units {
-		StorageListTest(app, t, app.messages.Encode([]byte(units[i])))
+		StorageListTest(app, t, messages.Encode([]byte(units[i])))
 	}
 	StorageObjectTest(app, t)
 }
