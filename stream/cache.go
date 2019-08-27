@@ -34,7 +34,7 @@ func (sm *Pools) GetCache(poolIndex int) Cache {
 // SetPoolCache will store data in a pool's cache
 func (sm *Pools) SetPoolCache(key string, data []byte) int64 {
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(key)
+	poolIndex := sm.findPool(key, key)
 	now := time.Now().UTC().UnixNano()
 	if poolIndex == -1 {
 		// create a pool
@@ -62,7 +62,7 @@ func (sm *Pools) SetPoolCache(key string, data []byte) int64 {
 // GetPoolCache will get a pool's cache
 func (sm *Pools) GetPoolCache(key string) (Cache, error) {
 	sm.mutex.RLock()
-	poolIndex := sm.findPool(key)
+	poolIndex := sm.findPool(key, key)
 	if poolIndex == -1 {
 		sm.mutex.RUnlock()
 		return Cache{}, errors.New("stream pool not found")

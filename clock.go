@@ -35,12 +35,12 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, _, err := app.Stream.New("", w, r)
+	client, _, err := app.Stream.New("", "", w, r)
 
 	if err != nil {
 		return
 	}
 
 	go app.Stream.WriteTime(client, app.getTime())
-	app.Stream.Read("", client)
+	app.Stream.Read("", "", client)
 }

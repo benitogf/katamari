@@ -14,7 +14,7 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	version := r.FormValue("v")
 
-	client, poolIndex, err := app.Stream.New(key, w, r)
+	client, poolIndex, err := app.Stream.New(key, key, w, r)
 
 	if err != nil {
 		return
@@ -42,5 +42,5 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	if version != strconv.FormatInt(cache.Version, 16) {
 		go app.Stream.Write(client, messages.Encode(cache.Data), true, cache.Version)
 	}
-	app.Stream.Read(key, client)
+	app.Stream.Read(key, key, client)
 }
