@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/key"
 	"go.etcd.io/etcd/clientv3"
 
 	// "go.etcd.io/etcd/embed"
@@ -148,10 +149,10 @@ func (db *Etcd) Keys() ([]byte, error) {
 }
 
 // Get :
-func (db *Etcd) Get(key string) ([]byte, error) {
-	if !strings.Contains(key, "*") {
+func (db *Etcd) Get(path string) ([]byte, error) {
+	if !strings.Contains(path, "*") {
 		ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-		resp, err := db.cli.Get(ctx, key)
+		resp, err := db.cli.Get(ctx, path)
 		cancel()
 		if err != nil {
 			return []byte(""), err
@@ -164,7 +165,7 @@ func (db *Etcd) Get(key string) ([]byte, error) {
 	}
 
 	res := []katamari.Object{}
-	globPrefixKey := strings.Split(key, "*")[0]
+	globPrefixKey := strings.Split(path, "*")[0]
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
 	cancel()
@@ -172,7 +173,7 @@ func (db *Etcd) Get(key string) ([]byte, error) {
 		return []byte(""), err
 	}
 	for _, ev := range resp.Kvs {
-		if db.Storage.Keys.Match(key, string(ev.Key)) {
+		if key.Match(path, string(ev.Key)) {
 			newObject, err := db.Storage.Objects.Decode(ev.Value)
 			if err == nil {
 				res = append(res, newObject)
@@ -203,12 +204,12 @@ func (db *Etcd) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set  :
-func (db *Etcd) Set(key string, data string) (string, error) {
+func (db *Etcd) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&katamari.Keys{}).LastIndex(key)
-	created, updated := db.Peek(key, now)
+	index := key.LastIndex(path)
+	created, updated := db.Peek(path, now)
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-	_, err := db.cli.Put(ctx, key, string(db.Storage.Objects.New(&katamari.Object{
+	_, err := db.cli.Put(ctx, path, string(db.Storage.Objects.New(&katamari.Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,

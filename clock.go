@@ -14,7 +14,7 @@ func (app *Server) getTime() string {
 }
 
 func (app *Server) sendTime() {
-	go app.stream.broadcastTime(app.getTime())
+	go app.stream.BroadcastTime(app.getTime())
 }
 
 func (app *Server) tick() {
@@ -28,8 +28,6 @@ func (app *Server) tick() {
 }
 
 func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
-	key := ""
-
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
@@ -37,13 +35,12 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, _, err := app.stream.new(key, w, r)
+	client, _, err := app.stream.New("", w, r)
 
 	if err != nil {
 		return
 	}
 
-	defer app.stream.close(key, client)
-	go app.stream.writeTime(client, app.getTime())
-	app.readClient(key, client)
+	go app.stream.WriteTime(client, app.getTime())
+	app.stream.Read("", client)
 }

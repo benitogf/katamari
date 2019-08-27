@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/benitogf/katamari/key"
 )
 
 // MemoryStorage composition of Database interface
@@ -72,9 +74,9 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 }
 
 // Get a key/pattern related value(s)
-func (db *MemoryStorage) Get(key string) ([]byte, error) {
-	if !strings.Contains(key, "*") {
-		data, found := db.Memdb.Load(key)
+func (db *MemoryStorage) Get(path string) ([]byte, error) {
+	if !strings.Contains(path, "*") {
+		data, found := db.Memdb.Load(path)
 		if !found {
 			return []byte(""), errors.New("katamari: not found")
 		}
@@ -84,7 +86,7 @@ func (db *MemoryStorage) Get(key string) ([]byte, error) {
 
 	res := []Object{}
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
-		if db.storage.Keys.Match(key, k.(string)) {
+		if key.Match(path, k.(string)) {
 			newObject, err := db.storage.Objects.Decode(value.([]byte))
 			if err == nil {
 				res = append(res, newObject)
@@ -114,39 +116,39 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set a value
-func (db *MemoryStorage) Set(key string, data string) (string, error) {
+func (db *MemoryStorage) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
-	index := (&Keys{}).LastIndex(key)
-	created, updated := db.Peek(key, now)
-	db.Memdb.Store(key, db.storage.Objects.New(&Object{
+	index := key.LastIndex(path)
+	created, updated := db.Peek(path, now)
+	db.Memdb.Store(path, db.storage.Objects.New(&Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
 		Data:    data,
 	}))
-	db.watcher <- StorageEvent{Key: key, Operation: "set"}
+	db.watcher <- StorageEvent{Key: path, Operation: "set"}
 	return index, nil
 }
 
 // Del a key/pattern value(s)
-func (db *MemoryStorage) Del(key string) error {
-	if !strings.Contains(key, "*") {
-		_, found := db.Memdb.Load(key)
+func (db *MemoryStorage) Del(path string) error {
+	if !strings.Contains(path, "*") {
+		_, found := db.Memdb.Load(path)
 		if !found {
 			return errors.New("katamari: not found")
 		}
-		db.Memdb.Delete(key)
-		db.watcher <- StorageEvent{Key: key, Operation: "del"}
+		db.Memdb.Delete(path)
+		db.watcher <- StorageEvent{Key: path, Operation: "del"}
 		return nil
 	}
 
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
-		if db.storage.Keys.Match(key, k.(string)) {
+		if key.Match(path, k.(string)) {
 			db.Memdb.Delete(k.(string))
 		}
 		return true
 	})
-	db.watcher <- StorageEvent{Key: key, Operation: "del"}
+	db.watcher <- StorageEvent{Key: path, Operation: "del"}
 	return nil
 }
 
