@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/objects"
 )
 
 // MemoryStorage composition of Database interface
@@ -70,7 +71,7 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
 	})
 
-	return db.storage.Objects.Encode(stats)
+	return objects.Encode(stats)
 }
 
 // Get a key/pattern related value(s)
@@ -84,10 +85,10 @@ func (db *MemoryStorage) Get(path string) ([]byte, error) {
 		return data.([]byte), nil
 	}
 
-	res := []Object{}
+	res := []objects.Object{}
 	db.Memdb.Range(func(k interface{}, value interface{}) bool {
 		if key.Match(path, k.(string)) {
-			newObject, err := db.storage.Objects.Decode(value.([]byte))
+			newObject, err := objects.Decode(value.([]byte))
 			if err == nil {
 				res = append(res, newObject)
 			}
@@ -95,9 +96,9 @@ func (db *MemoryStorage) Get(path string) ([]byte, error) {
 		return true
 	})
 
-	sort.Slice(res, db.storage.Objects.Sort(res))
+	sort.Slice(res, objects.Sort(res))
 
-	return db.storage.Objects.Encode(res)
+	return objects.Encode(res)
 }
 
 // Peek a value timestamps
@@ -107,7 +108,7 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := db.storage.Objects.Decode(previous.([]byte))
+	oldObject, err := objects.Decode(previous.([]byte))
 	if err != nil {
 		return now, 0
 	}
@@ -120,7 +121,7 @@ func (db *MemoryStorage) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
 	index := key.LastIndex(path)
 	created, updated := db.Peek(path, now)
-	db.Memdb.Store(path, db.storage.Objects.New(&Object{
+	db.Memdb.Store(path, objects.New(&objects.Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,

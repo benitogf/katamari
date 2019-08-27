@@ -1,4 +1,4 @@
-package katamari
+package messages
 
 import (
 	"encoding/base64"
@@ -14,16 +14,13 @@ type Message struct {
 	Version string `json:"version"`
 }
 
-// Messages encoding and decoding
-type Messages struct{}
-
 // Encode to base64 string from bytes
-func (Messages *Messages) Encode(raw []byte) string {
+func Encode(raw []byte) string {
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
 // DecodeTest base64 data (testing function)
-func (Messages *Messages) DecodeTest(data []byte) (Message, error) {
+func DecodeTest(data []byte) (Message, error) {
 	var wsEvent Message
 	err := json.Unmarshal(data, &wsEvent)
 	if err != nil {
@@ -39,7 +36,7 @@ func (Messages *Messages) DecodeTest(data []byte) (Message, error) {
 }
 
 // Decode message
-func (Messages *Messages) Decode(r io.Reader) (Message, error) {
+func Decode(r io.Reader) (Message, error) {
 	var httpEvent Message
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&httpEvent)

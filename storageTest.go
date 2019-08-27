@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/benitogf/katamari/objects"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,7 @@ func StorageObjectTest(app *Server, t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, _ := app.Storage.Get("test")
-	testObject, err := app.objects.Decode(data)
+	testObject, err := objects.Decode(data)
 	require.NoError(t, err)
 	require.Equal(t, "test", testObject.Data)
 	require.Equal(t, int64(0), testObject.Updated)
@@ -27,7 +28,7 @@ func StorageObjectTest(app *Server, t *testing.T) {
 	require.NotEmpty(t, index)
 	data, err = app.Storage.Get("test")
 	require.NoError(t, err)
-	testObject, err = app.objects.Decode(data)
+	testObject, err = objects.Decode(data)
 	require.NoError(t, err)
 	require.Equal(t, "test_update", testObject.Data)
 	err = app.Storage.Del("test")
@@ -49,7 +50,7 @@ func StorageListTest(app *Server, t *testing.T, testData string) {
 	require.Equal(t, "456", key)
 	data, err := app.Storage.Get("test/*")
 	require.NoError(t, err)
-	var testObjects []Object
+	var testObjects []objects.Object
 	err = json.Unmarshal(data, &testObjects)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(testObjects))
@@ -66,9 +67,9 @@ func StorageListTest(app *Server, t *testing.T, testData string) {
 	require.NoError(t, err)
 	data2, err := app.Storage.Get("test/456")
 	require.NoError(t, err)
-	obj1, err := app.objects.Decode(data1)
+	obj1, err := objects.Decode(data1)
 	require.NoError(t, err)
-	obj2, err := app.objects.Decode(data2)
+	obj2, err := objects.Decode(data2)
 	require.NoError(t, err)
 	require.Equal(t, testData, obj1.Data)
 	require.Equal(t, modData, obj2.Data)
@@ -88,7 +89,7 @@ func StorageListTest(app *Server, t *testing.T, testData string) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	dat, err := app.objects.Decode(body)
+	dat, err := objects.Decode(body)
 	require.NoError(t, err)
 	data, err = app.Storage.Get("test/*")
 	app.console.Log(string(data))

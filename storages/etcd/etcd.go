@@ -11,6 +11,7 @@ import (
 
 	"github.com/benitogf/katamari"
 	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/objects"
 	"go.etcd.io/etcd/clientv3"
 
 	// "go.etcd.io/etcd/embed"
@@ -145,7 +146,7 @@ func (db *Etcd) Keys() ([]byte, error) {
 		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
 	})
 
-	return db.Storage.Objects.Encode(stats)
+	return objects.Encode(stats)
 }
 
 // Get :
@@ -164,7 +165,7 @@ func (db *Etcd) Get(path string) ([]byte, error) {
 		return resp.Kvs[0].Value, nil
 	}
 
-	res := []katamari.Object{}
+	res := []objects.Object{}
 	globPrefixKey := strings.Split(path, "*")[0]
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
 	resp, err := db.cli.Get(ctx, globPrefixKey, clientv3.WithPrefix())
@@ -174,16 +175,16 @@ func (db *Etcd) Get(path string) ([]byte, error) {
 	}
 	for _, ev := range resp.Kvs {
 		if key.Match(path, string(ev.Key)) {
-			newObject, err := db.Storage.Objects.Decode(ev.Value)
+			newObject, err := objects.Decode(ev.Value)
 			if err == nil {
 				res = append(res, newObject)
 			}
 		}
 	}
 
-	sort.Slice(res, db.Storage.Objects.Sort(res))
+	sort.Slice(res, objects.Sort(res))
 
-	return db.Storage.Objects.Encode(res)
+	return objects.Encode(res)
 }
 
 // Peek will check the object stored in the key if any, returns created and updated times accordingly
@@ -195,7 +196,7 @@ func (db *Etcd) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := db.Storage.Objects.Decode(resp.Kvs[0].Value)
+	oldObject, err := objects.Decode(resp.Kvs[0].Value)
 	if err != nil {
 		return now, 0
 	}
@@ -209,7 +210,7 @@ func (db *Etcd) Set(path string, data string) (string, error) {
 	index := key.LastIndex(path)
 	created, updated := db.Peek(path, now)
 	ctx, cancel := context.WithTimeout(context.Background(), db.timeout)
-	_, err := db.cli.Put(ctx, path, string(db.Storage.Objects.New(&katamari.Object{
+	_, err := db.cli.Put(ctx, path, string(objects.New(&objects.Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
