@@ -134,12 +134,12 @@ func (app *Server) waitStart() {
 	app.console.Log("glad to serve[" + app.address + "]")
 }
 
-func (app *Server) getPatch(poolIndex int, key string) (string, bool, int64, error) {
+func (app *Server) getPatch(poolIndex int, key string, filter string) (string, bool, int64, error) {
 	raw, _ := app.Storage.Get(key)
 	if len(raw) == 0 {
 		raw = objects.EmptyObject
 	}
-	filteredData, err := app.filters.Read.check(key, raw, app.Static)
+	filteredData, err := app.filters.Read.check(filter, raw, app.Static)
 	if err != nil {
 		return "", false, 0, err
 	}
@@ -151,7 +151,8 @@ func (app *Server) broadcast(key string) {
 	for _, poolIndex := range app.Stream.FindConnections(key) {
 		data, snapshot, version, err := app.getPatch(
 			poolIndex,
-			app.Stream.Pools[poolIndex].Key)
+			app.Stream.Pools[poolIndex].Key,
+			app.Stream.Pools[poolIndex].Filter)
 		if err != nil {
 			continue
 		}

@@ -30,6 +30,7 @@ type Conn struct {
 // Pool of key filtered connections
 type Pool struct {
 	Key          string
+	Filter       string
 	cache        Cache
 	connections  []*Conn
 	nconnections []*Nconn
@@ -45,10 +46,10 @@ type Pools struct {
 	Console       *coat.Console
 }
 
-func (sm *Pools) findPool(key string) int {
+func (sm *Pools) findPool(key string, filter string) int {
 	poolIndex := -1
 	for i := range sm.Pools {
-		if sm.Pools[i].Key == key {
+		if sm.Pools[i].Key == key && sm.Pools[i].Filter == filter {
 			poolIndex = i
 			break
 		}
@@ -72,13 +73,13 @@ func (sm *Pools) FindConnections(path string) []int {
 }
 
 // Close client connection
-func (sm *Pools) Close(key string, client *Conn) {
+func (sm *Pools) Close(key string, filter string, client *Conn) {
 	// auxiliar clients array
 	na := []*Conn{}
 
 	// loop to remove this client
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(key)
+	poolIndex := sm.findPool(key, filter)
 	for _, v := range sm.Pools[poolIndex].connections {
 		if v != client {
 			na = append(na, v)
@@ -93,7 +94,7 @@ func (sm *Pools) Close(key string, client *Conn) {
 }
 
 // New stream on a key
-func (sm *Pools) New(key string, w http.ResponseWriter, r *http.Request) (*Conn, int, error) {
+func (sm *Pools) New(key string, filter string, w http.ResponseWriter, r *http.Request) (*Conn, int, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -114,25 +115,26 @@ func (sm *Pools) New(key string, w http.ResponseWriter, r *http.Request) (*Conn,
 		return nil, -1, err
 	}
 
-	client, poolIndex := sm.Open(key, wsClient)
+	client, poolIndex := sm.Open(key, filter, wsClient)
 	return client, poolIndex, nil
 }
 
 // Open a connection for a key
-func (sm *Pools) Open(key string, wsClient *websocket.Conn) (*Conn, int) {
+func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) (*Conn, int) {
 	client := &Conn{
 		conn:  wsClient,
 		mutex: sync.Mutex{},
 	}
 
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(key)
+	poolIndex := sm.findPool(key, filter)
 	if poolIndex == -1 {
 		// create a pool
 		sm.Pools = append(
 			sm.Pools,
 			&Pool{
 				Key:          key,
+				Filter:       filter,
 				connections:  []*Conn{client},
 				nconnections: []*Nconn{}})
 		poolIndex = len(sm.Pools) - 1
@@ -203,7 +205,7 @@ func (sm *Pools) Broadcast(poolIndex int, data string, snapshot bool, version in
 }
 
 // Read will keep alive the ws connection
-func (sm *Pools) Read(key string, client *Conn) {
+func (sm *Pools) Read(key string, filter string, client *Conn) {
 	for {
 		_, _, err := client.conn.ReadMessage()
 		if err != nil {
@@ -211,5 +213,5 @@ func (sm *Pools) Read(key string, client *Conn) {
 			break
 		}
 	}
-	sm.Close(key, client)
+	sm.Close(key, filter, client)
 }

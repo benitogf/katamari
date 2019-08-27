@@ -20,7 +20,7 @@ func (sm *Pools) CloseNs(client *Nconn) {
 
 	// loop to remove this client
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(client.conn.Path)
+	poolIndex := sm.findPool(client.conn.Path, client.conn.Path)
 	for _, v := range sm.Pools[poolIndex].nconnections {
 		if v != client {
 			na = append(na, v)
@@ -42,13 +42,14 @@ func (sm *Pools) OpenNs(nsClient *nsocket.Client) (*Nconn, int) {
 	}
 
 	sm.mutex.Lock()
-	poolIndex := sm.findPool(client.conn.Path)
+	poolIndex := sm.findPool(client.conn.Path, client.conn.Path)
 	if poolIndex == -1 {
 		// create a pool
 		sm.Pools = append(
 			sm.Pools,
 			&Pool{
 				Key:          client.conn.Path,
+				Filter:       client.conn.Path,
 				connections:  []*Conn{},
 				nconnections: []*Nconn{client}})
 		poolIndex = len(sm.Pools) - 1
