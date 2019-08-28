@@ -134,6 +134,27 @@ func (app *Server) waitStart() {
 	app.console.Log("glad to serve[" + app.address + "]")
 }
 
+// Fetch data, update cache and apply filter
+func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
+	cache, err := app.Stream.GetPoolCache(key)
+	if err != nil {
+		raw, _ := app.Storage.Get(key)
+		if len(raw) == 0 {
+			raw = objects.EmptyObject
+		}
+		newVersion := app.Stream.SetPoolCache(key, raw)
+		cache = stream.Cache{
+			Version: newVersion,
+			Data:    raw,
+		}
+	}
+	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
+	if err != nil {
+		return cache, err
+	}
+	return cache, nil
+}
+
 func (app *Server) getPatch(poolIndex int, key string, filter string) (string, bool, int64, error) {
 	raw, _ := app.Storage.Get(key)
 	if len(raw) == 0 {

@@ -2,6 +2,7 @@ package objects
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 )
 
@@ -52,10 +53,19 @@ func Decode(data []byte) (Object, error) {
 
 // DecodeList json objects
 func DecodeList(data []byte) ([]Object, error) {
-	var obj []Object
-	err := json.Unmarshal(data, &obj)
-
-	return obj, err
+	var objects []Object
+	err := json.Unmarshal(data, &objects)
+	if err != nil {
+		return objects, err
+	}
+	for i := range objects {
+		aux, err := base64.StdEncoding.DecodeString(objects[i].Data)
+		if err != nil {
+			break
+		}
+		objects[i].Data = string(aux)
+	}
+	return objects, err
 }
 
 // New object as json

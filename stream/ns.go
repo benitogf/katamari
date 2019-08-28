@@ -35,7 +35,7 @@ func (sm *Pools) CloseNs(client *Nconn) {
 }
 
 // OpenNs connection for a key
-func (sm *Pools) OpenNs(nsClient *nsocket.Client) (*Nconn, int) {
+func (sm *Pools) OpenNs(nsClient *nsocket.Client) *Nconn {
 	client := &Nconn{
 		conn:  nsClient,
 		mutex: sync.Mutex{},
@@ -62,7 +62,7 @@ func (sm *Pools) OpenNs(nsClient *nsocket.Client) (*Nconn, int) {
 	sm.Console.Log("nconnections["+client.conn.Path+"]: ", len(sm.Pools[poolIndex].nconnections))
 	sm.mutex.Unlock()
 
-	return client, poolIndex
+	return client
 }
 
 // WriteNs will write data to a ns connection

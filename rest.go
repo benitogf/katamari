@@ -1,6 +1,7 @@
 package katamari
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/messages"
-	"github.com/benitogf/katamari/stream"
+	"github.com/benitogf/katamari/objects"
 	"github.com/gorilla/mux"
 )
 
@@ -107,32 +108,20 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("read", _key)
-	cache, err := app.Stream.GetPoolCache(_key)
+	entry, err := app.Fetch(_key, _key)
 	if err != nil {
-		raw, err := app.Storage.Get(_key)
-		if err != nil {
-			app.console.Err(err)
-		}
-		filteredData, err := app.filters.Read.check(_key, raw, app.Static)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s", err)
-			return
-		}
-		if len(filteredData) == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "%s", errors.New("katamari: empty key"))
-			return
-		}
-		version := app.Stream.SetPoolCache(_key, filteredData)
-		cache = stream.Cache{
-			Version: version,
-			Data:    filteredData,
-		}
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+	if bytes.Equal(entry.Data, objects.EmptyObject) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "%s", errors.New("katamari: empty key"))
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(cache.Data))
+	fmt.Fprintf(w, string(entry.Data))
 }
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
