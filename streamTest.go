@@ -15,6 +15,7 @@ import (
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
 	"github.com/benitogf/nsocket"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
@@ -67,7 +68,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	}()
 	wg.Wait()
 	wg.Add(2)
-	streamCache, err := app.Stream.GetPoolCache("test")
+	streamCache, err := app.Stream.GetCache("test")
 	require.NoError(t, err)
 	app.console.Log("post data")
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
@@ -276,4 +277,71 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 
 	require.Equal(t, len(wsObject), 0)
 	require.Equal(t, len(nsObject), 0)
+}
+
+// StreamBroadcastFilterTest testing stream function
+func StreamBroadcastFilterTest(t *testing.T, app *Server) {
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	var postObject objects.Object
+	var wsExtraEvent messages.Message
+	testData := messages.Encode([]byte("something 🧰"))
+	var jsonStr = []byte(`{"data":"` + testData + `"}`)
+	// extra filter
+	app.ReadFilter("extra", func(index string, data []byte) ([]byte, error) {
+		return []byte("extra"), nil
+	})
+	// extra route
+	app.Router = mux.NewRouter()
+	app.Router.HandleFunc("/extra", func(w http.ResponseWriter, r *http.Request) {
+		client, err := app.Stream.New("test/*", "extra", w, r)
+		if err != nil {
+			return
+		}
+
+		entry, err := app.Fetch("test/*", "extra")
+		if err != nil {
+			return
+		}
+
+		go app.Stream.Write(client, messages.Encode(entry.Data), true, entry.Version)
+		app.Stream.Read("test/*", "extra", client)
+	}).Methods("GET")
+	app.Start("localhost:9889")
+	app.Storage.Clear()
+	wsExtraURL := url.URL{Scheme: "ws", Host: app.address, Path: "/extra"}
+	wsExtraClient, _, err := websocket.DefaultDialer.Dial(wsExtraURL.String(), nil)
+	require.NoError(t, err)
+	go func() {
+		for {
+			_, message, err := wsExtraClient.ReadMessage()
+			if err != nil {
+				break
+			}
+			mutex.Lock()
+			wsExtraEvent, err = messages.DecodeTest(message)
+			require.NoError(t, err)
+			app.console.Log("read wsClient", wsExtraEvent.Data)
+			mutex.Unlock()
+			wg.Done()
+		}
+	}()
+	wg.Wait()
+	wg.Add(1)
+	app.console.Log("post data")
+	req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(body, &postObject)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.StatusCode)
+	wg.Wait()
+	wg.Add(1)
+	wg.Wait()
+	wsExtraClient.Close()
+
+	require.Equal(t, "extra", wsExtraEvent.Data)
 }

@@ -58,18 +58,15 @@ func (sm *Pools) findPool(key string, filter string) int {
 	return poolIndex
 }
 
-// FindConnections will look for pools that match a path
-func (sm *Pools) FindConnections(path string) []int {
-	var res []int
+// UseConnections will look for pools that match a path and call a function for each one
+func (sm *Pools) UseConnections(path string, callback func(int)) {
 	sm.mutex.RLock()
 	for i := range sm.Pools {
 		if i != 0 && (sm.Pools[i].Key == path || key.Match(sm.Pools[i].Key, path)) {
-			res = append(res, i)
+			callback(i)
 		}
 	}
 	sm.mutex.RUnlock()
-
-	return res
 }
 
 // Close client connection
@@ -155,14 +152,14 @@ func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn
 //
 // snapshot, true (snapshot)
 func (sm *Pools) Patch(poolIndex int, data []byte) ([]byte, bool, int64) {
-	cache := sm.GetCache(poolIndex)
+	cache := sm.getCache(poolIndex)
 	patch, err := jsonpatch.CreatePatch(cache.Data, data)
 	if err != nil {
 		sm.Console.Err("patch create failed", err)
-		version := sm.SetCache(poolIndex, data)
+		version := sm.setCache(poolIndex, data)
 		return data, true, version
 	}
-	version := sm.SetCache(poolIndex, data)
+	version := sm.setCache(poolIndex, data)
 	operations, err := json.Marshal(patch)
 	if err != nil {
 		sm.Console.Err("patch decode failed", err)

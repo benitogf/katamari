@@ -57,3 +57,13 @@ func TestStreamGlobBroadcastLevel(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	katamari.StreamGlobBroadcastTest(t, &app)
 }
+
+func TestStreamBroadcastFilter(t *testing.T) {
+	app := katamari.Server{}
+	app.Silence = true
+	app.ForcePatch = true
+	app.NamedSocket = "ipctest"
+	app.Storage = &Storage{Path: "test/db"}
+	defer app.Close(os.Interrupt)
+	katamari.StreamBroadcastFilterTest(t, &app)
+}
