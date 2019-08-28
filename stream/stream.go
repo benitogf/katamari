@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Subscribe : function to monitoring or filtering of subscription
+// Subscribe : monitoring or filtering of subscriptions
 type Subscribe func(key string) error
 
 // Unsubscribe : function callback on subscription closing
@@ -94,7 +94,7 @@ func (sm *Pools) Close(key string, filter string, client *Conn) {
 }
 
 // New stream on a key
-func (sm *Pools) New(key string, filter string, w http.ResponseWriter, r *http.Request) (*Conn, int, error) {
+func (sm *Pools) New(key string, filter string, w http.ResponseWriter, r *http.Request) (*Conn, error) {
 	upgrader := websocket.Upgrader{
 		// define the upgrade success
 		CheckOrigin: func(r *http.Request) bool {
@@ -107,20 +107,19 @@ func (sm *Pools) New(key string, filter string, w http.ResponseWriter, r *http.R
 
 	if err != nil {
 		sm.Console.Err("socketUpgradeError["+key+"]", err)
-		return nil, -1, err
+		return nil, err
 	}
 
 	err = sm.OnSubscribe(key)
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
 
-	client, poolIndex := sm.Open(key, filter, wsClient)
-	return client, poolIndex, nil
+	return sm.Open(key, filter, wsClient), nil
 }
 
 // Open a connection for a key
-func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) (*Conn, int) {
+func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn {
 	client := &Conn{
 		conn:  wsClient,
 		mutex: sync.Mutex{},
@@ -147,11 +146,13 @@ func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) (*Con
 	sm.Console.Log("connections["+key+"]: ", len(sm.Pools[poolIndex].connections))
 	sm.mutex.Unlock()
 
-	return client, poolIndex
+	return client
 }
 
 // Patch will return either the snapshot or the patch
+//
 // patch, false (patch)
+//
 // snapshot, true (snapshot)
 func (sm *Pools) Patch(poolIndex int, data []byte) ([]byte, bool, int64) {
 	cache := sm.GetCache(poolIndex)
