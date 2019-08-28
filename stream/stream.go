@@ -152,14 +152,14 @@ func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn
 //
 // snapshot, true (snapshot)
 func (sm *Pools) Patch(poolIndex int, data []byte) ([]byte, bool, int64) {
-	cache := sm._getCache(poolIndex)
+	cache := sm.getCache(poolIndex)
 	patch, err := jsonpatch.CreatePatch(cache.Data, data)
 	if err != nil {
 		sm.Console.Err("patch create failed", err)
-		version := sm._setCache(poolIndex, data)
+		version := sm.setCache(poolIndex, data)
 		return data, true, version
 	}
-	version := sm._setCache(poolIndex, data)
+	version := sm.setCache(poolIndex, data)
 	operations, err := json.Marshal(patch)
 	if err != nil {
 		sm.Console.Err("patch decode failed", err)

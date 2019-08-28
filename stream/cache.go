@@ -12,7 +12,7 @@ type Cache struct {
 }
 
 // _setCache will store data in a pool's cache
-func (sm *Pools) _setCache(poolIndex int, data []byte) int64 {
+func (sm *Pools) setCache(poolIndex int, data []byte) int64 {
 	now := time.Now().UTC().UnixNano()
 	sm.Pools[poolIndex].cache = Cache{
 		Version: now,
@@ -22,7 +22,7 @@ func (sm *Pools) _setCache(poolIndex int, data []byte) int64 {
 }
 
 // GetCache will get a pool's cache
-func (sm *Pools) _getCache(poolIndex int) Cache {
+func (sm *Pools) getCache(poolIndex int) Cache {
 	return sm.Pools[poolIndex].cache
 }
 
