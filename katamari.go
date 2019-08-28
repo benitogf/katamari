@@ -136,13 +136,13 @@ func (app *Server) waitStart() {
 
 // Fetch data, update cache and apply filter
 func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
-	cache, err := app.Stream.GetPoolCache(key)
+	cache, err := app.Stream.GetCache(key)
 	if err != nil {
 		raw, _ := app.Storage.Get(key)
 		if len(raw) == 0 {
 			raw = objects.EmptyObject
 		}
-		newVersion := app.Stream.SetPoolCache(key, raw)
+		newVersion := app.Stream.SetCache(key, raw)
 		cache = stream.Cache{
 			Version: newVersion,
 			Data:    raw,
@@ -155,12 +155,13 @@ func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
 	return cache, nil
 }
 
-func (app *Server) getPatch(poolIndex int, key string, filter string) (string, bool, int64, error) {
-	raw, _ := app.Storage.Get(key)
+func (app *Server) getPatch(poolIndex int) (string, bool, int64, error) {
+	raw, _ := app.Storage.Get(app.Stream.Pools[poolIndex].Key)
 	if len(raw) == 0 {
 		raw = objects.EmptyObject
 	}
-	filteredData, err := app.filters.Read.check(filter, raw, app.Static)
+	filteredData, err := app.filters.Read.check(
+		app.Stream.Pools[poolIndex].Filter, raw, app.Static)
 	if err != nil {
 		return "", false, 0, err
 	}
@@ -169,16 +170,13 @@ func (app *Server) getPatch(poolIndex int, key string, filter string) (string, b
 }
 
 func (app *Server) broadcast(key string) {
-	for _, poolIndex := range app.Stream.FindConnections(key) {
-		data, snapshot, version, err := app.getPatch(
-			poolIndex,
-			app.Stream.Pools[poolIndex].Key,
-			app.Stream.Pools[poolIndex].Filter)
+	app.Stream.UseConnections(key, func(poolIndex int) {
+		data, snapshot, version, err := app.getPatch(poolIndex)
 		if err != nil {
-			continue
+			return
 		}
 		go app.Stream.Broadcast(poolIndex, data, snapshot, version)
-	}
+	})
 }
 
 func (app *Server) watch(sc StorageChan) {

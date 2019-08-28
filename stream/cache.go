@@ -11,28 +11,23 @@ type Cache struct {
 	Data    []byte
 }
 
-// SetCache will store data in a pool's cache
-func (sm *Pools) SetCache(poolIndex int, data []byte) int64 {
-	sm.mutex.Lock()
+// _setCache will store data in a pool's cache
+func (sm *Pools) _setCache(poolIndex int, data []byte) int64 {
 	now := time.Now().UTC().UnixNano()
 	sm.Pools[poolIndex].cache = Cache{
 		Version: now,
 		Data:    data,
 	}
-	sm.mutex.Unlock()
 	return now
 }
 
 // GetCache will get a pool's cache
-func (sm *Pools) GetCache(poolIndex int) Cache {
-	sm.mutex.RLock()
-	cache := sm.Pools[poolIndex].cache
-	sm.mutex.RUnlock()
-	return cache
+func (sm *Pools) _getCache(poolIndex int) Cache {
+	return sm.Pools[poolIndex].cache
 }
 
-// SetPoolCache will store data in a pool's cache
-func (sm *Pools) SetPoolCache(key string, data []byte) int64 {
+// SetCache by key
+func (sm *Pools) SetCache(key string, data []byte) int64 {
 	sm.mutex.Lock()
 	poolIndex := sm.findPool(key, key)
 	now := time.Now().UTC().UnixNano()
@@ -59,8 +54,8 @@ func (sm *Pools) SetPoolCache(key string, data []byte) int64 {
 	return now
 }
 
-// GetPoolCache will get a pool's cache
-func (sm *Pools) GetPoolCache(key string) (Cache, error) {
+// GetCache by key
+func (sm *Pools) GetCache(key string) (Cache, error) {
 	sm.mutex.RLock()
 	poolIndex := sm.findPool(key, key)
 	if poolIndex == -1 {

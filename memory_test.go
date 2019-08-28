@@ -37,3 +37,12 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	StreamGlobBroadcastTest(t, &app)
 }
+
+func TestStreamBroadcastFilter(t *testing.T) {
+	app := Server{}
+	app.Silence = true
+	app.ForcePatch = true
+	app.NamedSocket = "ipctest"
+	defer app.Close(os.Interrupt)
+	StreamBroadcastFilterTest(t, &app)
+}
