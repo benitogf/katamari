@@ -72,3 +72,14 @@ func (r router) check(key string, data []byte, static bool) ([]byte, error) {
 
 	return r[match].apply(key, data)
 }
+
+// NoopFilter open noop filter
+func NoopFilter(index string, data []byte) ([]byte, error) {
+	return data, nil
+}
+
+// OpenFilter open noop read and write filters
+func OpenFilter(server *Server, name string) {
+	server.WriteFilter(name, NoopFilter)
+	server.ReadFilter(name, NoopFilter)
+}

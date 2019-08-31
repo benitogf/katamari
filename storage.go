@@ -50,3 +50,13 @@ type Storage struct {
 type Stats struct {
 	Keys []string `json:"keys"`
 }
+
+// WatchStorageNoop a noop reader of the watch channel
+func WatchStorageNoop(dataStore Database) {
+	for {
+		_ = <-dataStore.Watch()
+		if !dataStore.Active() {
+			break
+		}
+	}
+}

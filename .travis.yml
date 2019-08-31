@@ -17,10 +17,15 @@ install:
   - go get github.com/benitogf/jsonpatch
   - go get github.com/benitogf/nsocket
   - go get github.com/nsf/jsondiff
+  - go get github.com/benitogf/jwt
+  - go get golang.org/x/crypto/bcrypt
 
 script:
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
   - cd storages/level
+  - go vet .
+  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
+  - cd ../../auth
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
