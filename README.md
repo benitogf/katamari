@@ -75,42 +75,52 @@ go run main.go
 
 Using the default open setting is usefull while prototyping, but maybe not ideal to deploy as a public service.
 
-A one route server example:
+jwt auth enabled with static routing server example:
 
 ```golang
 package main
 
-import "github.com/benitogf/katamari"
-import "net/http"
-
-
-// if the filter is not defined for a route while static is enabled
-// the route will return 400
-func openFilter(index string, data []byte) ([]byte, error) {
-  return data, nil
-}
+import (
+  "net/http"
+  "github.com/gorilla/mux"
+  "github.com/benitogf/katamari"
+  "github.com/benitogf/katamari/auth"
+  "github.com/benitogf/katamari/storages/level"
+)
 
 // perform audits on the request path/headers/referer
 // if the function returns false the request will return
 // status 401
-func audit(r *http.Request) bool {
-  // allow clock subscription
-  if r.URL.Path == "/" {
-    return true
-  }
+func audit(r *http.Request, auth *auth.TokenAuth) bool {
   if r.URL.Path == "/open" {
     return true
   }
 
-  return false
+  return auth.Verify(r)
 }
 
 func main() {
+  // separated auth storage (users)
+	authStore := &level.Storage{Path: "/data/auth"}
+	err := authStore.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+	go katamari.WatchStorageNoop(authStore)
+	auth := auth.New(
+		auth.NewJwtStore(*key, time.Minute*10),
+		authStore,
+  )
+
   app := katamari.Server{}
   app.Static = true
-  app.Audit = audit
-  app.WriteFilter("open", openFilter)
-  app.ReadFilter("open", openFilter)
+	app.Audit = func(r *http.Request) bool {
+		return router.Audit(r, auth)
+  }
+  app.Router = mux.NewRouter()
+  katamari.OpenFilter(app, "open") // available withour token
+  katamari.OpenFilter(app, "closed") // valid token required
+  auth.Router(app)
   app.Start("localhost:8800")
   app.WaitClose()
 }
