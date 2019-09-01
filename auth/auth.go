@@ -146,6 +146,22 @@ func (t *TokenAuth) Authenticate(r *http.Request) (Token, error) {
 	return token, nil
 }
 
+// Audit : get websocket token, return token claims
+func (t *TokenAuth) Audit(r *http.Request) (string, string, error) {
+	// get the header from a websocket connection
+	// https://stackoverflow.com/questions/22383089/is-it-possible-to-use-bearer-authentication-for-websocket-upgrade-requests
+	if r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Sec-WebSocket-Protocol") != "" {
+		r.Header.Add("Authorization", "Bearer "+strings.Replace(r.Header.Get("Sec-WebSocket-Protocol"), "bearer, ", "", 1))
+	}
+	token, err := t.Authenticate(r)
+	if err != nil {
+		return "", "", err
+	}
+	role := token.Claims("role").(string)
+	account := token.Claims("iss").(string)
+	return role, account, nil
+}
+
 // Authorize method
 func (t *TokenAuth) getUser(account string) (User, error) {
 	var user User
