@@ -25,8 +25,8 @@ type Storage struct {
 
 // Active provides access to the status of the storage client
 func (db *Storage) Active() bool {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
 	return db.storage.Active
 }
 
