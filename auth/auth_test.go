@@ -18,22 +18,15 @@ import (
 
 func TestRegisterAndAuthorize(t *testing.T) {
 	var c Credentials
-	dataStore := &katamari.MemoryStorage{}
-	err := dataStore.Start()
-	go func() {
-		for {
-			_ = <-dataStore.Watch()
-			if !dataStore.Active() {
-				break
-			}
-		}
-	}()
+	authStore := &katamari.MemoryStorage{}
+	err := authStore.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
+	go katamari.WatchStorageNoop(authStore)
 	auth := New(
 		NewJwtStore("a-secret-key", time.Second*1),
-		dataStore,
+		authStore,
 	)
 	server := &katamari.Server{}
 	server.Silence = true
