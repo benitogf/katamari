@@ -312,6 +312,7 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	wsExtraURL := url.URL{Scheme: "ws", Host: app.address, Path: "/extra"}
 	wsExtraClient, _, err := websocket.DefaultDialer.Dial(wsExtraURL.String(), nil)
 	require.NoError(t, err)
+	wg.Add(1)
 	go func() {
 		for {
 			_, message, err := wsExtraClient.ReadMessage()
@@ -338,8 +339,6 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	err = json.Unmarshal(body, &postObject)
 	require.NoError(t, err)
 	require.Equal(t, 200, resp.StatusCode)
-	wg.Wait()
-	wg.Add(1)
 	wg.Wait()
 	wsExtraClient.Close()
 
