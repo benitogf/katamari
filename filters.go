@@ -2,9 +2,7 @@ package katamari
 
 import (
 	"errors"
-	"strings"
-
-	"github.com/gobwas/glob"
+	"github.com/benitogf/katamari/key"
 )
 
 // Apply filter function
@@ -18,7 +16,6 @@ type apply func(key string, data []byte) ([]byte, error)
 
 // Filter path -> match
 type filter struct {
-	glob  glob.Glob
 	path  string
 	apply apply
 }
@@ -37,7 +34,6 @@ type filters struct {
 // WriteFilter add a filter that triggers on write
 func (app *Server) WriteFilter(path string, apply apply) {
 	app.filters.Write = append(app.filters.Write, filter{
-		glob:  glob.MustCompile(path),
 		path:  path,
 		apply: apply,
 	})
@@ -46,7 +42,6 @@ func (app *Server) WriteFilter(path string, apply apply) {
 // ReadFilter add a filter that runs before sending a read result
 func (app *Server) ReadFilter(path string, apply apply) {
 	app.filters.Read = append(app.filters.Read, filter{
-		glob:  glob.MustCompile(path),
 		path:  path,
 		apply: apply,
 	})
@@ -63,11 +58,10 @@ func (app *Server) OpenFilter(name string) {
 	app.ReadFilter(name, NoopFilter)
 }
 
-func (r router) check(key string, data []byte, static bool) ([]byte, error) {
+func (r router) check(path string, data []byte, static bool) ([]byte, error) {
 	match := -1
-	countKey := strings.Count(key, "/")
 	for i, filter := range r {
-		if filter.glob.Match(key) && countKey == strings.Count(filter.path, "/") {
+		if filter.path == path || key.Match(filter.path, path) {
 			match = i
 			break
 		}
@@ -78,8 +72,8 @@ func (r router) check(key string, data []byte, static bool) ([]byte, error) {
 	}
 
 	if match == -1 && static {
-		return nil, errors.New("route not defined, static mode, key:" + key)
+		return nil, errors.New("route not defined, static mode, key:" + path)
 	}
 
-	return r[match].apply(key, data)
+	return r[match].apply(path, data)
 }
