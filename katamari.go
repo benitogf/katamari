@@ -112,6 +112,7 @@ func (app *Server) waitListen() {
 	if err != nil {
 		log.Fatal("failed to start tcp, ", err)
 	}
+	app.address = ln.Addr().String()
 	atomic.StoreInt64(&app.active, 1)
 	app.wg.Done()
 	err = app.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})

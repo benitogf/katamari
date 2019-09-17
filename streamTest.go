@@ -307,7 +307,7 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 		go app.Stream.Write(client, messages.Encode(entry.Data), true, entry.Version)
 		app.Stream.Read("test/*", "extra", client)
 	}).Methods("GET")
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	app.Storage.Clear()
 	wsExtraURL := url.URL{Scheme: "ws", Host: app.address, Path: "/extra"}
 	wsExtraClient, _, err := websocket.DefaultDialer.Dial(wsExtraURL.String(), nil)

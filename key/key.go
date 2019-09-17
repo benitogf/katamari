@@ -1,17 +1,15 @@
 package key
 
 import (
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gobwas/glob"
 )
 
 // GlobRegex checks for valid glob paths
 var GlobRegex = regexp.MustCompile(`^[a-zA-Z\*\d]$|^[a-zA-Z\*\d][a-zA-Z\*\d\/]+[a-zA-Z\*\d]$`)
-var globsCache = map[string]glob.Glob{}
 
 // IsValid checks that the key pattern issuported
 func IsValid(key string) bool {
@@ -27,14 +25,13 @@ func Match(path string, key string) bool {
 	if !strings.Contains(path, "*") {
 		return false
 	}
-	globPath, found := globsCache[path]
-	if !found {
-		globPath = glob.MustCompile(path)
-		globsCache[path] = globPath
+	match, err := filepath.Match(path, key)
+	if err != nil {
+		return false
 	}
 	countPath := strings.Count(path, "/")
 	countKey := strings.Count(key, "/")
-	return globPath.Match(key) && countPath == countKey
+	return match && countPath == countKey
 }
 
 // LastIndex will return the last sub path of the key

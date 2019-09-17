@@ -23,7 +23,7 @@ func TestFilters(t *testing.T) {
 
 		return data, nil
 	})
-	app.WriteFilter("test?/*", func(key string, data []byte) ([]byte, error) {
+	app.WriteFilter("test/*", func(key string, data []byte) ([]byte, error) {
 		if string(data) != "test" {
 			return nil, errors.New("filtered")
 		}
@@ -43,9 +43,9 @@ func TestFilters(t *testing.T) {
 
 	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
-	_, err := app.filters.Write.check("test1", []byte("notest"), false)
+	_, err := app.filters.Write.check("test/1", []byte("notest"), false)
 	require.Error(t, err)
-	_, err = app.filters.Write.check("test1", []byte("test1"), false)
+	_, err = app.filters.Write.check("test/1", []byte("test"), false)
 	require.NoError(t, err)
 	data, err := app.filters.Read.check("bag/1", []byte("test"), false)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestFilters(t *testing.T) {
 	_, err = app.filters.Read.check("book/1", []byte("test1"), true)
 	require.NoError(t, err)
 	var jsonStr = []byte(`{"data":"` + messages.Encode([]byte("notest")) + `"}`)
-	req := httptest.NewRequest("POST", "/test1", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/test/1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()

@@ -23,10 +23,11 @@ var units = []string{
 }
 
 func TestStorageLeveldb(t *testing.T) {
+	t.Parallel()
 	app := &katamari.Server{}
 	app.Silence = true
 	app.Storage = &Storage{Path: "test/db"}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		katamari.StorageListTest(app, t, messages.Encode([]byte(units[i])))
@@ -35,35 +36,38 @@ func TestStorageLeveldb(t *testing.T) {
 }
 
 func TestStreamBroadcastLevel(t *testing.T) {
+	t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest"
-	app.Storage = &Storage{Path: "test/db"}
-	app.Start("localhost:9889")
+	app.NamedSocket = "ipctest1" + app.Time()
+	app.Storage = &Storage{Path: "test/db1" + app.Time()}
+	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	katamari.StreamBroadcastTest(t, &app)
 }
 
 func TestStreamGlobBroadcastLevel(t *testing.T) {
+	t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest"
-	app.Storage = &Storage{Path: "test/db"}
-	app.Start("localhost:9889")
+	app.NamedSocket = "ipctest2" + app.Time()
+	app.Storage = &Storage{Path: "test/db2" + app.Time()}
+	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	katamari.StreamGlobBroadcastTest(t, &app)
 }
 
 func TestStreamBroadcastFilter(t *testing.T) {
+	t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest"
-	app.Storage = &Storage{Path: "test/db"}
+	app.NamedSocket = "ipctest3" + app.Time()
+	app.Storage = &Storage{Path: "test/db3" + app.Time()}
 	defer app.Close(os.Interrupt)
 	katamari.StreamBroadcastFilterTest(t, &app)
 }
