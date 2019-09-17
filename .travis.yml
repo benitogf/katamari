@@ -3,7 +3,7 @@ os:
   - linux
 
 go:
-  - 1.12.x
+  - 1.13.x
 
 install:
   - go get github.com/gorilla/mux
@@ -12,7 +12,6 @@ install:
   - go get github.com/syndtr/goleveldb/leveldb
   - go get github.com/benitogf/coat
   - go get github.com/stretchr/testify
-  - go get github.com/gobwas/glob
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/benitogf/jsonpatch
   - go get github.com/benitogf/nsocket
