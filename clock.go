@@ -8,13 +8,14 @@ import (
 	"time"
 )
 
-func (app *Server) getTime() string {
+// Time returns a string timestamp
+func (app *Server) Time() string {
 	now := time.Now().UTC().UnixNano()
 	return strconv.FormatInt(now, 10)
 }
 
 func (app *Server) sendTime() {
-	go app.Stream.BroadcastTime(app.getTime())
+	go app.Stream.BroadcastTime(app.Time())
 }
 
 func (app *Server) tick() {
@@ -40,6 +41,6 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go app.Stream.WriteTime(client, app.getTime())
+	go app.Stream.WriteTime(client, app.Time())
 	app.Stream.Read("", "", client)
 }

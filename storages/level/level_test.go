@@ -40,8 +40,8 @@ func TestStreamBroadcastLevel(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest"
-	app.Storage = &Storage{Path: "test/db"}
+	app.NamedSocket = "ipctest1" + app.Time()
+	app.Storage = &Storage{Path: "test/db1" + app.Time()}
 	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -53,8 +53,8 @@ func TestStreamGlobBroadcastLevel(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest"
-	app.Storage = &Storage{Path: "test/db"}
+	app.NamedSocket = "ipctest2" + app.Time()
+	app.Storage = &Storage{Path: "test/db2" + app.Time()}
 	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -66,8 +66,8 @@ func TestStreamBroadcastFilter(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest"
-	app.Storage = &Storage{Path: "test/db"}
+	app.NamedSocket = "ipctest3" + app.Time()
+	app.Storage = &Storage{Path: "test/db3" + app.Time()}
 	defer app.Close(os.Interrupt)
 	katamari.StreamBroadcastFilterTest(t, &app)
 }
