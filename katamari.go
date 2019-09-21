@@ -61,6 +61,7 @@ type Server struct {
 	Router        *mux.Router
 	Stream        stream.Pools
 	filters       filters
+	tasks					tasks
 	Audit         audit
 	Workers       int
 	ForcePatch    bool

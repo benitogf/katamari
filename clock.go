@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/benitogf/cronexpr"
+	"github.com/benitogf/katamari/objects"
 )
 
 // Time returns a string timestamp
@@ -24,6 +27,37 @@ func (app *Server) tick() {
 		select {
 		case <-ticker.C:
 			app.sendTime()
+			now := time.Now().UTC()
+			for _, taskEntry := range app.tasks {
+				// get tasks entries
+				entry, err := app.Fetch(taskEntry.path+`/*`, taskEntry.path+`/*`)
+				if err != nil {
+					app.console.Err("failed to fetch task entry", err)
+					continue
+				}
+				// decode cron entries for the task
+				taskObjects, err := objects.DecodeList(entry.Data)
+				if err != nil {
+					app.console.Err("failed to decode task entry", err)
+					continue
+				}
+				for _, taskStored := range taskObjects {
+					taskObj, err := decodeTask([]byte(taskStored.Data))
+					// parse stored cron expresion
+					cron, err := cronexpr.Parse(taskObj.Cron)
+					if err != nil {
+						app.console.Err(err)
+						continue
+					}
+					// evaluate cron expresion with current timestamp
+					next := cron.Next(now)
+					// app.console.Log(next.Format(time.RFC1123))
+					// trigger the action of the task on mathed timestamps
+					if next.Equal(now) {
+						taskEntry.action(taskStored)
+					}
+				}
+			}
 		}
 	}
 }
