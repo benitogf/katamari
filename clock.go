@@ -27,7 +27,19 @@ func (app *Server) tick() {
 		select {
 		case <-ticker.C:
 			app.sendTime()
-			now := time.Now().UTC()
+			nt := time.Now()
+			// create time with now and 0 nanosecond
+			now := time.Date(
+				nt.Year(),
+				nt.Month(),
+				nt.Day(),
+				nt.Hour(),
+				nt.Minute(),
+				nt.Second(),
+				0,
+				nt.Location())
+			// one second ago
+			then := now.Add(time.Duration(-1) * time.Second)
 			for _, taskEntry := range app.tasks {
 				// get tasks entries
 				entry, err := app.Fetch(taskEntry.path+`/*`, taskEntry.path+`/*`)
@@ -38,7 +50,7 @@ func (app *Server) tick() {
 				// decode cron entries for the task
 				taskObjects, err := objects.DecodeList(entry.Data)
 				if err != nil {
-					app.console.Err("failed to decode task entry", err)
+					app.console.Err("failed to decode task entries", err)
 					continue
 				}
 				for _, taskStored := range taskObjects {
@@ -46,13 +58,13 @@ func (app *Server) tick() {
 					// parse stored cron expresion
 					cron, err := cronexpr.Parse(taskObj.Cron)
 					if err != nil {
-						app.console.Err(err)
+						app.console.Err("failed to parse task cron", err)
 						continue
 					}
-					// evaluate cron expresion with current timestamp
-					next := cron.Next(now)
+					// evaluate cron expresion with one second ago
+					next := cron.Next(then)
 					// app.console.Log(next.Format(time.RFC1123))
-					// trigger the action of the task on mathed timestamps
+					// trigger the action of the task if next is now
 					if next.Equal(now) {
 						taskEntry.action(taskStored)
 					}
