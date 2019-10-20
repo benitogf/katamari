@@ -13,7 +13,8 @@ import (
 )
 
 func TestFilters(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
 	app.WriteFilter("test1", func(key string, data []byte) ([]byte, error) {
 		app.console.Log(string(data) != "test1")
@@ -41,7 +42,7 @@ func TestFilters(t *testing.T) {
 		return data, nil
 	})
 
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	_, err := app.filters.Write.check("test/1", []byte("notest"), false)
 	require.Error(t, err)

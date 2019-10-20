@@ -12,7 +12,7 @@ func BenchmarkEtcdSetGetDel(b *testing.B) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.Storage = &Etcd{}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	katamari.StorageSetGetDelTest(app.Storage, b)

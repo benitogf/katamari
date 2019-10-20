@@ -12,11 +12,12 @@ import (
 )
 
 func TestWsTime(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
 	app.Tick = 100 * time.Millisecond
 	mutex := sync.Mutex{}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/"}
 	c1, _, err := websocket.DefaultDialer.Dial(u.String(), nil)

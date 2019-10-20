@@ -179,11 +179,33 @@ server.OnUnsubscribe = func(key string) {
 ### extra routes
 
 ```golang
-// Predefine the router
+// Pre declare the router
 app.Router = mux.NewRouter()
 app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
   w.Header().Set("Content-Type", "application/json")
   fmt.Fprintf(w, "123")
+})
+app.Start("localhost:8800")
+```
+
+### tasks
+
+Dynamically schedule cron expresion triggered functions, there can be N schedules with different cron/data to a single function
+
+```golang
+// objects stored under writer/* with a cron expresion
+
+// {
+//    cron: '0 22 * * *',
+//    text: 'gnight'
+// }
+
+// {
+//    cron: '* * * * *',
+//    text: 'a second went by'
+// }
+app.Task("writer", func(data objects.Object) {
+  app.console.Log("writing", data)
 })
 app.Start("localhost:8800")
 ```
