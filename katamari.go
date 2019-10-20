@@ -61,7 +61,7 @@ type Server struct {
 	Router        *mux.Router
 	Stream        stream.Pools
 	filters       filters
-	tasks					tasks
+	tasks         tasks
 	Audit         audit
 	Workers       int
 	ForcePatch    bool
@@ -74,6 +74,7 @@ type Server struct {
 	Silence       bool
 	Static        bool
 	Tick          time.Duration
+	ticker        *time.Ticker
 	console       *coat.Console
 	nss           *nsocket.Server
 	NamedSocket   string
@@ -267,7 +268,7 @@ func (app *Server) Start(address string) {
 	go app.waitListen()
 	app.wg.Wait()
 	app.waitStart()
-	go app.tick()
+	app.tick()
 }
 
 // Close : shutdown the http server and database connection
@@ -281,6 +282,7 @@ func (app *Server) Close(sig os.Signal) {
 		}
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
+			app.ticker.Stop()
 			app.server.Shutdown(context.Background())
 		}
 	}

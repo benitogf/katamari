@@ -10,7 +10,7 @@ type taskObject struct {
 	Cron string `json:"cron"`
 }
 
-type perform func(data objects.Object) error
+type perform func(data objects.Object)
 
 type task struct {
 	path   string
@@ -23,9 +23,9 @@ type tasks []task
 //
 // tasks have a storage base key associated
 //
-// Objects that include a cron expresion
+// Objects must include a cron expresion
 //
-// if needed extra fields can be included in the object
+// extra fields can be included in the object and will be passed to the action
 //
 // {
 //

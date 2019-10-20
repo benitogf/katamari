@@ -13,12 +13,13 @@ import (
 )
 
 func TestAudit(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
 	app.Audit = func(r *http.Request) bool {
 		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET" && r.Method != "DELETE"
 	}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 
 	index, err := app.Storage.Set("test", "test")
@@ -78,15 +79,17 @@ func TestAudit(t *testing.T) {
 }
 
 func TestDoubleShutdown(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	app.Close(os.Interrupt)
 }
 
 func TestDoubleStart(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
 	app.Start("localhost:9889")
 	app.Start("localhost:9889")
@@ -95,19 +98,20 @@ func TestDoubleStart(t *testing.T) {
 
 func TestRestart(t *testing.T) {
 	t.Skip()
-	app := Server{}
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 }
 
 func TestGlobKey(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/ws/test/*"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -118,9 +122,10 @@ func TestGlobKey(t *testing.T) {
 }
 
 func TestInvalidKey(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa//test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)

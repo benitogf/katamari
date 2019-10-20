@@ -22,10 +22,10 @@ func (app *Server) sendTime() {
 }
 
 func (app *Server) tick() {
-	ticker := time.NewTicker(app.Tick)
-	for {
-		select {
-		case <-ticker.C:
+	app.ticker = time.NewTicker(app.Tick)
+	go func() {
+		for {
+			<-app.ticker.C
 			app.sendTime()
 			nt := time.Now()
 			// create time with now and 0 nanosecond
@@ -71,7 +71,7 @@ func (app *Server) tick() {
 				}
 			}
 		}
-	}
+	}()
 }
 
 func (app *Server) clock(w http.ResponseWriter, r *http.Request) {

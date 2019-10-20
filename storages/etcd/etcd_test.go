@@ -26,7 +26,7 @@ func TestStorageEtcd(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.Storage = &Etcd{}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	for i := range units {
 		katamari.StorageListTest(&app, t, messages.Encode([]byte(units[i])))
@@ -40,7 +40,7 @@ func TestStreamBroadcastEtcd(t *testing.T) {
 	app.ForcePatch = true
 	app.NamedSocket = "ipctest"
 	app.Storage = &Etcd{}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	katamari.StreamBroadcastTest(t, &app)
@@ -52,7 +52,7 @@ func TestStreamGlobBroadcastEtcd(t *testing.T) {
 	app.ForcePatch = true
 	app.NamedSocket = "ipctest"
 	app.Storage = &Etcd{}
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	katamari.StreamGlobBroadcastTest(t, &app)

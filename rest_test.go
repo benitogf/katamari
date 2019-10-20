@@ -12,9 +12,10 @@ import (
 )
 
 func TestRestPostNonObject(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`non object`)
 	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
@@ -25,9 +26,10 @@ func TestRestPostNonObject(t *testing.T) {
 }
 
 func TestRestPostEmptyData(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":""}`)
 	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
@@ -38,9 +40,10 @@ func TestRestPostEmptyData(t *testing.T) {
 }
 
 func TestRestPostKey(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	var jsonStr = []byte(`{"data":"test"}`)
 	req := httptest.NewRequest("POST", "/test//a", bytes.NewBuffer(jsonStr))
@@ -51,9 +54,10 @@ func TestRestPostKey(t *testing.T) {
 }
 
 func TestRestDel(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
 	index, err := app.Storage.Set("test", "test")
@@ -94,9 +98,10 @@ func TestRestDel(t *testing.T) {
 }
 
 func TestRestGet(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
 	index, err := app.Storage.Set("test", "test")
@@ -122,9 +127,10 @@ func TestRestGet(t *testing.T) {
 }
 
 func TestRestStats(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 
 	index, err := app.Storage.Set("test/1", "test1")
@@ -155,9 +161,10 @@ func TestRestStats(t *testing.T) {
 }
 
 func TestRestResponseCode(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 
 	index, err := app.Storage.Set("test", "test")
@@ -206,9 +213,10 @@ func TestRestResponseCode(t *testing.T) {
 }
 
 func TestRestGetBadRequest(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	req := httptest.NewRequest("GET", "//test", nil)
 	w := httptest.NewRecorder()
@@ -219,9 +227,10 @@ func TestRestGetBadRequest(t *testing.T) {
 }
 
 func TestRestPostInvalidKey(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	req := httptest.NewRequest("POST", "/test/*/*", nil)
 	w := httptest.NewRecorder()
@@ -232,9 +241,10 @@ func TestRestPostInvalidKey(t *testing.T) {
 }
 
 func TestRestGetInvalidKey(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	req := httptest.NewRequest("GET", "/test/*/**", nil)
 	w := httptest.NewRecorder()
@@ -245,9 +255,10 @@ func TestRestGetInvalidKey(t *testing.T) {
 }
 
 func TestRestDeleteInvalidKey(t *testing.T) {
-	app := Server{}
+	t.Parallel()
+	var app = Server{}
 	app.Silence = true
-	app.Start("localhost:9889")
+	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	req := httptest.NewRequest("DELETE", "/test/*/**", nil)
 	w := httptest.NewRecorder()

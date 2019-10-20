@@ -21,7 +21,7 @@ func TestStorageMemory(t *testing.T) {
 
 func TestStreamBroadcastMemory(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	var app = Server{}
 	app.Silence = true
 	app.ForcePatch = true
 	app.NamedSocket = "ipctest1" + app.Time()
@@ -32,7 +32,7 @@ func TestStreamBroadcastMemory(t *testing.T) {
 
 func TestStreamGlobBroadcastMemory(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	var app = Server{}
 	app.Silence = true
 	app.ForcePatch = true
 	app.NamedSocket = "ipctest2" + app.Time()
@@ -43,7 +43,7 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 
 func TestStreamBroadcastFilter(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	var app = Server{}
 	app.Silence = true
 	app.ForcePatch = true
 	app.NamedSocket = "ipctest" + app.Time()
