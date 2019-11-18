@@ -138,8 +138,16 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err := app.filters.Delete.check(_key, app.Static)
+	if err != nil {
+		app.console.Err("detError["+_key+"]", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
 	app.console.Log("unpublish", _key)
-	err := app.Storage.Del(_key)
+	err = app.Storage.Del(_key)
 
 	if err != nil {
 		app.console.Err(err.Error())

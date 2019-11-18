@@ -45,6 +45,7 @@ func (db *MemoryStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	close(db.watcher)
+	db.watcher = nil
 	db.storage.Active = false
 }
 

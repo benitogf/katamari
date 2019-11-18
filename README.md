@@ -151,6 +151,10 @@ app.ReadFilter("books/taup", func(index string, data []byte) ([]byte, error) {
   // returning an error will deny the read
   return []byte("intercepted"), nil
 })
+app.DeleteFilter("books/taup", func(index string) (error) {
+  // returning an error will deny the delete
+  return errors.New("can't delete")
+})
 ```
 
 ### audit

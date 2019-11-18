@@ -41,6 +41,9 @@ func TestFilters(t *testing.T) {
 	app.ReadFilter("book/*", func(key string, data []byte) ([]byte, error) {
 		return data, nil
 	})
+	app.DeleteFilter("book/1", func(key string) error {
+		return errors.New("can't delete this one")
+	})
 
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -70,6 +73,8 @@ func TestFilters(t *testing.T) {
 	require.NoError(t, err)
 	_, err = app.filters.Read.check("book/1", []byte("test1"), true)
 	require.NoError(t, err)
+	err = app.filters.Delete.check("book/1", true)
+	require.Error(t, err)
 	var jsonStr = []byte(`{"data":"` + messages.Encode([]byte("notest")) + `"}`)
 	req := httptest.NewRequest("POST", "/test/1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
