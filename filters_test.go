@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"bitbucket.org/idxgames/auth/messages"
+	"github.com/benitogf/katamari/messages"
 	"github.com/stretchr/testify/require"
 )
 

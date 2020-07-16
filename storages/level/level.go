@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	katamari "bitbucket.org/idxgames/auth"
-	"bitbucket.org/idxgames/auth/key"
-	"bitbucket.org/idxgames/auth/objects"
+	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/objects"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"

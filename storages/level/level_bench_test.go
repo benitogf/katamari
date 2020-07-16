@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	katamari "bitbucket.org/idxgames/auth"
+	"github.com/benitogf/katamari"
 )
 
 func BenchmarkLevelStorageSetGetDel(b *testing.B) {

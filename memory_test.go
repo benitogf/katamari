@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"bitbucket.org/idxgames/auth/messages"
+	"github.com/benitogf/katamari/messages"
 )
 
 func TestStorageMemory(t *testing.T) {

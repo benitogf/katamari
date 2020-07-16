@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"bitbucket.org/idxgames/auth/messages"
-	"bitbucket.org/idxgames/auth/objects"
 	"github.com/benitogf/jsonpatch"
+	"github.com/benitogf/katamari/messages"
+	"github.com/benitogf/katamari/objects"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"

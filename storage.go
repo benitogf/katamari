@@ -1,7 +1,7 @@
 package katamari
 
 import (
-	"bitbucket.org/idxgames/auth/objects"
+	"github.com/benitogf/katamari/objects"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	"bitbucket.org/idxgames/auth/key"
+	"bgithub.com/benitogf/key"
 
 	"github.com/benitogf/jsonpatch"
 

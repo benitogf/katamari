@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	katamari "bitbucket.org/idxgames/auth"
-	"bitbucket.org/idxgames/auth/messages"
+	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/messages"
 )
 
 var units = []string{

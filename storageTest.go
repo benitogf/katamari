@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/idxgames/auth/key"
-	"bitbucket.org/idxgames/auth/objects"
+	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/objects"
 	"github.com/stretchr/testify/require"
 )
 

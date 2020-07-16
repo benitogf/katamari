@@ -3,7 +3,7 @@ package katamari
 import (
 	"errors"
 
-	"bitbucket.org/idxgames/auth/key"
+	"github.com/benitogf/katamari/key"
 )
 
 // Apply filter function

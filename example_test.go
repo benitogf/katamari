@@ -1,6 +1,6 @@
 package katamari_test
 
-import katamari "bitbucket.org/idxgames/auth"
+import "github.com/benitogf/katamari"
 
 func ExampleServer() {
 	app := katamari.Server{}
