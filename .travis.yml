@@ -17,6 +17,7 @@ install:
   - go get github.com/nsf/jsondiff
   - go get github.com/benitogf/jwt
   - go get github.com/benitogf/handlers
+  - go get github.com/pkg/expect
   - go get golang.org/x/crypto/bcrypt
 
 script:
