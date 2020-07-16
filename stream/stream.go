@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	"bgithub.com/benitogf/key"
+	"github.com/benitogf/katamari/key"
 
 	"github.com/benitogf/jsonpatch"
 
