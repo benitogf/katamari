@@ -13,19 +13,18 @@ import (
 
 func TestWsTime(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	var wg sync.WaitGroup
+	app := Server{}
 	app.Silence = true
 	app.Tick = 100 * time.Millisecond
-	mutex := sync.Mutex{}
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/"}
+	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/"}
 	c1, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
 	c2, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	count := 0
-
+	wg.Add(3)
 	go func() {
 		for {
 			_, message, err := c1.ReadMessage()
@@ -34,9 +33,7 @@ func TestWsTime(t *testing.T) {
 				break
 			}
 			app.console.Log("time c1", string(message))
-			mutex.Lock()
-			count++
-			mutex.Unlock()
+			wg.Done()
 		}
 	}()
 
@@ -49,17 +46,10 @@ func TestWsTime(t *testing.T) {
 		app.console.Log("time c2", string(message))
 		err = c2.Close()
 		require.NoError(t, err)
+		wg.Done()
 	}
 
-	tryes := 0
-	mutex.Lock()
-	for count < 2 && tryes < 10000 {
-		tryes++
-		mutex.Unlock()
-		time.Sleep(1 * time.Millisecond)
-		mutex.Lock()
-	}
-	mutex.Unlock()
+	wg.Wait()
 
 	err = c1.Close()
 	require.NoError(t, err)

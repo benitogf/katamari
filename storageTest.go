@@ -2,13 +2,17 @@ package katamari
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
-	"github.com/benitogf/katamari/objects"
+	"bitbucket.org/idxgames/auth/key"
+	"bitbucket.org/idxgames/auth/objects"
 	"github.com/stretchr/testify/require"
 )
 
@@ -165,6 +169,25 @@ func StorageSetGetDelTest(db Database, b *testing.B) {
 	}
 }
 
+// StorageGetNTest testing storage GetN function
+func StorageGetNTest(app *Server, t *testing.T) {
+	app.Storage.Clear()
+	testData := base64.StdEncoding.EncodeToString([]byte(units[0]))
+	for i := 0; i < 100; i++ {
+		value := strconv.Itoa(i)
+		key, err := app.Storage.Set("test/"+value, testData)
+		require.NoError(t, err)
+		require.Equal(t, value, key)
+		time.Sleep(time.Millisecond * 1)
+	}
+
+	limit := 1
+	testObjects, err := app.Storage.GetN("test/*", limit)
+	require.NoError(t, err)
+	require.Equal(t, limit, len(testObjects))
+	require.Equal(t, "99", testObjects[0].Index)
+}
+
 var units = []string{
 	"\xe4\xef\xf0\xe9\xf9l\x100",
 	"V'\xe4\xc0\xbb>0\x86j",
@@ -177,4 +200,26 @@ var units = []string{
 	"\xd8%''",
 	"0",
 	"",
+}
+
+// StorageKeysRangeTest testing storage GetN function
+func StorageKeysRangeTest(app *Server, t *testing.T) {
+	app.Storage.Clear()
+	testData := units[0]
+	first := ""
+	for i := 0; i < 100; i++ {
+		path := key.Build("test/*")
+		key, err := app.Storage.Set(path, testData)
+		if first == "" {
+			first = key
+		}
+		require.NoError(t, err)
+		require.Equal(t, path, "test/"+key)
+		time.Sleep(time.Nanosecond * 1)
+	}
+
+	keys, err := app.Storage.KeysRange("test/*", 0, key.Decode(first))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(keys))
+	require.Equal(t, "test/"+first, keys[0])
 }

@@ -8,13 +8,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/benitogf/katamari/messages"
+	"bitbucket.org/idxgames/auth/messages"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFilters(t *testing.T) {
-	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.WriteFilter("test1", func(key string, data []byte) ([]byte, error) {
 		app.console.Log(string(data) != "test1")
@@ -42,7 +41,7 @@ func TestFilters(t *testing.T) {
 		return data, nil
 	})
 
-	app.Start("localhost:0")
+	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	_, err := app.filters.Write.check("test/1", []byte("notest"), false)
 	require.Error(t, err)

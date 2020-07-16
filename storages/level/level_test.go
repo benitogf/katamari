@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/benitogf/katamari"
-	"github.com/benitogf/katamari/messages"
+	katamari "bitbucket.org/idxgames/auth"
+	"bitbucket.org/idxgames/auth/messages"
 )
 
 var units = []string{
@@ -40,8 +40,7 @@ func TestStreamBroadcastLevel(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest1" + app.Time()
-	app.Storage = &Storage{Path: "test/db1" + app.Time()}
+	app.Storage = &Storage{Path: "test/db1" + katamari.Time()}
 	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -53,8 +52,7 @@ func TestStreamGlobBroadcastLevel(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest2" + app.Time()
-	app.Storage = &Storage{Path: "test/db2" + app.Time()}
+	app.Storage = &Storage{Path: "test/db2" + katamari.Time()}
 	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -66,8 +64,26 @@ func TestStreamBroadcastFilter(t *testing.T) {
 	app := katamari.Server{}
 	app.Silence = true
 	app.ForcePatch = true
-	app.NamedSocket = "ipctest3" + app.Time()
-	app.Storage = &Storage{Path: "test/db3" + app.Time()}
+	app.Storage = &Storage{Path: "test/db3" + katamari.Time()}
 	defer app.Close(os.Interrupt)
 	katamari.StreamBroadcastFilterTest(t, &app)
+}
+
+func TestGetN(t *testing.T) {
+	t.Parallel()
+	app := &katamari.Server{}
+	app.Silence = true
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+	katamari.StorageGetNTest(app, t)
+}
+
+func TestKeysRange(t *testing.T) {
+	t.Parallel()
+	app := &katamari.Server{}
+	app.Silence = true
+	app.Storage = &Storage{Path: "test/db4" + katamari.Time()}
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+	katamari.StorageKeysRangeTest(app, t)
 }

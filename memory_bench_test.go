@@ -9,9 +9,9 @@ import (
 
 func BenchmarkMemoryStorageSetGetDel(b *testing.B) {
 	b.ReportAllocs()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
-	app.Start("localhost:0")
+	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 	StorageSetGetDelTest(app.Storage, b)
 }

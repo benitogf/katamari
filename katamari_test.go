@@ -14,7 +14,7 @@ import (
 
 func TestAudit(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Audit = func(r *http.Request) bool {
 		return r.Header.Get("Upgrade") != "websocket" && r.Method != "GET" && r.Method != "DELETE"
@@ -44,7 +44,7 @@ func TestAudit(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, 401, resp.StatusCode)
 
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test"}
+	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
@@ -71,7 +71,7 @@ func TestAudit(t *testing.T) {
 		return r.Header.Get("Upgrade") != "websocket"
 	}
 
-	u = url.URL{Scheme: "ws", Host: app.address, Path: "/"}
+	u = url.URL{Scheme: "ws", Host: app.Address, Path: "/"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
@@ -79,8 +79,7 @@ func TestAudit(t *testing.T) {
 }
 
 func TestDoubleShutdown(t *testing.T) {
-	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -88,8 +87,7 @@ func TestDoubleShutdown(t *testing.T) {
 }
 
 func TestDoubleStart(t *testing.T) {
-	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:9889")
 	app.Start("localhost:9889")
@@ -98,22 +96,22 @@ func TestDoubleStart(t *testing.T) {
 
 func TestRestart(t *testing.T) {
 	t.Skip()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
-	app.Start("localhost:0")
+	app.Start("localhost:9889")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
-	app.Start("localhost:0")
+	app.Start("localhost:9889")
 	defer app.Close(os.Interrupt)
 }
 
 func TestGlobKey(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/ws/test/*"}
+	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/ws/test/*"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	app.console.Err(err)
 	require.NotNil(t, c)
@@ -123,21 +121,21 @@ func TestGlobKey(t *testing.T) {
 
 func TestInvalidKey(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	u := url.URL{Scheme: "ws", Host: app.address, Path: "/sa//test"}
+	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/sa//test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
-	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test//1"}
+	u = url.URL{Scheme: "ws", Host: app.Address, Path: "/sa/test//1"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)
 	require.Error(t, err)
-	u = url.URL{Scheme: "ws", Host: app.address, Path: "/sa/test/1/"}
+	u = url.URL{Scheme: "ws", Host: app.Address, Path: "/sa/test/1/"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
 	app.console.Err(err)

@@ -7,16 +7,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/benitogf/katamari/key"
-	"github.com/benitogf/katamari/objects"
+	"bitbucket.org/idxgames/auth/key"
+	"bitbucket.org/idxgames/auth/objects"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // MemoryStorage composition of Database interface
 type MemoryStorage struct {
-	mem     sync.Map
-	mutex   sync.RWMutex
-	watcher StorageChan
-	storage *Storage
+	mem             sync.Map
+	mutex           sync.RWMutex
+	noBroadcastKeys []string
+	watcher         StorageChan
+	storage         *Storage
 }
 
 // Active provides access to the status of the storage client
@@ -27,7 +29,7 @@ func (db *MemoryStorage) Active() bool {
 }
 
 // Start the storage client
-func (db *MemoryStorage) Start() error {
+func (db *MemoryStorage) Start(noBroadcastKeys []string, notUsed *opt.Options) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	if db.storage == nil {
@@ -36,6 +38,7 @@ func (db *MemoryStorage) Start() error {
 	if db.watcher == nil {
 		db.watcher = make(StorageChan)
 	}
+	db.noBroadcastKeys = noBroadcastKeys
 	db.storage.Active = true
 	return nil
 }
@@ -45,6 +48,7 @@ func (db *MemoryStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	close(db.watcher)
+	db.watcher = nil
 	db.storage.Active = false
 }
 
@@ -74,6 +78,39 @@ func (db *MemoryStorage) Keys() ([]byte, error) {
 	return objects.Encode(stats)
 }
 
+// KeysRange list keys in a path and time range
+func (db *MemoryStorage) KeysRange(path string, from, to int64) ([]string, error) {
+	keys := []string{}
+	if !strings.Contains(path, "*") {
+		return keys, errors.New("katamari: invalid pattern")
+	}
+
+	if to < from {
+		return keys, errors.New("katamari: invalid range")
+	}
+
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		current := k.(string)
+		if !key.Match(path, current) {
+			return true
+		}
+		paths := strings.Split(current, "/")
+		created := key.Decode(paths[len(paths)-1])
+		if created < from || created > to {
+			return true
+		}
+		keys = append(keys, current)
+		return true
+	})
+
+	return keys, nil
+}
+
+// MemGet a key/pattern related value(s)
+func (db *MemoryStorage) MemGet(path string) ([]byte, error) {
+	return db.Get(path)
+}
+
 // Get a key/pattern related value(s)
 func (db *MemoryStorage) Get(path string) ([]byte, error) {
 	if !strings.Contains(path, "*") {
@@ -87,18 +124,129 @@ func (db *MemoryStorage) Get(path string) ([]byte, error) {
 
 	res := []objects.Object{}
 	db.mem.Range(func(k interface{}, value interface{}) bool {
-		if key.Match(path, k.(string)) {
-			newObject, err := objects.Decode(value.([]byte))
-			if err == nil {
-				res = append(res, newObject)
-			}
+		if !key.Match(path, k.(string)) {
+			return true
 		}
+
+		newObject, err := objects.Decode(value.([]byte))
+		if err != nil {
+			return true
+		}
+
+		res = append(res, newObject)
 		return true
 	})
 
 	sort.Slice(res, objects.Sort(res))
 
 	return objects.Encode(res)
+}
+
+// GetObjList bypass encoding and single objects reads
+func (db *MemoryStorage) GetObjList(path string) ([]objects.Object, error) {
+	res := []objects.Object{}
+	if !strings.Contains(path, "*") {
+		return res, errors.New("katamari: invalid pattern")
+	}
+
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
+		}
+
+		newObject, err := objects.DecodeFull(value.([]byte))
+		if err != nil {
+			return true
+		}
+
+		res = append(res, newObject)
+		return true
+	})
+
+	return res, nil
+}
+
+// GetN get last N elements of a path related value(s)
+func (db *MemoryStorage) GetN(path string, limit int) ([]objects.Object, error) {
+	res := []objects.Object{}
+	if !strings.Contains(path, "*") {
+		return res, errors.New("katamari: invalid pattern")
+	}
+
+	if limit <= 0 {
+		return res, errors.New("katamari: invalid limit")
+	}
+
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
+		}
+
+		newObject, err := objects.DecodeFull(value.([]byte))
+		if err != nil {
+			return true
+		}
+
+		res = append(res, newObject)
+		return true
+	})
+
+	sort.Slice(res, objects.Sort(res))
+
+	if len(res) > limit {
+		return res[:limit], nil
+	}
+
+	return res, nil
+}
+
+// GetNRange get last N elements of a path related value(s)
+func (db *MemoryStorage) GetNRange(path string, limit int, from, to int64) ([]objects.Object, error) {
+	res := []objects.Object{}
+	if !strings.Contains(path, "*") {
+		return res, errors.New("katamari: invalid pattern")
+	}
+
+	if limit <= 0 {
+		return res, errors.New("katamari: invalid limit")
+	}
+
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
+		}
+
+		current := k.(string)
+		if !key.Match(path, current) {
+			return true
+		}
+		paths := strings.Split(current, "/")
+		created := key.Decode(paths[len(paths)-1])
+		if created < from || created > to {
+			return true
+		}
+
+		newObject, err := objects.DecodeFull(value.([]byte))
+		if err != nil {
+			return true
+		}
+
+		res = append(res, newObject)
+		return true
+	})
+
+	sort.Slice(res, objects.Sort(res))
+
+	if len(res) > limit {
+		return res[:limit], nil
+	}
+
+	return res, nil
+}
+
+// MemGetN get last N elements of a path related value(s)
+func (db *MemoryStorage) MemGetN(path string, limit int) ([]objects.Object, error) {
+	return db.GetN(path, limit)
 }
 
 // Peek a value timestamps
@@ -116,6 +264,11 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 	return oldObject.Created, now
 }
 
+// MemSet a value
+func (db *MemoryStorage) MemSet(path string, data string) (string, error) {
+	return db.Set(path, data)
+}
+
 // Set a value
 func (db *MemoryStorage) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
@@ -127,7 +280,30 @@ func (db *MemoryStorage) Set(path string, data string) (string, error) {
 		Index:   index,
 		Data:    data,
 	}))
-	db.watcher <- StorageEvent{Key: path, Operation: "set"}
+
+	if !key.Contains(db.noBroadcastKeys, path) {
+		db.watcher <- StorageEvent{Key: path, Operation: "set"}
+	}
+	return index, nil
+}
+
+// Pivot set entries on pivot instances (force created/updated values)
+func (db *MemoryStorage) Pivot(path string, data string, created int64, updated int64) (string, error) {
+	index := key.LastIndex(path)
+	db.mem.Store(path, objects.New(&objects.Object{
+		Created: created,
+		Updated: updated,
+		Index:   index,
+		Data:    data,
+	}))
+
+	if len(path) > 8 && path[0:7] == "history" {
+		return index, nil
+	}
+
+	if !key.Contains(db.noBroadcastKeys, path) {
+		db.watcher <- StorageEvent{Key: path, Operation: "set"}
+	}
 	return index, nil
 }
 
@@ -139,7 +315,9 @@ func (db *MemoryStorage) Del(path string) error {
 			return errors.New("katamari: not found")
 		}
 		db.mem.Delete(path)
-		db.watcher <- StorageEvent{Key: path, Operation: "del"}
+		if !key.Contains(db.noBroadcastKeys, path) {
+			db.watcher <- StorageEvent{Key: path, Operation: "del"}
+		}
 		return nil
 	}
 
@@ -149,11 +327,23 @@ func (db *MemoryStorage) Del(path string) error {
 		}
 		return true
 	})
-	db.watcher <- StorageEvent{Key: path, Operation: "del"}
+	if !key.Contains(db.noBroadcastKeys, path) {
+		db.watcher <- StorageEvent{Key: path, Operation: "del"}
+	}
 	return nil
+}
+
+// MemDel a key/pattern value(s)
+func (db *MemoryStorage) MemDel(path string) error {
+	return db.Del(path)
 }
 
 // Watch the storage set/del events
 func (db *MemoryStorage) Watch() StorageChan {
+	return db.watcher
+}
+
+// MemWatch the storage set/del events
+func (db *MemoryStorage) MemWatch() StorageChan {
 	return db.watcher
 }

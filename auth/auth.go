@@ -11,6 +11,7 @@ import (
 
 	"github.com/benitogf/katamari"
 	"github.com/benitogf/katamari/objects"
+	"github.com/benitogf/katamari/pivot"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -39,6 +40,7 @@ type TokenAuth struct {
 	store               katamari.Database
 	getter              TokenGetter
 	UnauthorizedHandler http.HandlerFunc
+	client              *http.Client
 }
 
 // TokenGetter :
@@ -229,98 +231,107 @@ func (t *TokenAuth) checkCredentials(credentials Credentials) (User, error) {
 }
 
 // Profile returns to the client the correspondent user profile for the token provided
-func (t *TokenAuth) Profile(w http.ResponseWriter, r *http.Request) {
-	token, err := t.Authenticate(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "%s", errors.New("this request is not authorized"))
-		return
-	}
-	switch r.Method {
-	case "GET":
-		user, err := t.getUser(token.Claims("iss").(string))
+func (t *TokenAuth) Profile(pivotIP string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if pivotIP != "" {
+			pivot.Synchronize(t.client, t.store, pivotIP, []string{"users/*"})
+		}
+		token, err := t.Authenticate(r)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "bad token, couldnt find the issuer profile")
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "%s", errors.New("this request is not authorized"))
 			return
 		}
-		user.Password = ""
-		w.WriteHeader(http.StatusOK)
-		enc := json.NewEncoder(w)
-		enc.Encode(&user)
-		return
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Method not suported")
-		return
+		switch r.Method {
+		case "GET":
+			user, err := t.getUser(token.Claims("iss").(string))
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "bad token, couldnt find the issuer profile")
+				return
+			}
+			user.Password = ""
+			w.WriteHeader(http.StatusOK)
+			enc := json.NewEncoder(w)
+			enc.Encode(&user)
+			return
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Method not suported")
+			return
+		}
 	}
 }
 
 // Authorize will claim a token on POST and refresh the claim on PUT
-func (t *TokenAuth) Authorize(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	credentials, err := getCredentials(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, err.Error())
-		return
-	}
-	user, err := t.getUser(credentials.Account)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, err.Error())
-		return
-	}
-	switch r.Method {
-	case "POST":
-		_, err = t.checkCredentials(credentials)
+func (t *TokenAuth) Authorize(pivotIP string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		if pivotIP != "" {
+			pivot.Synchronize(t.client, t.store, pivotIP, []string{"users/*"})
+		}
+		credentials, err := getCredentials(r)
 		if err != nil {
-			w.WriteHeader(http.StatusForbidden)
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, err.Error())
 			return
 		}
-		break
-	case "PUT":
-		if credentials.Token != "" {
-			oldToken, err := t.tokenStore.CheckToken(credentials.Token)
-			if err == nil {
-				w.WriteHeader(http.StatusNotModified)
-				fmt.Fprint(w, errors.New("token not expired"))
-				return
-			}
-
-			if oldToken.Claims("iss").(string) != credentials.Account {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprint(w, errors.New("token doesn't match the account"))
-				return
-			}
-
-			if err.Error() != "Token expired" {
-				w.WriteHeader(http.StatusNotModified)
-				fmt.Fprint(w, err)
-				return
-			}
-		} else {
+		user, err := t.getUser(credentials.Account)
+		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, errors.New("empty token"))
+			fmt.Fprint(w, err.Error())
 			return
 		}
-		break
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Method not suported")
-		return
-	}
+		switch r.Method {
+		case "POST":
+			_, err = t.checkCredentials(credentials)
+			if err != nil {
+				w.WriteHeader(http.StatusForbidden)
+				fmt.Fprint(w, err.Error())
+				return
+			}
+			break
+		case "PUT":
+			if credentials.Token != "" {
+				oldToken, err := t.tokenStore.CheckToken(credentials.Token)
+				if err == nil {
+					w.WriteHeader(http.StatusNotModified)
+					fmt.Fprint(w, errors.New("token not expired"))
+					return
+				}
 
-	newToken := t.tokenStore.NewToken()
-	newToken.SetClaim("iss", credentials.Account)
-	newToken.SetClaim("role", user.Role)
-	credentials.Password = ""
-	credentials.Role = user.Role
-	credentials.Token = newToken.String()
-	w.Header().Add("content-type", "application/json")
-	enc := json.NewEncoder(w)
-	enc.Encode(&credentials)
+				if oldToken.Claims("iss").(string) != credentials.Account {
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprint(w, errors.New("token doesn't match the account"))
+					return
+				}
+
+				if err.Error() != "Token expired" {
+					w.WriteHeader(http.StatusNotModified)
+					fmt.Fprint(w, err)
+					return
+				}
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprint(w, errors.New("empty token"))
+				return
+			}
+			break
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Method not suported")
+			return
+		}
+		newToken := t.tokenStore.NewToken()
+		newToken.SetClaim("iss", credentials.Account)
+		newToken.SetClaim("role", user.Role)
+		credentials.Password = ""
+		credentials.Role = user.Role
+		credentials.Token = newToken.String()
+		w.Header().Add("content-type", "application/json")
+		enc := json.NewEncoder(w)
+		enc.Encode(&credentials)
+	}
 }
 
 // Register will create a new user
@@ -410,22 +421,8 @@ func (t *TokenAuth) Register(w http.ResponseWriter, r *http.Request) {
 	enc.Encode(&credentials)
 }
 
-// Available will check if an account is taken
-func (t *TokenAuth) Available(w http.ResponseWriter, r *http.Request) {
-	account := r.FormValue("account")
-	_, err := t.getUser(account)
-
-	if err == nil {
-		w.WriteHeader(http.StatusConflict)
-		fmt.Fprintf(w, "account taken")
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "account available")
-}
-
-// Users will send the user list to a root user
-func (t *TokenAuth) Users(w http.ResponseWriter, r *http.Request) {
+// NewPassword is for updating account password
+func (t *TokenAuth) NewPassword(w http.ResponseWriter, r *http.Request) {
 	token, err := t.Authenticate(r)
 	authorized := (err == nil)
 	role := "user"
@@ -434,22 +431,169 @@ func (t *TokenAuth) Users(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// root authorization
-	if !authorized || role != "root" {
+	if role != "root" {
 		w.WriteHeader(http.StatusForbidden)
 		fmt.Fprintf(w, "Method not suported for your role")
 		return
 	}
+	account := mux.Vars(r)["account"]
 
-	users, err := t.getUsers()
+	user, err := t.getUser(account)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, err.Error())
 		return
 	}
+	switch r.Method {
+	case "PUT":
+		dec := json.NewDecoder(r.Body)
+		var userData User
+		err := dec.Decode(&userData)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, errors.New("Invalid user data"))
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(userData.Password), bcrypt.MinCost)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
+		user.Password = string(hash)
 
-	w.Header().Set("Content-Type", "application/json")
-	enc := json.NewEncoder(w)
-	enc.Encode(&users)
+		dataBytes := new(bytes.Buffer)
+		json.NewEncoder(dataBytes).Encode(user)
+		_, err = t.store.Set("users/"+user.Account, string(dataBytes.Bytes()))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err)
+			return
+		}
+		user.Password = ""
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		enc.Encode(&user)
+		break
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Method not suported")
+		return
+	}
+}
+
+// Available will check if an account is taken
+func (t *TokenAuth) Available(pivotIP string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if pivotIP != "" {
+			pivot.Synchronize(t.client, t.store, pivotIP, []string{"users/*"})
+		}
+		account := r.FormValue("account")
+		_, err := t.getUser(account)
+
+		if err == nil {
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprintf(w, "account taken")
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "account available")
+	}
+}
+
+// Create will create a new user (root only access)
+func (t *TokenAuth) Create(w http.ResponseWriter, r *http.Request) {
+	token, err := t.Authenticate(r)
+	authorized := (err == nil)
+	role := "user"
+	if authorized {
+		role = token.Claims("role").(string)
+	}
+
+	if !authorized {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "Method not suported for your role")
+		return
+	}
+
+	// root authorization
+	if role != "root" {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "Method not suported for your role")
+		return
+	}
+	var user User
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	err = decoder.Decode(&user)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	if user.Account == "" || user.Name == "" || user.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("new user data incomplete"))
+		return
+	}
+
+	if !userRegexp.MatchString(user.Account) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("account cannot contain special characters, only numbers or lowercase letters and character count must be between 2 and 15"))
+		return
+	}
+
+	if len(user.Password) < 3 || len(user.Password) > 88 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("password character count must be between 2 and 88"))
+		return
+	}
+
+	_, err = t.getUser(user.Account)
+
+	if err == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("account name taken"))
+		return
+	}
+}
+
+// Users will send the user list to a root user
+func (t *TokenAuth) Users(pivotIP string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, err := t.Authenticate(r)
+		authorized := (err == nil)
+		role := "user"
+		if authorized {
+			role = token.Claims("role").(string)
+		}
+
+		// root authorization
+		if !authorized || role != "root" {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintf(w, "Method not suported for your role")
+			return
+		}
+
+		if pivotIP != "" {
+			pivot.Synchronize(t.client, t.store, pivotIP, []string{"users/*"})
+		}
+
+		users, err := t.getUsers()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		enc.Encode(&users)
+	}
 }
 
 // User will send the user list to a root user
@@ -535,11 +679,16 @@ func (t *TokenAuth) User(w http.ResponseWriter, r *http.Request) {
 }
 
 // Router handle for auth enpoints
-func (t *TokenAuth) Router(server *katamari.Server) {
-	server.Router.HandleFunc("/authorize", t.Authorize)
-	server.Router.HandleFunc("/profile", t.Profile)
-	server.Router.HandleFunc("/users", t.Users).Methods("GET")
+func (t *TokenAuth) Router(server *katamari.Server, pivotIP string) {
+	server.Router.HandleFunc("/authorize", t.Authorize(pivotIP))
+	server.Router.HandleFunc("/profile", t.Profile(pivotIP))
+	server.Router.HandleFunc("/users", t.Users(pivotIP)).Methods("GET")
 	server.Router.HandleFunc("/user/{account:[a-zA-Z\\d]+}", t.User).Methods("GET", "POST", "DELETE")
+	server.Router.HandleFunc("/password/{account:[a-zA-Z\\d]+}", t.NewPassword).Methods("PUT")
 	server.Router.HandleFunc("/register", t.Register).Methods("POST")
-	server.Router.HandleFunc("/available", t.Available).Queries("account", "{[a-zA-Z\\d]}").Methods("GET")
+	server.Router.HandleFunc("/create", t.Create).Methods("POST")
+	server.Router.HandleFunc("/available", t.Available(pivotIP)).Queries("account", "{[a-zA-Z\\d]}").Methods("GET")
+
+	t.client = server.Client
+	pivot.Router(server.Router, t.store, server.Client, pivotIP, []string{"users/*"})
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 )
 
 // Object : data structure of elements
@@ -51,6 +52,38 @@ func Decode(data []byte) (Object, error) {
 	return obj, err
 }
 
+// DecodeFull json object
+func DecodeFull(data []byte) (Object, error) {
+	var obj Object
+	err := json.Unmarshal(data, &obj)
+	aux, err := base64.StdEncoding.DecodeString(obj.Data)
+	if err != nil {
+		return obj, err
+	}
+
+	obj.Data = string(aux)
+
+	return obj, err
+}
+
+// DecodeFromReader object from io reader
+func DecodeFromReader(r io.Reader) (Object, error) {
+	var obj Object
+	decoder := json.NewDecoder(r)
+	err := decoder.Decode(&obj)
+
+	return obj, err
+}
+
+// DecodeListFromReader objects from io reader
+func DecodeListFromReader(r io.Reader) ([]Object, error) {
+	var objs []Object
+	decoder := json.NewDecoder(r)
+	err := decoder.Decode(&objs)
+
+	return objs, err
+}
+
 // DecodeList json objects
 func DecodeList(data []byte) ([]Object, error) {
 	var objects []Object
@@ -58,12 +91,42 @@ func DecodeList(data []byte) ([]Object, error) {
 	if err != nil {
 		return objects, err
 	}
+
+	return DecodeListData(objects)
+}
+
+// DecodeListRaw json objects
+func DecodeListRaw(data []byte) ([]Object, error) {
+	var objects []Object
+	err := json.Unmarshal(data, &objects)
+	if err != nil {
+		return objects, err
+	}
+
+	return objects, nil
+}
+
+// DecodeListData will decode the data field in an objects list
+func DecodeListData(objects []Object) ([]Object, error) {
+	var err error
 	for i := range objects {
-		aux, err := base64.StdEncoding.DecodeString(objects[i].Data)
+		var aux []byte
+		aux, err = base64.StdEncoding.DecodeString(objects[i].Data)
 		if err != nil {
 			break
 		}
 		objects[i].Data = string(aux)
+	}
+
+	return objects, err
+}
+
+// DecodeRawList json objects
+func DecodeRawList(data []byte) ([]Object, error) {
+	var objects []Object
+	err := json.Unmarshal(data, &objects)
+	if err != nil {
+		return objects, err
 	}
 	return objects, err
 }
