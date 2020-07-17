@@ -368,17 +368,17 @@ func TestBasicPivotSync(t *testing.T) {
 	wg.Add(2)
 	thingID := CreateThing(t, pivotServer, token, nodeServer.Address)
 	wg.Wait()
-
 	require.Equal(t, 1, len(pivotThings))
 	require.Equal(t, 1, len(nodeThings))
 	require.Equal(t, false, pivotThings[0].On)
 	require.Equal(t, false, nodeThings[0].On)
 	wg.Wait()
+
 	wg.Add(2)
 	thingData := ReadThing(t, pivotServer, token, thingID)
 	ModifyThing(t, pivotServer, token, thingData, thingID, true)
-
 	wg.Wait()
+
 	pivotThingData := ReadThing(t, pivotServer, token, thingID)
 	nodeThingData := ReadThing(t, nodeServer, token, thingID)
 	require.Equal(t, true, bytes.Equal(pivotThingData, nodeThingData))
@@ -386,32 +386,35 @@ func TestBasicPivotSync(t *testing.T) {
 	require.Equal(t, true, nodeThings[0].On)
 	wg.Add(2)
 	ModifyThing(t, pivotServer, token, thingData, thingID, false)
-
 	wg.Wait()
+
 	require.Equal(t, false, pivotThings[0].On)
 	require.Equal(t, false, nodeThings[0].On)
 	wg.Add(2)
 	ModifyThing(t, pivotServer, token, thingData, thingID, true)
-
 	wg.Wait()
+
 	require.Equal(t, true, pivotThings[0].On)
 	require.Equal(t, true, nodeThings[0].On)
+
 	wg.Add(2)
 	ModifyThing(t, pivotServer, token, thingData, thingID, false)
-
 	wg.Wait()
+
 	require.Equal(t, false, pivotThings[0].On)
 	require.Equal(t, false, nodeThings[0].On)
 
 	wg.Add(2)
 	UpdateSettings(t, nodeServer, token, 1)
 	wg.Wait()
+
 	require.Equal(t, 1, nodeSettings.DayEpoch)
 	require.Equal(t, 1, pivotSettings.DayEpoch)
 
 	wg.Add(2)
 	UpdateSettings(t, pivotServer, token, 9)
 	wg.Wait()
+
 	require.Equal(t, 9, nodeSettings.DayEpoch)
 	require.Equal(t, 9, pivotSettings.DayEpoch)
 }
