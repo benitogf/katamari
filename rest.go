@@ -10,6 +10,7 @@ import (
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
+	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/mux"
 )
 
@@ -58,7 +59,6 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("publish", vkey)
 	_key := key.Build(vkey)
 	data, err := app.filters.Write.check(_key, []byte(event.Data), app.Static)
 	if err != nil {
@@ -68,7 +68,12 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	index, err := app.Storage.Set(_key, string(data))
+	index := ""
+	if key.Contains(app.InMemoryKeys, _key) {
+		index, err = app.Storage.MemSet(_key, string(data))
+	} else {
+		index, err = app.Storage.Set(_key, string(data))
+	}
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -76,11 +81,8 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// this performs better than the watch channel
-	// if app.Storage.Watch() == nil {
-	// 	go app.broadcast(_key)
-	// }
 	app.console.Log("publish", _key)
+	app.filters.After.check(_key)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "{"+
 		"\"index\": \""+index+"\""+
@@ -108,7 +110,13 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("read", _key)
-	entry, err := app.Fetch(_key, _key)
+	entry := stream.Cache{}
+	var err error
+	if key.Contains(app.InMemoryKeys, _key) {
+		entry, err = app.MemForceFetch(_key, _key)
+	} else {
+		entry, err = app.ForceFetch(_key, _key)
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
@@ -138,8 +146,21 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err := app.filters.Delete.check(_key, app.Static)
+	if err != nil {
+		app.console.Err("detError["+_key+"]", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
 	app.console.Log("unpublish", _key)
-	err := app.Storage.Del(_key)
+
+	if key.Contains(app.InMemoryKeys, _key) {
+		err = app.Storage.MemDel(_key)
+	} else {
+		err = app.Storage.Del(_key)
+	}
 
 	if err != nil {
 		app.console.Err(err.Error())

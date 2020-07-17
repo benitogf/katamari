@@ -10,8 +10,9 @@ import (
 
 // Message sent through websocket connections
 type Message struct {
-	Data    string `json:"data"`
-	Version string `json:"version"`
+	Data     string `json:"data"`
+	Version  string `json:"version"`
+	Snapshot bool   `json:"snapshot"`
 }
 
 // Encode to base64 string from bytes

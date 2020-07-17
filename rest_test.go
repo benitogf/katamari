@@ -13,7 +13,7 @@ import (
 
 func TestRestPostNonObject(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -27,7 +27,7 @@ func TestRestPostNonObject(t *testing.T) {
 
 func TestRestPostEmptyData(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -41,7 +41,7 @@ func TestRestPostEmptyData(t *testing.T) {
 
 func TestRestPostKey(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -55,7 +55,7 @@ func TestRestPostKey(t *testing.T) {
 
 func TestRestDel(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -99,7 +99,7 @@ func TestRestDel(t *testing.T) {
 
 func TestRestGet(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -128,7 +128,7 @@ func TestRestGet(t *testing.T) {
 
 func TestRestStats(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -162,7 +162,7 @@ func TestRestStats(t *testing.T) {
 
 func TestRestResponseCode(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -214,7 +214,7 @@ func TestRestResponseCode(t *testing.T) {
 
 func TestRestGetBadRequest(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -228,7 +228,7 @@ func TestRestGetBadRequest(t *testing.T) {
 
 func TestRestPostInvalidKey(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -242,7 +242,7 @@ func TestRestPostInvalidKey(t *testing.T) {
 
 func TestRestGetInvalidKey(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -256,7 +256,7 @@ func TestRestGetInvalidKey(t *testing.T) {
 
 func TestRestDeleteInvalidKey(t *testing.T) {
 	t.Parallel()
-	var app = Server{}
+	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)

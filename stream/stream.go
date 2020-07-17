@@ -29,11 +29,11 @@ type Conn struct {
 
 // Pool of key filtered connections
 type Pool struct {
-	Key          string
-	Filter       string
-	cache        Cache
-	connections  []*Conn
-	nconnections []*Nconn
+	// mutex       sync.RWMutex
+	Key         string
+	Filter      string
+	cache       Cache
+	connections []*Conn
 }
 
 // Pools a group of pools
@@ -60,13 +60,13 @@ func (sm *Pools) findPool(key string, filter string) int {
 
 // UseConnections will look for pools that match a path and call a function for each one
 func (sm *Pools) UseConnections(path string, callback func(int)) {
-	sm.mutex.RLock()
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
 	for i := range sm.Pools {
 		if i != 0 && (sm.Pools[i].Key == path || key.Match(sm.Pools[i].Key, path)) {
 			callback(i)
 		}
 	}
-	sm.mutex.RUnlock()
 }
 
 // Close client connection
@@ -123,16 +123,16 @@ func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn
 	}
 
 	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
 	poolIndex := sm.findPool(key, filter)
 	if poolIndex == -1 {
 		// create a pool
 		sm.Pools = append(
 			sm.Pools,
 			&Pool{
-				Key:          key,
-				Filter:       filter,
-				connections:  []*Conn{client},
-				nconnections: []*Nconn{}})
+				Key:         key,
+				Filter:      filter,
+				connections: []*Conn{client}})
 		poolIndex = len(sm.Pools) - 1
 	} else {
 		// use existing pool
@@ -141,8 +141,6 @@ func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn
 			client)
 	}
 	sm.Console.Log("connections["+key+"]: ", len(sm.Pools[poolIndex].connections))
-	sm.mutex.Unlock()
-
 	return client
 }
 
@@ -175,13 +173,18 @@ func (sm *Pools) Patch(poolIndex int, data []byte) ([]byte, bool, int64) {
 
 // Write will write data to a ws connection
 func (sm *Pools) Write(client *Conn, data string, snapshot bool, version int64) {
+	// if !snapshot && data == "W10=" {
+	// 	return
+	// }
+
 	client.mutex.Lock()
+	defer client.mutex.Unlock()
 	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte("{"+
 		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
 		"\"version\": \""+strconv.FormatInt(version, 16)+"\","+
 		"\"data\": \""+data+"\""+
 		"}"))
-	client.mutex.Unlock()
+
 	if err != nil {
 		sm.Console.Log("writeStreamErr: ", err)
 	}
@@ -189,16 +192,10 @@ func (sm *Pools) Write(client *Conn, data string, snapshot bool, version int64) 
 
 // Broadcast message
 func (sm *Pools) Broadcast(poolIndex int, data string, snapshot bool, version int64) {
-	sm.mutex.RLock()
 	connections := sm.Pools[poolIndex].connections
-	nconnections := sm.Pools[poolIndex].nconnections
-	sm.mutex.RUnlock()
 
 	for _, client := range connections {
 		go sm.Write(client, data, snapshot, version)
-	}
-	for _, client := range nconnections {
-		go sm.WriteNs(client, data, snapshot)
 	}
 }
 

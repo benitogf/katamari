@@ -25,6 +25,7 @@ func TestKeyIsValid(t *testing.T) {
 
 func TestKeyMatch(t *testing.T) {
 	require.True(t, Match("*", "thing"))
+	require.True(t, Match("games/*", "games/*"))
 	require.True(t, Match("thing/*", "thing/123"))
 	require.True(t, Match("thing/123/*", "thing/123/234"))
 	require.True(t, Match("thing/glob/*/*", "thing/glob/test/234"))

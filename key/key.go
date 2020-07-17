@@ -49,3 +49,23 @@ func Build(key string) string {
 	index := strconv.FormatInt(now, 16)
 	return strings.Replace(key, "/*", "/"+index, 1)
 }
+
+// Decode key to timestamp
+func Decode(key string) int64 {
+	res, err := strconv.ParseInt(key, 16, 64)
+	if err != nil {
+		return 0
+	}
+
+	return res
+}
+
+// Contains find match in an array of paths
+func Contains(s []string, e string) bool {
+	for _, a := range s {
+		if Match(a, e) {
+			return true
+		}
+	}
+	return false
+}

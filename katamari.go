@@ -12,16 +12,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/benitogf/katamari/objects"
-
-	"github.com/benitogf/katamari/messages"
-
-	"github.com/benitogf/katamari/stream"
-
 	"github.com/benitogf/coat"
-	"github.com/benitogf/nsocket"
+	"github.com/benitogf/handlers"
+	"github.com/benitogf/katamari/messages"
+	"github.com/benitogf/katamari/objects"
+	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // audit requests function
@@ -35,6 +33,12 @@ type audit func(r *http.Request) bool
 // Server application
 //
 // Router: can be predefined with routes and passed to be extended
+//
+// NoBroadcastKeys: array of keys that should not broadcast on changes
+//
+// InMemoryKeys: array of keys that will be kept in memory storage
+//
+// DbOptions: options for leveldb
 //
 // Audit: function to audit requests
 //
@@ -55,29 +59,34 @@ type audit func(r *http.Request) bool
 // Tick: time interval between ticks on the clock subscription
 //
 // NamedSocket: name of the ipc socket
+//
+// Signal: os signal channel
+//
+// Client: http client to make requests
 type Server struct {
-	wg            sync.WaitGroup
-	server        *http.Server
-	Router        *mux.Router
-	Stream        stream.Pools
-	filters       filters
-	tasks         tasks
-	Audit         audit
-	Workers       int
-	ForcePatch    bool
-	OnSubscribe   stream.Subscribe
-	OnUnsubscribe stream.Unsubscribe
-	Storage       Database
-	address       string
-	closing       int64
-	active        int64
-	Silence       bool
-	Static        bool
-	Tick          time.Duration
-	ticker        *time.Ticker
-	console       *coat.Console
-	nss           *nsocket.Server
-	NamedSocket   string
+	wg              sync.WaitGroup
+	server          *http.Server
+	Router          *mux.Router
+	Stream          stream.Pools
+	filters         filters
+	NoBroadcastKeys []string
+	InMemoryKeys    []string
+	DbOptions       *opt.Options
+	Audit           audit
+	Workers         int
+	ForcePatch      bool
+	OnSubscribe     stream.Subscribe
+	OnUnsubscribe   stream.Unsubscribe
+	Storage         Database
+	Address         string
+	closing         int64
+	active          int64
+	Silence         bool
+	Static          bool
+	Tick            time.Duration
+	console         *coat.Console
+	Signal          chan os.Signal
+	Client          *http.Client
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -90,31 +99,28 @@ type tcpKeepAliveListener struct {
 
 func (app *Server) waitListen() {
 	var err error
-	err = app.Storage.Start()
+	err = app.Storage.Start(app.NoBroadcastKeys, app.DbOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if app.NamedSocket != "" {
-		app.nss, err = nsocket.NewServer(app.NamedSocket)
-		if err != nil {
-			log.Fatal(err)
-		}
-		go app.serveNs()
-	}
 	app.server = &http.Server{
-		Addr: app.address,
+		WriteTimeout:      1 * time.Minute,
+		ReadTimeout:       1 * time.Minute,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       10 * time.Second,
+		Addr:              app.Address,
 		Handler: cors.New(cors.Options{
 			AllowedMethods: []string{"GET", "POST", "DELETE", "PUT"},
 			// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
 			// AllowCredentials: true,
 			AllowedHeaders: []string{"Authorization", "Content-Type"},
 			// Debug:          true,
-		}).Handler(app.Router)}
-	ln, err := net.Listen("tcp", app.address)
+		}).Handler(handlers.CompressHandler(app.Router))}
+	ln, err := net.Listen("tcp4", app.Address)
 	if err != nil {
 		log.Fatal("failed to start tcp, ", err)
 	}
-	app.address = ln.Addr().String()
+	app.Address = ln.Addr().String()
 	atomic.StoreInt64(&app.active, 1)
 	app.wg.Done()
 	err = app.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
@@ -123,18 +129,65 @@ func (app *Server) waitListen() {
 	}
 }
 
+// Active check if the server is active
+func (app *Server) Active() bool {
+	return atomic.LoadInt64(&app.active) == 1 && atomic.LoadInt64(&app.closing) == 0
+}
+
 func (app *Server) waitStart() {
 	if atomic.LoadInt64(&app.active) == 0 || !app.Storage.Active() {
 		log.Fatal("server start failed")
 	}
 
-	// if app.Storage.Watch() != nil {
 	for i := 0; i < app.Workers; i++ {
 		go app.watch(app.Storage.Watch())
 	}
-	// }
 
-	app.console.Log("glad to serve[" + app.address + "]")
+	for i := 0; i < app.Workers; i++ {
+		go app.memWatch(app.Storage.MemWatch())
+	}
+
+	app.console.Log("glad to serve[" + app.Address + "]")
+}
+
+// ForceFetch data, update cache and apply filter
+func (app *Server) ForceFetch(key string, filter string) (stream.Cache, error) {
+	var err error
+	raw, _ := app.Storage.Get(key)
+	if len(raw) == 0 {
+		raw = objects.EmptyObject
+	}
+	// newVersion := app.Stream.SetCache(key, raw)
+	newVersion := time.Now().UTC().Unix()
+	cache := stream.Cache{
+		Version: newVersion,
+		Data:    raw,
+	}
+	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
+	if err != nil {
+		return cache, err
+	}
+	return cache, nil
+}
+
+// MemForceFetch data, update cache and apply filter
+func (app *Server) MemForceFetch(key string, filter string) (stream.Cache, error) {
+	var err error
+	raw, _ := app.Storage.MemGet(key)
+	if len(raw) == 0 {
+		raw = objects.EmptyObject
+	}
+	// newVersion := app.Stream.SetCache(key, raw)
+	newVersion := time.Now().UTC().Unix()
+	cache := stream.Cache{
+		Version: newVersion,
+		Data:    raw,
+	}
+	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
+	if err != nil {
+		return cache, err
+	}
+	return cache, nil
 }
 
 // Fetch data, update cache and apply filter
@@ -142,6 +195,27 @@ func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
 	cache, err := app.Stream.GetCache(key)
 	if err != nil {
 		raw, _ := app.Storage.Get(key)
+		if len(raw) == 0 {
+			raw = objects.EmptyObject
+		}
+		newVersion := app.Stream.SetCache(key, raw)
+		cache = stream.Cache{
+			Version: newVersion,
+			Data:    raw,
+		}
+	}
+	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
+	if err != nil {
+		return cache, err
+	}
+	return cache, nil
+}
+
+// MemFetch data, update cache and apply filter
+func (app *Server) MemFetch(key string, filter string) (stream.Cache, error) {
+	cache, err := app.Stream.GetCache(key)
+	if err != nil {
+		raw, _ := app.Storage.MemGet(key)
 		if len(raw) == 0 {
 			raw = objects.EmptyObject
 		}
@@ -172,13 +246,37 @@ func (app *Server) getPatch(poolIndex int) (string, bool, int64, error) {
 	return messages.Encode(modifiedData), snapshot, version, nil
 }
 
+func (app *Server) memGetPatch(poolIndex int) (string, bool, int64, error) {
+	raw, _ := app.Storage.MemGet(app.Stream.Pools[poolIndex].Key)
+	if len(raw) == 0 {
+		raw = objects.EmptyObject
+	}
+	filteredData, err := app.filters.Read.check(
+		app.Stream.Pools[poolIndex].Filter, raw, app.Static)
+	if err != nil {
+		return "", false, 0, err
+	}
+	modifiedData, snapshot, version := app.Stream.Patch(poolIndex, filteredData)
+	return messages.Encode(modifiedData), snapshot, version, nil
+}
+
 func (app *Server) broadcast(key string) {
 	app.Stream.UseConnections(key, func(poolIndex int) {
 		data, snapshot, version, err := app.getPatch(poolIndex)
 		if err != nil {
 			return
 		}
-		go app.Stream.Broadcast(poolIndex, data, snapshot, version)
+		app.Stream.Broadcast(poolIndex, data, snapshot, version)
+	})
+}
+
+func (app *Server) memBroadcast(key string) {
+	app.Stream.UseConnections(key, func(poolIndex int) {
+		data, snapshot, version, err := app.memGetPatch(poolIndex)
+		if err != nil {
+			return
+		}
+		app.Stream.Broadcast(poolIndex, data, snapshot, version)
 	})
 }
 
@@ -195,6 +293,19 @@ func (app *Server) watch(sc StorageChan) {
 	}
 }
 
+func (app *Server) memWatch(sc StorageChan) {
+	for {
+		ev := <-sc
+		if ev.Key != "" {
+			app.console.Log("broadcast[" + ev.Key + "]")
+			go app.memBroadcast(ev.Key)
+		}
+		if !app.Storage.Active() {
+			break
+		}
+	}
+}
+
 // defaults will populate the server fields with their zero values
 func (app *Server) defaults() {
 	if app.Router == nil {
@@ -202,7 +313,7 @@ func (app *Server) defaults() {
 	}
 
 	if app.console == nil {
-		app.console = coat.NewConsole(app.address, app.Silence)
+		app.console = coat.NewConsole(app.Address, app.Silence)
 	}
 
 	if app.Stream.Console == nil {
@@ -238,7 +349,7 @@ func (app *Server) defaults() {
 	}
 
 	if app.Workers == 0 {
-		app.Workers = 2
+		app.Workers = 6
 	}
 
 	app.Stream.ForcePatch = app.ForcePatch
@@ -251,7 +362,7 @@ func (app *Server) defaults() {
 
 // Start : initialize and start the http server and database connection
 func (app *Server) Start(address string) {
-	app.address = address
+	app.Address = address
 	if atomic.LoadInt64(&app.active) == 1 {
 		app.console.Err("server already active")
 		return
@@ -268,7 +379,8 @@ func (app *Server) Start(address string) {
 	go app.waitListen()
 	app.wg.Wait()
 	app.waitStart()
-	app.tick()
+	app.console = coat.NewConsole(app.Address, app.Silence)
+	go app.tick()
 }
 
 // Close : shutdown the http server and database connection
@@ -277,12 +389,8 @@ func (app *Server) Close(sig os.Signal) {
 		atomic.StoreInt64(&app.closing, 1)
 		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
-		if app.NamedSocket != "" {
-			app.nss.Server.Close()
-		}
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
-			app.ticker.Stop()
 			app.server.Shutdown(context.Background())
 		}
 	}
@@ -290,11 +398,11 @@ func (app *Server) Close(sig os.Signal) {
 
 // WaitClose : Blocks waiting for SIGINT, SIGTERM, SIGKILL, SIGHUP
 func (app *Server) WaitClose() {
-	sigs := make(chan os.Signal, 1)
+	app.Signal = make(chan os.Signal, 1)
 	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGHUP)
+	signal.Notify(app.Signal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGHUP)
 	go func() {
-		sig := <-sigs
+		sig := <-app.Signal
 		app.Close(sig)
 		done <- true
 	}()

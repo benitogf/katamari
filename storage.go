@@ -1,5 +1,10 @@
 package katamari
 
+import (
+	"github.com/benitogf/katamari/objects"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+)
+
 // StorageChan an operation events channel
 type StorageChan chan StorageEvent
 
@@ -21,6 +26,10 @@ type StorageEvent struct {
 //
 // Get(key): retrieve a value or list of values, the key can include a glob pattern
 //
+// GetObjList(path): retrieve list of values matching a glob pattern without sorting
+//
+// GetN(path, N): retrieve N list of values matching a glob pattern
+//
 // Set(key, data): store data under the provided key, key cannot not include glob pattern
 //
 // Del(key): Delete a key from the storage
@@ -30,14 +39,24 @@ type StorageEvent struct {
 // Watch: returns a channel that will receive any set or del operation
 type Database interface {
 	Active() bool
-	Start() error
+	Start(noBroadcastKeys []string, dbOptions *opt.Options) error
 	Close()
 	Keys() ([]byte, error)
+	KeysRange(path string, from, to int64) ([]string, error)
 	Get(key string) ([]byte, error)
+	MemGet(key string) ([]byte, error)
+	GetN(path string, limit int) ([]objects.Object, error)
+	GetNRange(path string, limit int, from, to int64) ([]objects.Object, error)
+	MemGetN(path string, limit int) ([]objects.Object, error)
+	GetObjList(path string) ([]objects.Object, error)
 	Set(key string, data string) (string, error)
+	MemSet(key string, data string) (string, error)
+	Pivot(key string, data string, created, updated int64) (string, error)
 	Del(key string) error
+	MemDel(key string) error
 	Clear()
 	Watch() StorageChan
+	MemWatch() StorageChan
 }
 
 // Storage abstraction of persistent data layer

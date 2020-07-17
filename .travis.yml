@@ -3,7 +3,7 @@ os:
   - linux
 
 go:
-  - 1.13.x
+  - 1.14.x
 
 install:
   - go get github.com/gorilla/mux
@@ -14,11 +14,11 @@ install:
   - go get github.com/stretchr/testify
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/benitogf/jsonpatch
-  - go get github.com/benitogf/nsocket
   - go get github.com/nsf/jsondiff
   - go get github.com/benitogf/jwt
+  - go get github.com/benitogf/handlers
+  - go get github.com/pkg/expect
   - go get golang.org/x/crypto/bcrypt
-  - go get github.com/benitogf/cronexpr
 
 script:
   - go vet .
@@ -27,5 +27,8 @@ script:
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
   - cd ../../auth
+  - go vet .
+  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
+  - cd ../pivot
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
