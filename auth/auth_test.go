@@ -19,7 +19,7 @@ import (
 func TestRegisterAndAuthorize(t *testing.T) {
 	var c Credentials
 	authStore := &katamari.MemoryStorage{}
-	err := authStore.Start([]string{}, nil)
+	err := authStore.Start(katamari.StorageOpt{})
 	if err != nil {
 		log.Fatal(err)
 	}
