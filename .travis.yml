@@ -27,7 +27,7 @@ script:
   - cd storages/level
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
-  - cd ../storages/pebble
+  - cd ../pebble
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
   - cd ../../auth
