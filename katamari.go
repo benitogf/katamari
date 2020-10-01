@@ -19,7 +19,6 @@ import (
 	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // audit requests function
@@ -38,7 +37,7 @@ type audit func(r *http.Request) bool
 //
 // InMemoryKeys: array of keys that will be kept in memory storage
 //
-// DbOptions: options for leveldb
+// DbOpt: options for storage
 //
 // Audit: function to audit requests
 //
@@ -69,9 +68,10 @@ type Server struct {
 	Router          *mux.Router
 	Stream          stream.Pools
 	filters         filters
+	Pivot           string
 	NoBroadcastKeys []string
 	InMemoryKeys    []string
-	DbOptions       *opt.Options
+	DbOpt           interface{}
 	Audit           audit
 	Workers         int
 	ForcePatch      bool
@@ -99,7 +99,10 @@ type tcpKeepAliveListener struct {
 
 func (app *Server) waitListen() {
 	var err error
-	err = app.Storage.Start(app.NoBroadcastKeys, app.DbOptions)
+	err = app.Storage.Start(StorageOpt{
+		NoBroadcastKeys: app.NoBroadcastKeys,
+		DbOpt:           app.DbOpt,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

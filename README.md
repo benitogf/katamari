@@ -118,7 +118,7 @@ func main() {
   app.Router = mux.NewRouter()
   katamari.OpenFilter(app, "open") // available withour token
   katamari.OpenFilter(app, "closed") // valid token required
-  auth.Router(app, "")
+  auth.Router(app)
   app.Start("localhost:8800")
   app.WaitClose()
 }

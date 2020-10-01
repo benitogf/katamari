@@ -238,6 +238,7 @@ func FakeServer(t *testing.T, pivotIP string) *katamari.Server {
 	server := &katamari.Server{}
 	server.Silence = true
 	server.Static = true
+	server.Pivot = pivotIP
 	server.Storage = &katamari.MemoryStorage{}
 	authStore := &katamari.MemoryStorage{}
 	err := authStore.Start([]string{}, nil)
@@ -280,8 +281,8 @@ func FakeServer(t *testing.T, pivotIP string) *katamari.Server {
 	server.WriteFilter("settings", katamari.NoopFilter)
 	server.AfterFilter("settings", pivot.SyncWriteFilter(server.Client, pivotIP, getNodes))
 	server.ReadFilter("settings", pivot.SyncReadFilter(server.Client, server.Storage, pivotIP, keys))
-	pivot.Router(server.Router, server.Storage, server.Client, pivotIP, keys)
-	auth.Router(server, pivotIP)
+	pivot.Router(server.Router, server.Storage, server.Client, server.Pivot, keys)
+	auth.Router(server)
 	server.Start("localhost:0")
 	return server
 }

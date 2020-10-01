@@ -2,7 +2,6 @@ package katamari
 
 import (
 	"github.com/benitogf/katamari/objects"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // StorageChan an operation events channel
@@ -12,6 +11,12 @@ type StorageChan chan StorageEvent
 type StorageEvent struct {
 	Key       string
 	Operation string
+}
+
+// StorageOpt options of the storage instance
+type StorageOpt struct {
+	NoBroadcastKeys []string
+	DbOpt           interface{}
 }
 
 // Database interface to be implemented by storages
@@ -39,7 +44,7 @@ type StorageEvent struct {
 // Watch: returns a channel that will receive any set or del operation
 type Database interface {
 	Active() bool
-	Start(noBroadcastKeys []string, dbOptions *opt.Options) error
+	Start(StorageOpt) error
 	Close()
 	Keys() ([]byte, error)
 	KeysRange(path string, from, to int64) ([]string, error)
