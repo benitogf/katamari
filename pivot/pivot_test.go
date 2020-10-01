@@ -194,7 +194,7 @@ func decodeSettingsData(message []byte, cache string) (Settings, string) {
 func getThings(server *katamari.Server) ([]objects.Object, error) {
 	var objs []objects.Object
 	if !server.Storage.Active() {
-		err := server.Storage.Start([]string{}, nil)
+		err := server.Storage.Start(katamari.StorageOpt{})
 		defer server.Storage.Close()
 		if err != nil {
 			return objs, err
@@ -241,7 +241,7 @@ func FakeServer(t *testing.T, pivotIP string) *katamari.Server {
 	server.Pivot = pivotIP
 	server.Storage = &katamari.MemoryStorage{}
 	authStore := &katamari.MemoryStorage{}
-	err := authStore.Start([]string{}, nil)
+	err := authStore.Start(katamari.StorageOpt{})
 	require.NoError(t, err)
 	go katamari.WatchStorageNoop(authStore)
 	auth := auth.New(
