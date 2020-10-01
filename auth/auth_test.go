@@ -19,7 +19,7 @@ import (
 func TestRegisterAndAuthorize(t *testing.T) {
 	var c Credentials
 	authStore := &katamari.MemoryStorage{}
-	err := authStore.Start([]string{}, nil)
+	err := authStore.Start(katamari.StorageOpt{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestRegisterAndAuthorize(t *testing.T) {
 	server.Silence = true
 	server.Audit = auth.Verify
 	server.Router = mux.NewRouter()
-	auth.Router(server, "")
+	auth.Router(server)
 	server.Start("localhost:9060")
 	defer server.Close(os.Interrupt)
 

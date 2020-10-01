@@ -194,7 +194,7 @@ func decodeSettingsData(message []byte, cache string) (Settings, string) {
 func getThings(server *katamari.Server) ([]objects.Object, error) {
 	var objs []objects.Object
 	if !server.Storage.Active() {
-		err := server.Storage.Start([]string{}, nil)
+		err := server.Storage.Start(katamari.StorageOpt{})
 		defer server.Storage.Close()
 		if err != nil {
 			return objs, err
@@ -238,9 +238,10 @@ func FakeServer(t *testing.T, pivotIP string) *katamari.Server {
 	server := &katamari.Server{}
 	server.Silence = true
 	server.Static = true
+	server.Pivot = pivotIP
 	server.Storage = &katamari.MemoryStorage{}
 	authStore := &katamari.MemoryStorage{}
-	err := authStore.Start([]string{}, nil)
+	err := authStore.Start(katamari.StorageOpt{})
 	require.NoError(t, err)
 	go katamari.WatchStorageNoop(authStore)
 	auth := auth.New(
@@ -280,8 +281,8 @@ func FakeServer(t *testing.T, pivotIP string) *katamari.Server {
 	server.WriteFilter("settings", katamari.NoopFilter)
 	server.AfterFilter("settings", pivot.SyncWriteFilter(server.Client, pivotIP, getNodes))
 	server.ReadFilter("settings", pivot.SyncReadFilter(server.Client, server.Storage, pivotIP, keys))
-	pivot.Router(server.Router, server.Storage, server.Client, pivotIP, keys)
-	auth.Router(server, pivotIP)
+	pivot.Router(server.Router, server.Storage, server.Client, server.Pivot, keys)
+	auth.Router(server)
 	server.Start("localhost:0")
 	return server
 }

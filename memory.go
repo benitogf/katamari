@@ -9,7 +9,6 @@ import (
 
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/objects"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // MemoryStorage composition of Database interface
@@ -29,7 +28,7 @@ func (db *MemoryStorage) Active() bool {
 }
 
 // Start the storage client
-func (db *MemoryStorage) Start(noBroadcastKeys []string, notUsed *opt.Options) error {
+func (db *MemoryStorage) Start(storageOpt StorageOpt) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	if db.storage == nil {
@@ -38,7 +37,7 @@ func (db *MemoryStorage) Start(noBroadcastKeys []string, notUsed *opt.Options) e
 	if db.watcher == nil {
 		db.watcher = make(StorageChan)
 	}
-	db.noBroadcastKeys = noBroadcastKeys
+	db.noBroadcastKeys = storageOpt.NoBroadcastKeys
 	db.storage.Active = true
 	return nil
 }

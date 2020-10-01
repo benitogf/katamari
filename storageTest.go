@@ -188,6 +188,31 @@ func StorageGetNTest(app *Server, t *testing.T) {
 	require.Equal(t, "99", testObjects[0].Index)
 }
 
+// StorageGetNRangeTest testing storage GetN function
+func StorageGetNRangeTest(app *Server, t *testing.T) {
+	app.Storage.Clear()
+	testData := base64.StdEncoding.EncodeToString([]byte(units[0]))
+	for i := 1; i < 100; i++ {
+		value := strconv.Itoa(i)
+		key, err := app.Storage.Pivot("test/"+value, testData, int64(i), 0)
+		require.NoError(t, err)
+		require.Equal(t, value, key)
+		time.Sleep(time.Millisecond * 1)
+	}
+
+	_, err := app.Storage.Pivot("test/0", testData, 0, 0)
+	require.NoError(t, err)
+
+	limit := 1
+	testObjects, err := app.Storage.GetNRange("test/*", limit, 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, limit, len(testObjects))
+	// require.Equal(t, int64(0), testObjects[0].Created)
+	// require.Equal(t, "0", testObjects[0].Index)
+	require.Equal(t, int64(1), testObjects[0].Created)
+	require.Equal(t, "1", testObjects[0].Index)
+}
+
 var units = []string{
 	"\xe4\xef\xf0\xe9\xf9l\x100",
 	"V'\xe4\xc0\xbb>0\x86j",

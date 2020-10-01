@@ -679,16 +679,16 @@ func (t *TokenAuth) User(w http.ResponseWriter, r *http.Request) {
 }
 
 // Router handle for auth enpoints
-func (t *TokenAuth) Router(server *katamari.Server, pivotIP string) {
-	server.Router.HandleFunc("/authorize", t.Authorize(pivotIP))
-	server.Router.HandleFunc("/profile", t.Profile(pivotIP))
-	server.Router.HandleFunc("/users", t.Users(pivotIP)).Methods("GET")
+func (t *TokenAuth) Router(server *katamari.Server) {
+	server.Router.HandleFunc("/authorize", t.Authorize(server.Pivot))
+	server.Router.HandleFunc("/profile", t.Profile(server.Pivot))
+	server.Router.HandleFunc("/users", t.Users(server.Pivot)).Methods("GET")
 	server.Router.HandleFunc("/user/{account:[a-zA-Z\\d]+}", t.User).Methods("GET", "POST", "DELETE")
 	server.Router.HandleFunc("/password/{account:[a-zA-Z\\d]+}", t.NewPassword).Methods("PUT")
 	server.Router.HandleFunc("/register", t.Register).Methods("POST")
 	server.Router.HandleFunc("/create", t.Create).Methods("POST")
-	server.Router.HandleFunc("/available", t.Available(pivotIP)).Queries("account", "{[a-zA-Z\\d]}").Methods("GET")
+	server.Router.HandleFunc("/available", t.Available(server.Pivot)).Queries("account", "{[a-zA-Z\\d]}").Methods("GET")
 
 	t.client = server.Client
-	pivot.Router(server.Router, t.store, server.Client, pivotIP, []string{"users/*"})
+	pivot.Router(server.Router, t.store, server.Client, server.Pivot, []string{"users/*"})
 }

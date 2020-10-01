@@ -1,4 +1,4 @@
-package level
+package pebble
 
 import (
 	"errors"
@@ -10,9 +10,7 @@ import (
 	"github.com/benitogf/katamari"
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/objects"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/cockroachdb/pebble"
 )
 
 // Storage composition of Database interface
@@ -20,7 +18,7 @@ type Storage struct {
 	Path            string
 	mem             sync.Map
 	noBroadcastKeys []string
-	client          *leveldb.DB
+	client          *pebble.DB
 	mutex           sync.RWMutex
 	watcher         katamari.StorageChan
 	memWatcher      katamari.StorageChan
@@ -50,15 +48,9 @@ func (db *Storage) Start(storageOpt katamari.StorageOpt) error {
 		db.memWatcher = make(katamari.StorageChan)
 	}
 	if storageOpt.DbOpt == nil {
-		db.client, err = leveldb.OpenFile(db.Path, &opt.Options{
-			BlockCacheCapacity:     500 * opt.MiB,
-			CompactionTableSize:    500 * opt.MiB,
-			WriteBuffer:            1024 * opt.MiB,
-			CompactionL0Trigger:    40,
-			OpenFilesCacheCapacity: 3000,
-		})
+		db.client, err = pebble.Open(db.Path, &pebble.Options{})
 	} else {
-		db.client, err = leveldb.OpenFile(db.Path, storageOpt.DbOpt.(*opt.Options))
+		db.client, err = pebble.Open(db.Path, storageOpt.DbOpt.(*pebble.Options))
 	}
 	if err == nil {
 		db.storage.Active = true
@@ -81,24 +73,27 @@ func (db *Storage) Close() {
 
 // Clear all keys in the storage
 func (db *Storage) Clear() {
-	iter := db.client.NewIterator(nil, nil)
-	for iter.Next() {
-		_ = db.client.Delete(iter.Key(), nil)
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	iter.First()
+	for iter.Valid() {
+		_ = db.client.Delete(iter.Key(), pebble.Sync)
+		iter.Next()
 	}
-	iter.Release()
+	iter.Close()
 }
 
 // Keys list all the keys in the storage
 func (db *Storage) Keys() ([]byte, error) {
-	iter := db.client.NewIterator(nil, &opt.ReadOptions{
-		DontFillCache: true,
-	})
+	iter := db.client.NewIter(&pebble.IterOptions{})
 	stats := katamari.Stats{}
-	for iter.Next() {
+
+	iter.First()
+	for iter.Valid() {
 		stats.Keys = append(stats.Keys, string(iter.Key()))
+		iter.Next()
 	}
-	iter.Release()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -121,33 +116,36 @@ func (db *Storage) KeysRange(path string, from, to int64) ([]string, error) {
 		return keys, errors.New("katamari: invalid range")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
+	prefixKey := strings.Split(path, "*")[0]
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	if prefixKey != "" && prefixKey != "*" {
+		iter = db.client.NewIter(&pebble.IterOptions{
+			LowerBound: []byte(prefixKey),
+			// UpperBound: []byte(prefixKey + "\x00"),
+		})
 	}
-	iter := db.client.NewIterator(rangeKey, &opt.ReadOptions{
-		DontFillCache: true,
-	})
-
-	for iter.Next() {
+	iter.First()
+	for iter.Valid() {
 		if !key.Match(path, string(iter.Key())) {
+			iter.Next()
 			continue
 		}
 		current := string(iter.Key())
 		paths := strings.Split(current, "/")
 		created := key.Decode(paths[len(paths)-1])
 		if created < from {
+			iter.Next()
 			continue
 		}
 		if created > to {
+			iter.Next()
 			continue
 		}
 		keys = append(keys, current)
+		iter.Next()
 	}
 
-	iter.Release()
-	err := iter.Error()
+	err := iter.Close()
 	if err != nil {
 		return keys, err
 	}
@@ -166,18 +164,17 @@ func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
 		return res, errors.New("katamari: invalid limit")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
+	prefixKey := strings.Split(path, "*")[0]
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	if prefixKey != "" && prefixKey != "*" {
+		iter = db.client.NewIter(&pebble.IterOptions{
+			LowerBound: []byte(prefixKey),
+			// UpperBound: []byte(prefixKey + "\x00"),
+		})
 	}
-	iter := db.client.NewIterator(rangeKey, &opt.ReadOptions{
-		DontFillCache: true,
-	})
 	count := 0
 	if !iter.Last() {
-		iter.Release()
-		err := iter.Error()
+		err := iter.Close()
 		return res, err
 	}
 	for count < limit {
@@ -196,8 +193,8 @@ func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
 			break
 		}
 	}
-	iter.Release()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return res, err
 	}
@@ -208,6 +205,8 @@ func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
 // GetNRange get last N elements of a pattern related value(s)
 func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.Object, error) {
 	res := []objects.Object{}
+	lookupCount := 0
+	lookupLimit := 800000
 	if !strings.Contains(path, "*") {
 		return res, errors.New("katamari: invalid pattern")
 	}
@@ -216,18 +215,17 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 		return res, errors.New("katamari: invalid limit")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
+	prefixKey := strings.Split(path, "*")[0]
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	if prefixKey != "" && prefixKey != "*" {
+		iter = db.client.NewIter(&pebble.IterOptions{
+			LowerBound: []byte(prefixKey),
+			// UpperBound: []byte(prefixKey + "\x00"),
+		})
 	}
-	iter := db.client.NewIterator(rangeKey, &opt.ReadOptions{
-		DontFillCache: true,
-	})
 	count := 0
 	if !iter.Last() {
-		iter.Release()
-		err := iter.Error()
+		err := iter.Close()
 		return res, err
 	}
 	for count < limit {
@@ -248,10 +246,20 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 			if !iter.Prev() {
 				break
 			}
+			// search limiter
+			lookupCount++
+			if lookupCount > lookupLimit {
+				break
+			}
 			continue
 		}
 		if created > to {
 			if !iter.Prev() {
+				break
+			}
+			// search limiter
+			lookupCount++
+			if lookupCount > lookupLimit {
 				break
 			}
 			continue
@@ -271,8 +279,8 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 			break
 		}
 	}
-	iter.Release()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return res, err
 	}
@@ -317,35 +325,47 @@ func (db *Storage) MemGetN(path string, limit int) ([]objects.Object, error) {
 // Get a key/pattern related value(s)
 func (db *Storage) Get(path string) ([]byte, error) {
 	if !strings.Contains(path, "*") {
-		data, err := db.client.Get([]byte(path), nil)
+		data, closer, err := db.client.Get([]byte(path))
 		if err != nil {
 			return []byte(""), err
 		}
 
-		return data, nil
+		result := make([]byte, len(data))
+		copy(result, data)
+		err = closer.Close()
+		if err != nil {
+			return []byte(""), err
+		}
+		return result, nil
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
+	prefixKey := strings.Split(path, "*")[0]
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	if prefixKey != "" && prefixKey != "*" {
+		iter = db.client.NewIter(&pebble.IterOptions{
+			LowerBound: []byte(prefixKey),
+			// UpperBound: []byte(prefixKey + "\x00"),
+		})
 	}
-	iter := db.client.NewIterator(rangeKey, nil)
+	iter.First()
 	res := []objects.Object{}
-	for iter.Next() {
+	for iter.Valid() {
 		if !key.Match(path, string(iter.Key())) {
+			iter.Next()
 			continue
 		}
 
 		newObject, err := objects.Decode(iter.Value())
 		if err != nil {
+			iter.Next()
 			continue
 		}
 
+		iter.Next()
 		res = append(res, newObject)
 	}
-	iter.Release()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return []byte(""), err
 	}
@@ -393,36 +413,37 @@ func (db *Storage) GetObjList(path string) ([]objects.Object, error) {
 		return res, errors.New("katamari: invalid pattern")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
+	prefixKey := strings.Split(path, "*")[0]
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	if prefixKey != "" && prefixKey != "*" {
+		iter = db.client.NewIter(&pebble.IterOptions{
+			LowerBound: []byte(prefixKey),
+			// UpperBound: []byte(prefixKey + "\x00"),
+		})
 	}
-	iter := db.client.NewIterator(rangeKey, nil)
-	for iter.Next() {
+	iter.First()
+	for iter.Valid() {
 		if !key.Match(path, string(iter.Key())) {
+			iter.Next()
 			continue
 		}
 
 		newObject, err := objects.DecodeFull(iter.Value())
 		if err != nil {
+			iter.Next()
 			continue
 		}
 
 		res = append(res, newObject)
-	}
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return res, err
+		iter.Next()
 	}
 
-	return res, nil
+	return res, iter.Close()
 }
 
 // Peek a value timestamps
 func (db *Storage) Peek(key string, now int64) (int64, int64) {
-	previous, err := db.client.Get([]byte(key), nil)
+	previous, closer, err := db.client.Get([]byte(key))
 	if err != nil {
 		return now, 0
 	}
@@ -432,6 +453,10 @@ func (db *Storage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
+	err = closer.Close()
+	if err != nil {
+		return now, 0
+	}
 	return oldObject.Created, now
 }
 
@@ -440,14 +465,14 @@ func (db *Storage) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
 	index := key.LastIndex(path)
 	created, updated := db.Peek(path, now)
-	err := db.client.Put(
+	err := db.client.Set(
 		[]byte(path),
 		objects.New(&objects.Object{
 			Created: created,
 			Updated: updated,
 			Index:   index,
 			Data:    data,
-		}), nil)
+		}), pebble.Sync)
 
 	if err != nil {
 		return "", err
@@ -493,14 +518,14 @@ func (db *Storage) MemSet(path string, data string) (string, error) {
 // Pivot set entries on a pivot instance (force created/updated values)
 func (db *Storage) Pivot(path string, data string, created int64, updated int64) (string, error) {
 	index := key.LastIndex(path)
-	err := db.client.Put(
+	err := db.client.Set(
 		[]byte(path),
 		objects.New(&objects.Object{
 			Created: created,
 			Updated: updated,
 			Index:   index,
 			Data:    data,
-		}), nil)
+		}), pebble.Sync)
 
 	if err != nil {
 		return "", err
@@ -516,8 +541,8 @@ func (db *Storage) Pivot(path string, data string, created int64, updated int64)
 func (db *Storage) Del(path string) error {
 	var err error
 	if !strings.Contains(path, "*") {
-		_, err = db.client.Get([]byte(path), nil)
-		if err != nil && err.Error() == "leveldb: not found" {
+		_, err = db.Get(path)
+		if err != nil && err.Error() == "pebble: not found" {
 			return errors.New("katamari: not found")
 		}
 
@@ -536,25 +561,29 @@ func (db *Storage) Del(path string) error {
 		return nil
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
+	prefixKey := strings.Split(path, "*")[0]
+	iter := db.client.NewIter(&pebble.IterOptions{})
+	if prefixKey != "" && prefixKey != "*" {
+		iter = db.client.NewIter(&pebble.IterOptions{
+			LowerBound: []byte(prefixKey),
+			// UpperBound: []byte(prefixKey + "\x00"),
+		})
 	}
-	iter := db.client.NewIterator(rangeKey, nil)
-	for iter.Next() {
+	iter.First()
+	for iter.Valid() {
 		if key.Match(path, string(iter.Key())) {
 			err = db.client.Delete(iter.Key(), nil)
 			if err != nil {
 				break
 			}
 		}
+		iter.Next()
 	}
 	if err != nil {
 		return err
 	}
-	iter.Release()
-	err = iter.Error()
+
+	err = iter.Close()
 	if err != nil {
 		return err
 	}

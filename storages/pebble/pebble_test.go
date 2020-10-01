@@ -1,4 +1,4 @@
-package level
+package pebble
 
 import (
 	"os"
@@ -19,10 +19,11 @@ var units = []string{
 	"\xd80''",
 	"\xd8%''",
 	"0",
+	"\000",
 	"",
 }
 
-func TestStorageLeveldb(t *testing.T) {
+func TestStoragePebble(t *testing.T) {
 	t.Parallel()
 	app := &katamari.Server{}
 	app.Silence = true
