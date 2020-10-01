@@ -86,13 +86,14 @@ func (db *Storage) Clear() {
 func (db *Storage) Keys() ([]byte, error) {
 	iter := db.client.NewIter(&pebble.IterOptions{})
 	stats := katamari.Stats{}
+
 	iter.First()
 	for iter.Valid() {
 		stats.Keys = append(stats.Keys, string(iter.Key()))
 		iter.Next()
 	}
-	iter.Close()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +145,7 @@ func (db *Storage) KeysRange(path string, from, to int64) ([]string, error) {
 		iter.Next()
 	}
 
-	iter.Close()
-	err := iter.Error()
+	err := iter.Close()
 	if err != nil {
 		return keys, err
 	}
@@ -174,8 +174,7 @@ func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
 	}
 	count := 0
 	if !iter.Last() {
-		iter.Close()
-		err := iter.Error()
+		err := iter.Close()
 		return res, err
 	}
 	for count < limit {
@@ -194,8 +193,8 @@ func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
 			break
 		}
 	}
-	iter.Close()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return res, err
 	}
@@ -226,8 +225,7 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 	}
 	count := 0
 	if !iter.Last() {
-		iter.Close()
-		err := iter.Error()
+		err := iter.Close()
 		return res, err
 	}
 	for count < limit {
@@ -281,8 +279,8 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 			break
 		}
 	}
-	iter.Close()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return res, err
 	}
@@ -366,8 +364,8 @@ func (db *Storage) Get(path string) ([]byte, error) {
 		iter.Next()
 		res = append(res, newObject)
 	}
-	iter.Close()
-	err := iter.Error()
+
+	err := iter.Close()
 	if err != nil {
 		return []byte(""), err
 	}
@@ -439,13 +437,8 @@ func (db *Storage) GetObjList(path string) ([]objects.Object, error) {
 		res = append(res, newObject)
 		iter.Next()
 	}
-	iter.Close()
-	err := iter.Error()
-	if err != nil {
-		return res, err
-	}
 
-	return res, nil
+	return res, iter.Close()
 }
 
 // Peek a value timestamps
@@ -589,8 +582,8 @@ func (db *Storage) Del(path string) error {
 	if err != nil {
 		return err
 	}
-	iter.Close()
-	err = iter.Error()
+
+	err = iter.Close()
 	if err != nil {
 		return err
 	}
