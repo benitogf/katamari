@@ -1,4 +1,4 @@
-package katamari
+package katamari_test
 
 import (
 	"bytes"
@@ -8,12 +8,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/storages/level"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRestPostNonObject(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -27,7 +29,7 @@ func TestRestPostNonObject(t *testing.T) {
 
 func TestRestPostEmptyData(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -41,7 +43,7 @@ func TestRestPostEmptyData(t *testing.T) {
 
 func TestRestPostKey(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -55,7 +57,7 @@ func TestRestPostKey(t *testing.T) {
 
 func TestRestDel(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -99,15 +101,22 @@ func TestRestDel(t *testing.T) {
 
 func TestRestGet(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
+	app.InMemoryKeys = []string{"sources"}
+	app.Storage = &level.Storage{Path: "test/db"}
 	app.Start("localhost:0")
+	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
 	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
+	index, err = app.Storage.MemSet("sources", "list")
+	require.NoError(t, err)
+	require.Equal(t, "sources", index)
 	data, _ := app.Storage.Get("test")
+	dataSources, _ := app.Storage.MemGet("sources")
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
@@ -119,6 +128,16 @@ func TestRestGet(t *testing.T) {
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, string(data), string(body))
 
+	req = httptest.NewRequest("GET", "/sources", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	body, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	require.Equal(t, string(dataSources), string(body))
+
 	req = httptest.NewRequest("GET", "/test/notest", nil)
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
@@ -128,7 +147,7 @@ func TestRestGet(t *testing.T) {
 
 func TestRestStats(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -162,7 +181,7 @@ func TestRestStats(t *testing.T) {
 
 func TestRestResponseCode(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -214,7 +233,7 @@ func TestRestResponseCode(t *testing.T) {
 
 func TestRestGetBadRequest(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -228,7 +247,7 @@ func TestRestGetBadRequest(t *testing.T) {
 
 func TestRestPostInvalidKey(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -242,7 +261,7 @@ func TestRestPostInvalidKey(t *testing.T) {
 
 func TestRestGetInvalidKey(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
@@ -256,7 +275,7 @@ func TestRestGetInvalidKey(t *testing.T) {
 
 func TestRestDeleteInvalidKey(t *testing.T) {
 	t.Parallel()
-	app := Server{}
+	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)

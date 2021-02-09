@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/benitogf/katamari/key"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/benitogf/coat"
 	"github.com/gorilla/websocket"
 )
+
+const timeout = 15 * time.Second
 
 // Subscribe : monitoring or filtering of subscriptions
 type Subscribe func(key string) error
@@ -173,12 +176,9 @@ func (sm *Pools) Patch(poolIndex int, data []byte) ([]byte, bool, int64) {
 
 // Write will write data to a ws connection
 func (sm *Pools) Write(client *Conn, data string, snapshot bool, version int64) {
-	// if !snapshot && data == "W10=" {
-	// 	return
-	// }
-
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
+	client.conn.SetWriteDeadline(time.Now().Add(timeout))
 	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte("{"+
 		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
 		"\"version\": \""+strconv.FormatInt(version, 16)+"\","+
@@ -186,6 +186,7 @@ func (sm *Pools) Write(client *Conn, data string, snapshot bool, version int64) 
 		"}"))
 
 	if err != nil {
+		client.conn.Close()
 		sm.Console.Log("writeStreamErr: ", err)
 	}
 }
@@ -202,11 +203,11 @@ func (sm *Pools) Broadcast(poolIndex int, data string, snapshot bool, version in
 // Read will keep alive the ws connection
 func (sm *Pools) Read(key string, filter string, client *Conn) {
 	for {
-		_, _, err := client.conn.ReadMessage()
+		_, _, err := client.conn.NextReader()
 		if err != nil {
 			sm.Console.Err("readSocketError["+key+"]", err)
+			sm.Close(key, filter, client)
 			break
 		}
 	}
-	sm.Close(key, filter, client)
 }
