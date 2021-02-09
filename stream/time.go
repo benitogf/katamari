@@ -1,6 +1,10 @@
 package stream
 
-import "github.com/gorilla/websocket"
+import (
+	"time"
+
+	"github.com/gorilla/websocket"
+)
 
 // BroadcastTime sends time to all the subscribers
 func (sm *Pools) BroadcastTime(data string) {
@@ -17,8 +21,10 @@ func (sm *Pools) BroadcastTime(data string) {
 func (sm *Pools) WriteTime(client *Conn, data string) {
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
+	client.conn.SetWriteDeadline(time.Now().Add(timeout))
 	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte(data))
 	if err != nil {
+		client.conn.Close()
 		sm.Console.Log("writeTimeStreamErr: ", err)
 	}
 }

@@ -22,6 +22,9 @@ func IsValid(key string) bool {
 
 // Match checks if a key is part of a path (glob)
 func Match(path string, key string) bool {
+	if path == key {
+		return true
+	}
 	if !strings.Contains(path, "*") {
 		return false
 	}
@@ -63,7 +66,7 @@ func Decode(key string) int64 {
 // Contains find match in an array of paths
 func Contains(s []string, e string) bool {
 	for _, a := range s {
-		if Match(a, e) {
+		if Match(a, e) || Match(e, a) {
 			return true
 		}
 	}
