@@ -105,11 +105,6 @@ func (db *MemoryStorage) KeysRange(path string, from, to int64) ([]string, error
 	return keys, nil
 }
 
-// MemGet a key/pattern related value(s)
-func (db *MemoryStorage) MemGet(path string) ([]byte, error) {
-	return db.Get(path)
-}
-
 // Get a key/pattern related value(s)
 func (db *MemoryStorage) Get(path string) ([]byte, error) {
 	if !strings.Contains(path, "*") {
@@ -243,11 +238,6 @@ func (db *MemoryStorage) GetNRange(path string, limit int, from, to int64) ([]ob
 	return res, nil
 }
 
-// MemGetN get last N elements of a path related value(s)
-func (db *MemoryStorage) MemGetN(path string, limit int) ([]objects.Object, error) {
-	return db.GetN(path, limit)
-}
-
 // Peek a value timestamps
 func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 	previous, found := db.mem.Load(key)
@@ -261,11 +251,6 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 	}
 
 	return oldObject.Created, now
-}
-
-// MemSet a value
-func (db *MemoryStorage) MemSet(path string, data string) (string, error) {
-	return db.Set(path, data)
 }
 
 // Set a value
@@ -332,17 +317,7 @@ func (db *MemoryStorage) Del(path string) error {
 	return nil
 }
 
-// MemDel a key/pattern value(s)
-func (db *MemoryStorage) MemDel(path string) error {
-	return db.Del(path)
-}
-
 // Watch the storage set/del events
 func (db *MemoryStorage) Watch() StorageChan {
-	return db.watcher
-}
-
-// MemWatch the storage set/del events
-func (db *MemoryStorage) MemWatch() StorageChan {
 	return db.watcher
 }

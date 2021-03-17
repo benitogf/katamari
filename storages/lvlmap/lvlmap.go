@@ -1,7 +1,8 @@
-package level
+package lvlmap
 
 import (
 	"errors"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/objects"
 	"github.com/syndtr/goleveldb/leveldb"
+	errorsLeveldb "github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -33,6 +35,18 @@ func (db *Storage) Active() bool {
 	return db.storage.Active
 }
 
+func (db *Storage) recover() error {
+	var err error
+	db.client, err = leveldb.RecoverFile(db.Path, &opt.Options{})
+
+	// recover failed
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Start the storage client
 func (db *Storage) Start(storageOpt katamari.StorageOpt) error {
 	var err error
@@ -41,28 +55,57 @@ func (db *Storage) Start(storageOpt katamari.StorageOpt) error {
 	if db.storage == nil {
 		db.storage = &katamari.Storage{}
 	}
+
 	if db.Path == "" {
 		db.Path = "data/db"
 	}
+
 	if db.watcher == nil {
 		db.watcher = make(katamari.StorageChan)
 	}
-	if storageOpt.DbOpt == nil {
-		db.client, err = leveldb.OpenFile(db.Path, &opt.Options{
-			BlockCacheCapacity:     500 * opt.MiB,
-			CompactionTableSize:    500 * opt.MiB,
-			WriteBuffer:            1024 * opt.MiB,
-			CompactionL0Trigger:    40,
-			OpenFilesCacheCapacity: 3000,
-		})
-	} else {
-		db.client, err = leveldb.OpenFile(db.Path, storageOpt.DbOpt.(*opt.Options))
+
+	db.client, err = leveldb.OpenFile(db.Path, &opt.Options{})
+
+	if errorsLeveldb.IsCorrupted(err) {
+		log.Println("db is corrupted, attempting recover", err)
+		err = db.recover()
+		if err != nil {
+			log.Println("failed to recover db", err)
+			return err
+		}
 	}
-	if err == nil {
-		db.storage.Active = true
+
+	// load db snapshot into db
+	err = db.load()
+	if err != nil {
+		log.Println("failed to load db snapshot", err)
+		return err
 	}
+
+	db.storage.Active = true
 	db.noBroadcastKeys = storageOpt.NoBroadcastKeys
-	return err
+	return nil
+}
+
+func (db *Storage) load() error {
+	iter := db.client.NewIterator(nil, &opt.ReadOptions{
+		DontFillCache: true,
+	})
+
+	for iter.Next() {
+		path := string(iter.Key())
+		value := iter.Value()
+		tmp := make([]byte, len(value))
+		copy(tmp, value)
+		db.mem.Store(path, tmp)
+	}
+	iter.Release()
+	err := iter.Error()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Close the storage client
@@ -77,6 +120,10 @@ func (db *Storage) Close() {
 
 // Clear all keys in the storage
 func (db *Storage) Clear() {
+	db.mem.Range(func(key interface{}, value interface{}) bool {
+		db.mem.Delete(key)
+		return true
+	})
 	iter := db.client.NewIterator(nil, nil)
 	for iter.Next() {
 		_ = db.client.Delete(iter.Key(), nil)
@@ -86,22 +133,18 @@ func (db *Storage) Clear() {
 
 // Keys list all the keys in the storage
 func (db *Storage) Keys() ([]byte, error) {
-	iter := db.client.NewIterator(nil, &opt.ReadOptions{
-		DontFillCache: true,
-	})
 	stats := katamari.Stats{}
-	for iter.Next() {
-		stats.Keys = append(stats.Keys, string(iter.Key()))
-	}
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return nil, err
-	}
+	db.mem.Range(func(key interface{}, value interface{}) bool {
+		stats.Keys = append(stats.Keys, key.(string))
+		return true
+	})
 
 	if stats.Keys == nil {
 		stats.Keys = []string{}
 	}
+	sort.Slice(stats.Keys, func(i, j int) bool {
+		return strings.ToLower(stats.Keys[i]) < strings.ToLower(stats.Keys[j])
+	})
 
 	return objects.Encode(stats)
 }
@@ -117,91 +160,24 @@ func (db *Storage) KeysRange(path string, from, to int64) ([]string, error) {
 		return keys, errors.New("katamari: invalid range")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
-	}
-	iter := db.client.NewIterator(rangeKey, &opt.ReadOptions{
-		DontFillCache: true,
-	})
-
-	for iter.Next() {
-		if !key.Match(path, string(iter.Key())) {
-			continue
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		current := k.(string)
+		if !key.Match(path, current) {
+			return true
 		}
-		current := string(iter.Key())
 		paths := strings.Split(current, "/")
 		created := key.Decode(paths[len(paths)-1])
-		if created < from {
-			continue
-		}
-		if created > to {
-			continue
+		if created < from || created > to {
+			return true
 		}
 		keys = append(keys, current)
-	}
-
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return keys, err
-	}
+		return true
+	})
 
 	return keys, nil
 }
 
-// GetN get last N elements of a pattern related value(s)
-func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
-	res := []objects.Object{}
-	if !strings.Contains(path, "*") {
-		return res, errors.New("katamari: invalid pattern")
-	}
-
-	if limit <= 0 {
-		return res, errors.New("katamari: invalid limit")
-	}
-
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
-	}
-	iter := db.client.NewIterator(rangeKey, &opt.ReadOptions{
-		DontFillCache: true,
-	})
-	count := 0
-	if !iter.Last() {
-		iter.Release()
-		err := iter.Error()
-		return res, err
-	}
-	for count < limit {
-		if !key.Match(path, string(iter.Key())) {
-			continue
-		}
-
-		newObject, err := objects.DecodeFull(iter.Value())
-		if err != nil {
-			continue
-		}
-
-		res = append(res, newObject)
-		count++
-		if !iter.Prev() {
-			break
-		}
-	}
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return res, err
-	}
-
-	return res, nil
-}
-
-// GetNRange get last N elements of a pattern related value(s)
+// GetNRange get last N elements of a path related value(s) for a given time range
 func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.Object, error) {
 	res := []objects.Object{}
 	if !strings.Contains(path, "*") {
@@ -212,65 +188,68 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 		return res, errors.New("katamari: invalid limit")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
-	}
-	iter := db.client.NewIterator(rangeKey, &opt.ReadOptions{
-		DontFillCache: true,
-	})
-	count := 0
-	if !iter.Last() {
-		iter.Release()
-		err := iter.Error()
-		return res, err
-	}
-	for count < limit {
-		if iter.Key() == nil {
-			break
-		}
-		if !key.Match(path, string(iter.Key())) {
-			if !iter.Prev() {
-				break
-			}
-			continue
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
 		}
 
-		current := string(iter.Key())
+		current := k.(string)
+		if !key.Match(path, current) {
+			return true
+		}
 		paths := strings.Split(current, "/")
 		created := key.Decode(paths[len(paths)-1])
-		if created < from {
-			if !iter.Prev() {
-				break
-			}
-			continue
-		}
-		if created > to {
-			if !iter.Prev() {
-				break
-			}
-			continue
+		if created < from || created > to {
+			return true
 		}
 
-		newObject, err := objects.DecodeFull(iter.Value())
+		newObject, err := objects.DecodeFull(value.([]byte))
 		if err != nil {
-			if !iter.Prev() {
-				break
-			}
-			continue
+			return true
 		}
 
 		res = append(res, newObject)
-		count++
-		if !iter.Prev() {
-			break
-		}
+		return true
+	})
+
+	sort.Slice(res, objects.Sort(res))
+
+	if len(res) > limit {
+		return res[:limit], nil
 	}
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return res, err
+
+	return res, nil
+}
+
+// GetN get last N elements of a path related value(s)
+func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
+	res := []objects.Object{}
+	if !strings.Contains(path, "*") {
+		return res, errors.New("katamari: invalid pattern")
+	}
+
+	if limit <= 0 {
+		return res, errors.New("katamari: invalid limit")
+	}
+
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
+		}
+
+		newObject, err := objects.DecodeFull(value.([]byte))
+		if err != nil {
+			return true
+		}
+
+		res = append(res, newObject)
+		return true
+	})
+
+	sort.Slice(res, objects.Sort(res))
+
+	if len(res) > limit {
+		return res[:limit], nil
 	}
 
 	return res, nil
@@ -279,86 +258,66 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 // Get a key/pattern related value(s)
 func (db *Storage) Get(path string) ([]byte, error) {
 	if !strings.Contains(path, "*") {
-		data, err := db.client.Get([]byte(path), nil)
-		if err != nil {
-			return []byte(""), err
+		data, found := db.mem.Load(path)
+		if !found {
+			return []byte(""), errors.New("katamari: not found")
 		}
 
-		return data, nil
+		return data.([]byte), nil
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
-	}
-	iter := db.client.NewIterator(rangeKey, nil)
 	res := []objects.Object{}
-	for iter.Next() {
-		if !key.Match(path, string(iter.Key())) {
-			continue
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
 		}
 
-		newObject, err := objects.Decode(iter.Value())
+		newObject, err := objects.Decode(value.([]byte))
 		if err != nil {
-			continue
+			return true
 		}
 
 		res = append(res, newObject)
-	}
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return []byte(""), err
-	}
+		return true
+	})
 
 	sort.Slice(res, objects.Sort(res))
 
 	return objects.Encode(res)
 }
 
-// GetObjList bypass encoding and single objects reads
+// GetObjList force base64 decoding and bypass sorting
 func (db *Storage) GetObjList(path string) ([]objects.Object, error) {
 	res := []objects.Object{}
 	if !strings.Contains(path, "*") {
 		return res, errors.New("katamari: invalid pattern")
 	}
 
-	globPrefixKey := strings.Split(path, "*")[0]
-	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))
-	if globPrefixKey == "" || globPrefixKey == "*" {
-		rangeKey = nil
-	}
-	iter := db.client.NewIterator(rangeKey, nil)
-	for iter.Next() {
-		if !key.Match(path, string(iter.Key())) {
-			continue
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if !key.Match(path, k.(string)) {
+			return true
 		}
 
-		newObject, err := objects.DecodeFull(iter.Value())
+		newObject, err := objects.DecodeFull(value.([]byte))
 		if err != nil {
-			continue
+			return true
 		}
 
 		res = append(res, newObject)
-	}
-	iter.Release()
-	err := iter.Error()
-	if err != nil {
-		return res, err
-	}
+		return true
+	})
 
 	return res, nil
 }
 
 // Peek a value timestamps
 func (db *Storage) Peek(key string, now int64) (int64, int64) {
-	previous, err := db.client.Get([]byte(key), nil)
-	if err != nil {
+	previous, found := db.mem.Load(key)
+	if !found {
 		return now, 0
 	}
 
-	oldObject, err := objects.Decode(previous)
+	oldObject, err := objects.Decode(previous.([]byte))
 	if err != nil {
 		return now, 0
 	}
@@ -371,14 +330,16 @@ func (db *Storage) Set(path string, data string) (string, error) {
 	now := time.Now().UTC().UnixNano()
 	index := key.LastIndex(path)
 	created, updated := db.Peek(path, now)
-	err := db.client.Put(
-		[]byte(path),
-		objects.New(&objects.Object{
-			Created: created,
-			Updated: updated,
-			Index:   index,
-			Data:    data,
-		}), nil)
+
+	aux := objects.New(&objects.Object{
+		Created: created,
+		Updated: updated,
+		Index:   index,
+		Data:    data,
+	})
+
+	db.mem.Store(path, aux)
+	err := db.client.Put([]byte(path), aux, nil)
 
 	if err != nil {
 		return "", err
@@ -387,20 +348,22 @@ func (db *Storage) Set(path string, data string) (string, error) {
 	if !key.Contains(db.noBroadcastKeys, path) {
 		db.watcher <- katamari.StorageEvent{Key: path, Operation: "set"}
 	}
+
 	return index, nil
 }
 
 // Pivot set entries on a pivot instance (force created/updated values)
 func (db *Storage) Pivot(path string, data string, created int64, updated int64) (string, error) {
 	index := key.LastIndex(path)
-	err := db.client.Put(
-		[]byte(path),
-		objects.New(&objects.Object{
-			Created: created,
-			Updated: updated,
-			Index:   index,
-			Data:    data,
-		}), nil)
+	aux := objects.New(&objects.Object{
+		Created: created,
+		Updated: updated,
+		Index:   index,
+		Data:    data,
+	})
+
+	db.mem.Store(path, aux)
+	err := db.client.Put([]byte(path), aux, nil)
 
 	if err != nil {
 		return "", err
@@ -409,6 +372,7 @@ func (db *Storage) Pivot(path string, data string, created int64, updated int64)
 	if !key.Contains(db.noBroadcastKeys, path) {
 		db.watcher <- katamari.StorageEvent{Key: path, Operation: "set"}
 	}
+
 	return index, nil
 }
 
@@ -416,6 +380,12 @@ func (db *Storage) Pivot(path string, data string, created int64, updated int64)
 func (db *Storage) Del(path string) error {
 	var err error
 	if !strings.Contains(path, "*") {
+		_, found := db.mem.Load(path)
+		if !found {
+			return errors.New("katamari: not found")
+		}
+		db.mem.Delete(path)
+
 		_, err = db.client.Get([]byte(path), nil)
 		if err != nil && err.Error() == "leveldb: not found" {
 			return errors.New("katamari: not found")
@@ -435,6 +405,13 @@ func (db *Storage) Del(path string) error {
 		}
 		return nil
 	}
+
+	db.mem.Range(func(k interface{}, value interface{}) bool {
+		if key.Match(path, k.(string)) {
+			db.mem.Delete(k.(string))
+		}
+		return true
+	})
 
 	globPrefixKey := strings.Split(path, "*")[0]
 	rangeKey := util.BytesPrefix([]byte(globPrefixKey + ""))

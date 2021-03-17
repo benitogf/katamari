@@ -2,6 +2,7 @@
 /test
 /storages/level/test
 /storages/pebble/test
+/storages/lvlmap/test
 cover.out
 trace.out
 cover.html

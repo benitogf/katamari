@@ -66,7 +66,7 @@ func (sm *Pools) UseConnections(path string, callback func(int)) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 	for i := range sm.Pools {
-		if i != 0 && (sm.Pools[i].Key == path || key.Match(sm.Pools[i].Key, path)) {
+		if i != 0 && (sm.Pools[i].Key == path || key.Match(sm.Pools[i].Key, path) || key.Match(path, sm.Pools[i].Key)) {
 			callback(i)
 		}
 	}

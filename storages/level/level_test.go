@@ -96,3 +96,15 @@ func TestKeysRange(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	katamari.StorageKeysRangeTest(app, t)
 }
+
+func TestStreamItemGlobBroadcastLevel(t *testing.T) {
+	t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+	app.ForcePatch = true
+	app.Storage = &Storage{Path: "test/db5" + katamari.Time()}
+	app.Start("localhost:0")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	katamari.StreamItemGlobBroadcastTest(t, &app)
+}

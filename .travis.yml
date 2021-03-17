@@ -30,6 +30,9 @@ script:
   - cd ../pebble
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
+  - cd ../lvlmap
+  - go vet .
+  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
   - cd ../../auth
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
