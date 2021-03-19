@@ -139,7 +139,8 @@ app.Start("localhost:8800")
 
 # libraries
 
-- jwt authentication
-- leveldb storage
-- pebble storage
-- inmemory with leveldb persistence storage
+- [jwt authentication](https://github.com/benitogf/auth)
+- [leveldb storage](https://github.com/benitogf/level)
+- [pebble storage](https://github.com/benitogf/pebble)
+- [inmemory with leveldb persistence storage](https://github.com/benitogf/lvlmap)
+- [distiribution adapter](https://github.com/benitogf/pivot)
