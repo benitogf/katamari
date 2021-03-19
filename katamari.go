@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/benitogf/coat"
-	"github.com/benitogf/handlers"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
 	"github.com/benitogf/katamari/stream"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
