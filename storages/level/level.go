@@ -181,7 +181,7 @@ func (db *Storage) GetN(path string, limit int) ([]objects.Object, error) {
 			continue
 		}
 
-		newObject, err := objects.DecodeFull(iter.Value())
+		newObject, err := objects.Decode(iter.Value())
 		if err != nil {
 			continue
 		}
@@ -253,7 +253,7 @@ func (db *Storage) GetNRange(path string, limit int, from, to int64) ([]objects.
 			continue
 		}
 
-		newObject, err := objects.DecodeFull(iter.Value())
+		newObject, err := objects.Decode(iter.Value())
 		if err != nil {
 			if !iter.Prev() {
 				break
@@ -299,7 +299,7 @@ func (db *Storage) Get(path string) ([]byte, error) {
 			continue
 		}
 
-		newObject, err := objects.Decode(iter.Value())
+		newObject, err := objects.DecodeRaw(iter.Value())
 		if err != nil {
 			continue
 		}
@@ -335,7 +335,7 @@ func (db *Storage) GetObjList(path string) ([]objects.Object, error) {
 			continue
 		}
 
-		newObject, err := objects.DecodeFull(iter.Value())
+		newObject, err := objects.Decode(iter.Value())
 		if err != nil {
 			continue
 		}
@@ -358,7 +358,7 @@ func (db *Storage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := objects.Decode(previous)
+	oldObject, err := objects.DecodeRaw(previous)
 	if err != nil {
 		return now, 0
 	}

@@ -46,7 +46,7 @@ func checkLastDelete(storage katamari.Database, lastEntry int64, key string) int
 		return lastEntry
 	}
 
-	obj, err := objects.Decode(lastDelete)
+	obj, err := objects.DecodeRaw(lastDelete)
 	if err != nil {
 		// log.Println("failed to decode object of last delete for ", key, lastDelete, err)
 		return lastEntry
@@ -85,7 +85,7 @@ func checkActivity(storage katamari.Database, _key string) (ActivityEntry, error
 		return activity, nil
 	}
 
-	obj, err := objects.Decode(entries)
+	obj, err := objects.DecodeRaw(entries)
 	if err != nil {
 		// log.Println("failed to decode "+_key+" objects list", err)
 		return activity, err
@@ -349,7 +349,7 @@ func syncPivotEntries(client *http.Client, storage katamari.Database, pivot stri
 		return nil
 	}
 
-	obj, err := objects.Decode(localData)
+	obj, err := objects.DecodeRaw(localData)
 	if err != nil {
 		// log.Println("sync pivot " + _key + " failed to decode local entries")
 		return err

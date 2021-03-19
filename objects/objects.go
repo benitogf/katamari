@@ -45,15 +45,15 @@ func Encode(v interface{}) ([]byte, error) {
 }
 
 // Decode json object
-func Decode(data []byte) (Object, error) {
+func DecodeRaw(data []byte) (Object, error) {
 	var obj Object
 	err := json.Unmarshal(data, &obj)
 
 	return obj, err
 }
 
-// DecodeFull json object
-func DecodeFull(data []byte) (Object, error) {
+// Decode json object
+func Decode(data []byte) (Object, error) {
 	var obj Object
 	err := json.Unmarshal(data, &obj)
 	aux, err := base64.StdEncoding.DecodeString(obj.Data)
@@ -75,15 +75,6 @@ func DecodeFromReader(r io.Reader) (Object, error) {
 	return obj, err
 }
 
-// DecodeListFromReader objects from io reader
-func DecodeListFromReader(r io.Reader) ([]Object, error) {
-	var objs []Object
-	decoder := json.NewDecoder(r)
-	err := decoder.Decode(&objs)
-
-	return objs, err
-}
-
 // DecodeList json objects
 func DecodeList(data []byte) ([]Object, error) {
 	var objects []Object
@@ -93,6 +84,15 @@ func DecodeList(data []byte) ([]Object, error) {
 	}
 
 	return DecodeListData(objects)
+}
+
+// DecodeListFromReader objects from io reader
+func DecodeListFromReader(r io.Reader) ([]Object, error) {
+	var objs []Object
+	decoder := json.NewDecoder(r)
+	err := decoder.Decode(&objs)
+
+	return objs, err
 }
 
 // DecodeListRaw json objects
@@ -118,16 +118,6 @@ func DecodeListData(objects []Object) ([]Object, error) {
 		objects[i].Data = string(aux)
 	}
 
-	return objects, err
-}
-
-// DecodeRawList json objects
-func DecodeRawList(data []byte) ([]Object, error) {
-	var objects []Object
-	err := json.Unmarshal(data, &objects)
-	if err != nil {
-		return objects, err
-	}
 	return objects, err
 }
 

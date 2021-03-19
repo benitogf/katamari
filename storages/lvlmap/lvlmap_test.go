@@ -6,6 +6,8 @@ import (
 
 	"github.com/benitogf/katamari"
 	"github.com/benitogf/katamari/messages"
+	"github.com/benitogf/katamari/objects"
+	"github.com/stretchr/testify/require"
 )
 
 var units = []string{
@@ -22,7 +24,27 @@ var units = []string{
 	"",
 }
 
-func TestStorageLeveldb(t *testing.T) {
+func TestStorageLlvmapPersistence(t *testing.T) {
+	t.Parallel()
+	app := &katamari.Server{}
+	app.Silence = true
+	app.Storage = &Storage{Path: "test/dbp"}
+	app.Start("localhost:0")
+	app.Storage.Set("test/1", "test1")
+	app.Close(os.Interrupt)
+	appAfter := &katamari.Server{}
+	appAfter.Silence = true
+	appAfter.Storage = &Storage{Path: "test/dbp"}
+	appAfter.Start("localhost:0")
+	defer appAfter.Close(os.Interrupt)
+	dataRaw, err := appAfter.Storage.Get("test/1")
+	require.NoError(t, err)
+	data, err := objects.DecodeRaw(dataRaw)
+	require.NoError(t, err)
+	require.Equal(t, "test1", data.Data)
+}
+
+func TestStorageLlvmap(t *testing.T) {
 	t.Parallel()
 	app := &katamari.Server{}
 	app.Silence = true
