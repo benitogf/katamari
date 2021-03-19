@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/benitogf/katamari"
-	"github.com/benitogf/katamari/storages/level"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,8 +102,6 @@ func TestRestGet(t *testing.T) {
 	t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
-	app.InMemoryKeys = []string{"sources"}
-	app.Storage = &level.Storage{Path: "test/db"}
 	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
@@ -112,11 +109,11 @@ func TestRestGet(t *testing.T) {
 	index, err := app.Storage.Set("test", "test")
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
-	index, err = app.Storage.MemSet("sources", "list")
+	index, err = app.Storage.Set("sources", "list")
 	require.NoError(t, err)
 	require.Equal(t, "sources", index)
 	data, _ := app.Storage.Get("test")
-	dataSources, _ := app.Storage.MemGet("sources")
+	dataSources, _ := app.Storage.Get("sources")
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()

@@ -9,30 +9,14 @@ install:
   - go get github.com/gorilla/mux
   - go get github.com/gorilla/websocket
   - go get github.com/rs/cors
-  - go get github.com/syndtr/goleveldb/leveldb
-  - go get github.com/cockroachdb/pebble
   - go get github.com/benitogf/coat
   - go get github.com/stretchr/testify
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/benitogf/jsonpatch
   - go get github.com/nsf/jsondiff
-  - go get github.com/benitogf/jwt
-  - go get github.com/benitogf/handlers
+  - go get github.com/gorilla/handlers
   - go get github.com/pkg/expect
-  - go get golang.org/x/crypto/bcrypt
 
 script:
-  - go vet .
-  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
-  - cd storages/level
-  - go vet .
-  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
-  - cd ../pebble
-  - go vet .
-  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
-  - cd ../../auth
-  - go vet .
-  - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
-  - cd ../pivot
   - go vet .
   - go test -v -coverprofile cover.out -count 1 -failfast -race -bench .

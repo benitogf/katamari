@@ -10,7 +10,6 @@ import (
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
-	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/mux"
 )
 
@@ -68,12 +67,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	index := ""
-	if key.Contains(app.InMemoryKeys, _key) {
-		index, err = app.Storage.MemSet(_key, string(data))
-	} else {
-		index, err = app.Storage.Set(_key, string(data))
-	}
+	index, err := app.Storage.Set(_key, string(data))
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -110,13 +104,8 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("read", _key)
-	entry := stream.Cache{}
-	var err error
-	if key.Contains(app.InMemoryKeys, _key) {
-		entry, err = app.MemForceFetch(_key, _key)
-	} else {
-		entry, err = app.ForceFetch(_key, _key)
-	}
+	entry, err := app.ForceFetch(_key, _key)
+
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
@@ -155,12 +144,7 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("unpublish", _key)
-
-	if key.Contains(app.InMemoryKeys, _key) {
-		err = app.Storage.MemDel(_key)
-	} else {
-		err = app.Storage.Del(_key)
-	}
+	err = app.Storage.Del(_key)
 
 	if err != nil {
 		app.console.Err(err.Error())

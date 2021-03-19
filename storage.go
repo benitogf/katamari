@@ -49,19 +49,14 @@ type Database interface {
 	Keys() ([]byte, error)
 	KeysRange(path string, from, to int64) ([]string, error)
 	Get(key string) ([]byte, error)
-	MemGet(key string) ([]byte, error)
 	GetN(path string, limit int) ([]objects.Object, error)
 	GetNRange(path string, limit int, from, to int64) ([]objects.Object, error)
-	MemGetN(path string, limit int) ([]objects.Object, error)
 	GetObjList(path string) ([]objects.Object, error)
 	Set(key string, data string) (string, error)
-	MemSet(key string, data string) (string, error)
 	Pivot(key string, data string, created, updated int64) (string, error)
 	Del(key string) error
-	MemDel(key string) error
 	Clear()
 	Watch() StorageChan
-	MemWatch() StorageChan
 }
 
 // Storage abstraction of persistent data layer

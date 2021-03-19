@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/benitogf/coat"
-	"github.com/benitogf/handlers"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
 	"github.com/benitogf/katamari/stream"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
@@ -34,8 +34,6 @@ type audit func(r *http.Request) bool
 // Router: can be predefined with routes and passed to be extended
 //
 // NoBroadcastKeys: array of keys that should not broadcast on changes
-//
-// InMemoryKeys: array of keys that will be kept in memory storage
 //
 // DbOpt: options for storage
 //
@@ -70,7 +68,6 @@ type Server struct {
 	filters         filters
 	Pivot           string
 	NoBroadcastKeys []string
-	InMemoryKeys    []string
 	DbOpt           interface{}
 	Audit           audit
 	Workers         int
@@ -146,10 +143,6 @@ func (app *Server) waitStart() {
 		go app.watch(app.Storage.Watch())
 	}
 
-	for i := 0; i < app.Workers; i++ {
-		go app.memWatch(app.Storage.MemWatch())
-	}
-
 	app.console.Log("glad to serve[" + app.Address + "]")
 }
 
@@ -157,26 +150,6 @@ func (app *Server) waitStart() {
 func (app *Server) ForceFetch(key string, filter string) (stream.Cache, error) {
 	var err error
 	raw, _ := app.Storage.Get(key)
-	if len(raw) == 0 {
-		raw = objects.EmptyObject
-	}
-	// newVersion := app.Stream.SetCache(key, raw)
-	newVersion := time.Now().UTC().Unix()
-	cache := stream.Cache{
-		Version: newVersion,
-		Data:    raw,
-	}
-	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
-	if err != nil {
-		return cache, err
-	}
-	return cache, nil
-}
-
-// MemForceFetch data, update cache and apply filter
-func (app *Server) MemForceFetch(key string, filter string) (stream.Cache, error) {
-	var err error
-	raw, _ := app.Storage.MemGet(key)
 	if len(raw) == 0 {
 		raw = objects.EmptyObject
 	}
@@ -214,43 +187,8 @@ func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
 	return cache, nil
 }
 
-// MemFetch data, update cache and apply filter
-func (app *Server) MemFetch(key string, filter string) (stream.Cache, error) {
-	cache, err := app.Stream.GetCache(key)
-	if err != nil {
-		raw, _ := app.Storage.MemGet(key)
-		if len(raw) == 0 {
-			raw = objects.EmptyObject
-		}
-		newVersion := app.Stream.SetCache(key, raw)
-		cache = stream.Cache{
-			Version: newVersion,
-			Data:    raw,
-		}
-	}
-	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
-	if err != nil {
-		return cache, err
-	}
-	return cache, nil
-}
-
 func (app *Server) getPatch(poolIndex int) (string, bool, int64, error) {
 	raw, _ := app.Storage.Get(app.Stream.Pools[poolIndex].Key)
-	if len(raw) == 0 {
-		raw = objects.EmptyObject
-	}
-	filteredData, err := app.filters.Read.check(
-		app.Stream.Pools[poolIndex].Filter, raw, app.Static)
-	if err != nil {
-		return "", false, 0, err
-	}
-	modifiedData, snapshot, version := app.Stream.Patch(poolIndex, filteredData)
-	return messages.Encode(modifiedData), snapshot, version, nil
-}
-
-func (app *Server) memGetPatch(poolIndex int) (string, bool, int64, error) {
-	raw, _ := app.Storage.MemGet(app.Stream.Pools[poolIndex].Key)
 	if len(raw) == 0 {
 		raw = objects.EmptyObject
 	}
@@ -273,35 +211,12 @@ func (app *Server) broadcast(key string) {
 	})
 }
 
-func (app *Server) memBroadcast(key string) {
-	app.Stream.UseConnections(key, func(poolIndex int) {
-		data, snapshot, version, err := app.memGetPatch(poolIndex)
-		if err != nil {
-			return
-		}
-		app.Stream.Broadcast(poolIndex, data, snapshot, version)
-	})
-}
-
 func (app *Server) watch(sc StorageChan) {
 	for {
 		ev := <-sc
 		if ev.Key != "" {
 			app.console.Log("broadcast[" + ev.Key + "]")
 			go app.broadcast(ev.Key)
-		}
-		if !app.Storage.Active() {
-			break
-		}
-	}
-}
-
-func (app *Server) memWatch(sc StorageChan) {
-	for {
-		ev := <-sc
-		if ev.Key != "" {
-			app.console.Log("broadcast[" + ev.Key + "]")
-			go app.memBroadcast(ev.Key)
 		}
 		if !app.Storage.Active() {
 			break
@@ -353,6 +268,28 @@ func (app *Server) defaults() {
 
 	if app.Workers == 0 {
 		app.Workers = 6
+	}
+
+	if app.NoBroadcastKeys == nil {
+		app.NoBroadcastKeys = []string{}
+	}
+
+	if app.Client == nil {
+		app.Client = &http.Client{
+			Timeout: 800 * time.Millisecond,
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout:   800 * time.Millisecond,
+					KeepAlive: 5 * time.Second,
+				}).Dial,
+				IdleConnTimeout:       10 * time.Second,
+				ResponseHeaderTimeout: 10 * time.Second,
+				MaxConnsPerHost:       3000,
+				MaxIdleConns:          10000,
+				MaxIdleConnsPerHost:   1000,
+				DisableKeepAlives:     false,
+			},
+		}
 	}
 
 	app.Stream.ForcePatch = app.ForcePatch

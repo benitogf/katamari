@@ -12,7 +12,7 @@ Zero configuration data persistence and communication layer.
 
 Web service that behaves like a distributed filesystem in the sense that all routes are open by default, oposite to rails like frameworks where the user must define the routes before being able to interact with them.
 
-Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/katamari#creating-rules-and-control).
+Provides a dynamic websocket and restful http service to quickly prototype realtime applications, the interface has no fixed data structure or access regulations by default, to restrict access see: [define limitations](https://github.com/benitogf/katamari#control).
 
 ## features
 
@@ -68,61 +68,8 @@ go run main.go
 | DELETE | delete | http://{host}:{port}/{key} |
 | websocket| subscribe | ws://{host}:{port}/{key} |
 
-# creating rules and audits
 
-    Define ad lib filters to send and receive criteria using key glob patterns, audit middleware
-
-Using the default open setting is usefull while prototyping, but maybe not ideal to deploy as a public service.
-
-jwt auth enabled with static routing server example:
-
-```golang
-package main
-
-import (
-  "net/http"
-  "github.com/gorilla/mux"
-  "github.com/benitogf/katamari"
-  "github.com/benitogf/katamari/auth"
-  "github.com/benitogf/katamari/storages/level"
-)
-
-func main() {
-  // auth storage (users)
-	authStore := &level.Storage{Path: "/data/auth"}
-	err := authStore.Start([]string{}, nil)
-	if err != nil {
-		log.Fatal(err)
-  }
-  // noop to capture the storage channel feed
-  go katamari.WatchStorageNoop(authStore)
-  // set the JWT tokens expiry
-	auth := auth.New(
-		auth.NewJwtStore(*key, time.Minute*10),
-		authStore,
-  )
-
-  app := katamari.Server{}
-  // set the server static mode (only defined filters and routes available)
-  app.Static = true
-  // perform audits on the request path/headers/referer
-  // if the function returns false the request will return
-  // status 401
-	app.Audit = func(r *http.Request, auth *auth.TokenAuth) bool {
-    if r.URL.Path == "/open" {
-      return true
-    }
-
-    return false
-  }
-  app.Router = mux.NewRouter()
-  katamari.OpenFilter(app, "open") // available withour token
-  katamari.OpenFilter(app, "closed") // valid token required
-  auth.Router(app)
-  app.Start("localhost:8800")
-  app.WaitClose()
-}
-```
+# control
 
 ### static routes
 
@@ -190,4 +137,10 @@ app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 app.Start("localhost:8800")
 ```
 
+# libraries
 
+- [jwt authentication](https://github.com/benitogf/auth)
+- [leveldb storage](https://github.com/benitogf/level)
+- [pebble storage](https://github.com/benitogf/pebble)
+- [inmemory with leveldb persistence storage](https://github.com/benitogf/lvlmap)
+- [distiribution adapter](https://github.com/benitogf/pivot)

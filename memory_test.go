@@ -65,3 +65,14 @@ func TestKeysRange(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	StorageKeysRangeTest(app, t)
 }
+
+func TestStreamItemGlobBroadcastLevel(t *testing.T) {
+	t.Parallel()
+	app := Server{}
+	app.Silence = true
+	app.ForcePatch = true
+	app.Start("localhost:0")
+	app.Storage.Clear()
+	defer app.Close(os.Interrupt)
+	StreamItemGlobBroadcastTest(t, &app)
+}

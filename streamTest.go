@@ -94,6 +94,75 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	require.Equal(t, wsObject.Created, int64(0))
 }
 
+// StreamItemGlobBroadcastTest testing stream function
+func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
+	var wg sync.WaitGroup
+	var postObject objects.Object
+	var wsObject objects.Object
+	var wsEvent messages.Message
+	var wsCache string
+	testData := messages.Encode([]byte("something 🧰"))
+	wsURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/test/1"}
+	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
+	require.NoError(t, err)
+	wg.Add(1)
+	go func() {
+		for {
+			_, message, err := wsClient.ReadMessage()
+			if err != nil {
+				break
+			}
+			wsEvent, err = messages.DecodeTest(message)
+			require.NoError(t, err)
+			app.console.Log("read wsClient", wsEvent.Data)
+			wg.Done()
+		}
+	}()
+	wg.Wait()
+	wg.Add(1)
+	wsCache = wsEvent.Data
+	var jsonStr = []byte(`{"data":"` + testData + `"}`)
+	req := httptest.NewRequest("POST", "/test/1", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(body, &postObject)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.StatusCode)
+	wg.Wait()
+	patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
+	require.NoError(t, err)
+	modified, err := patch.Apply([]byte(wsCache))
+	require.NoError(t, err)
+	err = json.Unmarshal(modified, &wsObject)
+	require.NoError(t, err)
+	wsCache = string(modified)
+
+	require.Equal(t, wsObject.Index, postObject.Index)
+	require.Equal(t, wsObject.Data, testData)
+
+	wg.Add(1)
+	req = httptest.NewRequest("DELETE", "/test/*", nil)
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	wg.Wait()
+
+	patch, err = jsonpatch.DecodePatch([]byte(wsEvent.Data))
+	require.NoError(t, err)
+	modified, err = patch.Apply([]byte(wsCache))
+	require.NoError(t, err)
+	err = json.Unmarshal(modified, &wsObject)
+	require.NoError(t, err)
+
+	wsClient.Close()
+
+	require.Equal(t, int64(0), wsObject.Created)
+}
+
 // StreamGlobBroadcastTest testing stream function
 func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 	var wg sync.WaitGroup
