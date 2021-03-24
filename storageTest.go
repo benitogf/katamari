@@ -163,6 +163,7 @@ func StorageSetGetDelTest(db Database, b *testing.B) {
 		_, err = db.Get("test/" + ci)
 		require.NoError(b, err)
 		err = db.Del("test/" + ci)
+		require.NoError(b, err)
 		result, err := db.Get("test/*")
 		require.NoError(b, err)
 		require.Equal(b, "[]", string(result))

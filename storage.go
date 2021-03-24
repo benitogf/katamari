@@ -31,8 +31,6 @@ type StorageOpt struct {
 //
 // Get(key): retrieve a value or list of values, the key can include a glob pattern
 //
-// GetObjList(path): retrieve list of values matching a glob pattern without sorting
-//
 // GetN(path, N): retrieve N list of values matching a glob pattern
 //
 // Set(key, data): store data under the provided key, key cannot not include glob pattern
@@ -51,7 +49,6 @@ type Database interface {
 	Get(key string) ([]byte, error)
 	GetN(path string, limit int) ([]objects.Object, error)
 	GetNRange(path string, limit int, from, to int64) ([]objects.Object, error)
-	GetObjList(path string) ([]objects.Object, error)
 	Set(key string, data string) (string, error)
 	Pivot(key string, data string, created, updated int64) (string, error)
 	Del(key string) error
@@ -73,7 +70,7 @@ type Stats struct {
 // WatchStorageNoop a noop reader of the watch channel
 func WatchStorageNoop(dataStore Database) {
 	for {
-		_ = <-dataStore.Watch()
+		<-dataStore.Watch()
 		if !dataStore.Active() {
 			break
 		}

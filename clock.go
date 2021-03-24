@@ -21,15 +21,13 @@ func (app *Server) sendTime() {
 func (app *Server) tick() {
 	ticker := time.NewTicker(app.Tick)
 	for {
-		select {
-		case <-ticker.C:
-			if app.Active() {
-				app.sendTime()
-				continue
-			}
-
-			return
+		<-ticker.C
+		if app.Active() {
+			app.sendTime()
+			continue
 		}
+
+		return
 	}
 }
 
