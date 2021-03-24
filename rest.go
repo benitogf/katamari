@@ -32,7 +32,7 @@ func (app *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(stats))
+	w.Write(stats)
 }
 
 func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,6 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "{"+
 		"\"index\": \""+index+"\""+
 		"}")
-	return
 }
 
 func (app *Server) read(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +117,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(entry.Data))
+	w.Write(entry.Data)
 }
 
 func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {

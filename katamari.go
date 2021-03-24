@@ -340,7 +340,7 @@ func (app *Server) Close(sig os.Signal) {
 func (app *Server) WaitClose() {
 	app.Signal = make(chan os.Signal, 1)
 	done := make(chan bool, 1)
-	signal.Notify(app.Signal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGHUP)
+	signal.Notify(app.Signal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
 		sig := <-app.Signal
 		app.Close(sig)

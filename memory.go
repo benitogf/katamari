@@ -136,30 +136,6 @@ func (db *MemoryStorage) Get(path string) ([]byte, error) {
 	return objects.Encode(res)
 }
 
-// GetObjList bypass encoding and single objects reads
-func (db *MemoryStorage) GetObjList(path string) ([]objects.Object, error) {
-	res := []objects.Object{}
-	if !strings.Contains(path, "*") {
-		return res, errors.New("katamari: invalid pattern")
-	}
-
-	db.mem.Range(func(k interface{}, value interface{}) bool {
-		if !key.Match(path, k.(string)) {
-			return true
-		}
-
-		newObject, err := objects.Decode(value.([]byte))
-		if err != nil {
-			return true
-		}
-
-		res = append(res, newObject)
-		return true
-	})
-
-	return res, nil
-}
-
 // GetN get last N elements of a path related value(s)
 func (db *MemoryStorage) GetN(path string, limit int) ([]objects.Object, error) {
 	res := []objects.Object{}
