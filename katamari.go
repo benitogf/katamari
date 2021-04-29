@@ -47,6 +47,10 @@ type audit func(r *http.Request) bool
 //
 // OnUnsubscribe: function to monitor unsubscribe events
 //
+// OnClose: function that triggers before closing the application
+//
+// AllowedOrigins: list of allowed origins for cross domain access, defaults to ["*"]
+//
 // Storage: database interdace implementation
 //
 // Silence: output silence flag
@@ -74,6 +78,8 @@ type Server struct {
 	ForcePatch      bool
 	OnSubscribe     stream.Subscribe
 	OnUnsubscribe   stream.Unsubscribe
+	OnClose         func()
+	AllowedOrigins  []string
 	Storage         Database
 	Address         string
 	closing         int64
@@ -111,7 +117,7 @@ func (app *Server) waitListen() {
 		Addr:              app.Address,
 		Handler: cors.New(cors.Options{
 			AllowedMethods: []string{"GET", "POST", "DELETE", "PUT"},
-			// AllowedOrigins: []string{"http://foo.com", "http://foo.com:8080"},
+			AllowedOrigins: app.AllowedOrigins,
 			// AllowCredentials: true,
 			AllowedHeaders: []string{"Authorization", "Content-Type"},
 			// Debug:          true,
@@ -230,6 +236,14 @@ func (app *Server) defaults() {
 		app.Router = mux.NewRouter()
 	}
 
+	if app.OnClose == nil {
+		app.OnClose = func() {}
+	}
+
+	if app.AllowedOrigins == nil || len(app.AllowedOrigins) == 0 {
+		app.AllowedOrigins = []string{"*"}
+	}
+
 	if app.console == nil {
 		app.console = coat.NewConsole(app.Address, app.Silence)
 	}
@@ -329,6 +343,7 @@ func (app *Server) Close(sig os.Signal) {
 		atomic.StoreInt64(&app.closing, 1)
 		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
+		app.OnClose()
 		app.console.Err("shutdown", sig)
 		if app.server != nil {
 			app.server.Shutdown(context.Background())

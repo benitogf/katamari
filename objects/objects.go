@@ -56,6 +56,9 @@ func DecodeRaw(data []byte) (Object, error) {
 func Decode(data []byte) (Object, error) {
 	var obj Object
 	err := json.Unmarshal(data, &obj)
+	if err != nil {
+		return obj, err
+	}
 	aux, err := base64.StdEncoding.DecodeString(obj.Data)
 	if err != nil {
 		return obj, err
