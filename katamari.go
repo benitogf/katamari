@@ -21,6 +21,8 @@ import (
 	"github.com/rs/cors"
 )
 
+const deadlineMsg = "katamari: server deadline reached"
+
 // audit requests function
 // will define approval or denial by the return value
 // r: the request to be audited
@@ -48,6 +50,8 @@ type audit func(r *http.Request) bool
 // OnUnsubscribe: function to monitor unsubscribe events
 //
 // OnClose: function that triggers before closing the application
+//
+// Deadline: time duration of a request before timing out
 //
 // AllowedOrigins: list of allowed origins for cross domain access, defaults to ["*"]
 //
@@ -79,6 +83,7 @@ type Server struct {
 	OnSubscribe     stream.Subscribe
 	OnUnsubscribe   stream.Unsubscribe
 	OnClose         func()
+	Deadline        time.Duration
 	AllowedOrigins  []string
 	Storage         Database
 	Address         string
@@ -118,8 +123,8 @@ func (app *Server) waitListen() {
 		Handler: cors.New(cors.Options{
 			AllowedMethods: []string{"GET", "POST", "DELETE", "PUT"},
 			AllowedOrigins: app.AllowedOrigins,
-			// AllowCredentials: true,
 			AllowedHeaders: []string{"Authorization", "Content-Type"},
+			// AllowCredentials: true,
 			// Debug:          true,
 		}).Handler(handlers.CompressHandler(app.Router))}
 	ln, err := net.Listen("tcp4", app.Address)
@@ -236,6 +241,10 @@ func (app *Server) defaults() {
 		app.Router = mux.NewRouter()
 	}
 
+	if app.Deadline.Nanoseconds() == 0 {
+		app.Deadline = time.Second * 10
+	}
+
 	if app.OnClose == nil {
 		app.OnClose = func() {}
 	}
@@ -324,9 +333,13 @@ func (app *Server) Start(address string) {
 	atomic.StoreInt64(&app.active, 0)
 	atomic.StoreInt64(&app.closing, 0)
 	app.defaults()
+	// https://ieftimov.com/post/make-resilient-golang-net-http-servers-using-timeouts-deadlines-context-cancellation/
 	app.Router.HandleFunc("/", app.getStats).Methods("GET")
-	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.unpublish).Methods("DELETE")
-	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.publish).Methods("POST")
+	// https://www.calhoun.io/why-cant-i-pass-this-function-as-an-http-handler/
+	app.Router.Handle("/{key:[a-zA-Z\\*\\d\\/]+}", http.TimeoutHandler(
+		http.HandlerFunc(app.unpublish), app.Deadline, deadlineMsg)).Methods("DELETE")
+	app.Router.Handle("/{key:[a-zA-Z\\*\\d\\/]+}", http.TimeoutHandler(
+		http.HandlerFunc(app.publish), app.Deadline, deadlineMsg)).Methods("POST")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.read).Methods("GET")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.read).Queries("v", "{[\\d]}").Methods("GET")
 	app.wg.Add(1)

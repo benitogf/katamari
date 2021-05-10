@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
@@ -95,9 +96,9 @@ func TestDoubleStart(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	app := Server{}
-	app.Silence = true
+	app.Silence = false
 	app.Start("localhost:9889")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
@@ -152,4 +153,20 @@ func TestInvalidKey(t *testing.T) {
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
 	require.Equal(t, http.StatusMovedPermanently, resp.StatusCode)
+}
+
+func TestDeadline(t *testing.T) {
+	app := Server{
+		Deadline: 1 * time.Nanosecond,
+		Silence:  true,
+	}
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+
+	var jsonStr = []byte(`{"data":"test"}`)
+	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, 503, resp.StatusCode)
 }
