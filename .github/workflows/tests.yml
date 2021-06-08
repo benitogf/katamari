@@ -14,5 +14,18 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
       uses: actions/checkout@v2
+    - name: install
+      run: go get github.com/gorilla/mux
+      run: go get github.com/gorilla/websocket
+      run: go get github.com/rs/cors
+      run: go get github.com/benitogf/coat
+      run: go get github.com/stretchr/testify
+      run: go get golang.org/x/tools/cmd/cover
+      run: go get github.com/benitogf/jsonpatch
+      run: go get github.com/nsf/jsondiff
+      run: go get github.com/gorilla/handlers
+      run: go get github.com/pkg/expect
+    - name: lint
+      run: go vet .
     - name: Test
-      run: go test ./...
+      run: go test .
