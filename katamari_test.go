@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -98,7 +99,7 @@ func TestDoubleStart(t *testing.T) {
 func TestRestart(t *testing.T) {
 	// t.Skip()
 	app := Server{}
-	app.Silence = false
+	app.Silence = true
 	app.Start("localhost:9889")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
@@ -156,6 +157,10 @@ func TestInvalidKey(t *testing.T) {
 }
 
 func TestDeadline(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// TODO: investigate how to simulate a delay in the request on windows
+		t.Skip()
+	}
 	app := Server{
 		Deadline: 1 * time.Nanosecond,
 		Silence:  true,

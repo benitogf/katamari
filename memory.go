@@ -46,9 +46,9 @@ func (db *MemoryStorage) Start(storageOpt StorageOpt) error {
 func (db *MemoryStorage) Close() {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
+	db.storage.Active = false
 	close(db.watcher)
 	db.watcher = nil
-	db.storage.Active = false
 }
 
 // Clear all keys in the storage
@@ -241,7 +241,7 @@ func (db *MemoryStorage) Set(path string, data string) (string, error) {
 		Data:    data,
 	}))
 
-	if !key.Contains(db.noBroadcastKeys, path) {
+	if !key.Contains(db.noBroadcastKeys, path) && db.Active() {
 		db.watcher <- StorageEvent{Key: path, Operation: "set"}
 	}
 	return index, nil
@@ -261,7 +261,7 @@ func (db *MemoryStorage) Pivot(path string, data string, created int64, updated 
 		return index, nil
 	}
 
-	if !key.Contains(db.noBroadcastKeys, path) {
+	if !key.Contains(db.noBroadcastKeys, path) && db.Active() {
 		db.watcher <- StorageEvent{Key: path, Operation: "set"}
 	}
 	return index, nil
@@ -275,7 +275,7 @@ func (db *MemoryStorage) Del(path string) error {
 			return errors.New("katamari: not found")
 		}
 		db.mem.Delete(path)
-		if !key.Contains(db.noBroadcastKeys, path) {
+		if !key.Contains(db.noBroadcastKeys, path) && db.Active() {
 			db.watcher <- StorageEvent{Key: path, Operation: "del"}
 		}
 		return nil
@@ -287,7 +287,7 @@ func (db *MemoryStorage) Del(path string) error {
 		}
 		return true
 	})
-	if !key.Contains(db.noBroadcastKeys, path) {
+	if !key.Contains(db.noBroadcastKeys, path) && db.Active() {
 		db.watcher <- StorageEvent{Key: path, Operation: "del"}
 	}
 	return nil
