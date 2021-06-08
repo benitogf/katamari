@@ -15,16 +15,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
     - name: install
-      run: go get github.com/gorilla/mux
-      run: go get github.com/gorilla/websocket
-      run: go get github.com/rs/cors
-      run: go get github.com/benitogf/coat
-      run: go get github.com/stretchr/testify
-      run: go get golang.org/x/tools/cmd/cover
-      run: go get github.com/benitogf/jsonpatch
-      run: go get github.com/nsf/jsondiff
-      run: go get github.com/gorilla/handlers
-      run: go get github.com/pkg/expect
+      run: |
+        go get github.com/gorilla/mux
+        go get github.com/gorilla/websocket
+        go get github.com/rs/cors
+        go get github.com/benitogf/coat
+        go get github.com/stretchr/testify
+        go get golang.org/x/tools/cmd/cover
+        go get github.com/benitogf/jsonpatch
+        go get github.com/nsf/jsondiff
+        go get github.com/gorilla/handlers
+        go get github.com/pkg/expect
     - name: lint
       run: go vet .
     - name: Test
