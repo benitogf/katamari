@@ -29,4 +29,4 @@ jobs:
     - name: lint
       run: go vet .
     - name: Test
-      run: go test .
+      run: go test -v -coverprofile cover.out -count 1 -failfast -race -bench .

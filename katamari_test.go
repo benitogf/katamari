@@ -98,7 +98,7 @@ func TestDoubleStart(t *testing.T) {
 func TestRestart(t *testing.T) {
 	// t.Skip()
 	app := Server{}
-	app.Silence = false
+	app.Silence = true
 	app.Start("localhost:9889")
 	app.Close(os.Interrupt)
 	// https://golang.org/pkg/net/http/#example_Server_Shutdown
