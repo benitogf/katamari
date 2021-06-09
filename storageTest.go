@@ -186,7 +186,7 @@ func StorageGetNTest(app *Server, t *testing.T, n int) {
 	testObjects, err := app.Storage.GetN("test/*", limit)
 	require.NoError(t, err)
 	require.Equal(t, limit, len(testObjects))
-	require.Equal(t, "99", testObjects[0].Index)
+	require.Equal(t, strconv.Itoa(n-1), testObjects[0].Index)
 }
 
 // StorageGetNRangeTest testing storage GetN function
