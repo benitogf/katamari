@@ -54,7 +54,7 @@ func TestGetN(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	StorageGetNTest(app, t)
+	StorageGetNTest(app, t, 100)
 }
 
 func TestKeysRange(t *testing.T) {
@@ -63,7 +63,7 @@ func TestKeysRange(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	StorageKeysRangeTest(app, t)
+	StorageKeysRangeTest(app, t, 100)
 }
 
 func TestStreamItemGlobBroadcastLevel(t *testing.T) {

@@ -171,10 +171,10 @@ func StorageSetGetDelTest(db Database, b *testing.B) {
 }
 
 // StorageGetNTest testing storage GetN function
-func StorageGetNTest(app *Server, t *testing.T) {
+func StorageGetNTest(app *Server, t *testing.T, n int) {
 	app.Storage.Clear()
 	testData := base64.StdEncoding.EncodeToString([]byte(units[0]))
-	for i := 0; i < 100; i++ {
+	for i := 0; i < n; i++ {
 		value := strconv.Itoa(i)
 		key, err := app.Storage.Set("test/"+value, testData)
 		require.NoError(t, err)
@@ -190,10 +190,10 @@ func StorageGetNTest(app *Server, t *testing.T) {
 }
 
 // StorageGetNRangeTest testing storage GetN function
-func StorageGetNRangeTest(app *Server, t *testing.T) {
+func StorageGetNRangeTest(app *Server, t *testing.T, n int) {
 	app.Storage.Clear()
 	testData := base64.StdEncoding.EncodeToString([]byte(units[0]))
-	for i := 1; i < 100; i++ {
+	for i := 1; i < n; i++ {
 		value := strconv.Itoa(i)
 		key, err := app.Storage.Pivot("test/"+value, testData, int64(i), 0)
 		require.NoError(t, err)
@@ -229,11 +229,11 @@ var units = []string{
 }
 
 // StorageKeysRangeTest testing storage GetN function
-func StorageKeysRangeTest(app *Server, t *testing.T) {
+func StorageKeysRangeTest(app *Server, t *testing.T, n int) {
 	app.Storage.Clear()
 	testData := units[0]
 	first := ""
-	for i := 0; i < 100; i++ {
+	for i := 0; i < n; i++ {
 		path := key.Build("test/*")
 		key, err := app.Storage.Set(path, testData)
 		if first == "" {
