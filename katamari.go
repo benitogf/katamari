@@ -198,6 +198,15 @@ func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
 	return cache, nil
 }
 
+// getPatch of the by a poolIndex, it returns
+//
+// - message (string)
+//
+// - bool flag to indicate if the message is a full snapshot
+//
+// - version timestamp
+//
+// - error
 func (app *Server) getPatch(poolIndex int) (string, bool, int64, error) {
 	raw, _ := app.Storage.Get(app.Stream.Pools[poolIndex].Key)
 	if len(raw) == 0 {
