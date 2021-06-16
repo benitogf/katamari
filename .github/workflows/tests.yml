@@ -26,7 +26,17 @@ jobs:
         go get github.com/nsf/jsondiff
         go get github.com/gorilla/handlers
         go get github.com/pkg/expect
+        go get github.com/getlantern/httptest
     - name: lint
-      run: go vet .
-    - name: Test
+      run: |
+        go vet .
+        go vet ./stream/
+        go vet ./key/
+        go vet ./messages/
+        go vet ./objects/
+    - name: Test Main
       run: go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
+    - name: Test Stream
+      run: go test -v -coverprofile cover.out -count 1 -failfast -race ./stream/
+    - name: Test Key
+      run: go test -v -coverprofile cover.out -count 1 -failfast -race ./key/

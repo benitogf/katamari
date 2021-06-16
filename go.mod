@@ -6,6 +6,8 @@ require (
 	github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec
 	github.com/benitogf/jsonpatch v0.0.0-20200902061850-bc36be00f341
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
+	github.com/getlantern/mockconn v0.0.0-20200818071412-cb30d065a848 // indirect
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2

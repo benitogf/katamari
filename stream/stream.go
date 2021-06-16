@@ -2,6 +2,7 @@ package stream
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"sync"
@@ -32,7 +33,6 @@ type Conn struct {
 
 // Pool of key filtered connections
 type Pool struct {
-	// mutex       sync.RWMutex
 	Key         string
 	Filter      string
 	cache       Cache
@@ -49,6 +49,14 @@ type Pools struct {
 	Console       *coat.Console
 }
 
+var StreamUpgrader = websocket.Upgrader{
+	// define the upgrade success
+	CheckOrigin: func(r *http.Request) bool {
+		return r.Header.Get("Upgrade") == "websocket"
+	},
+	Subprotocols: []string{"bearer"},
+}
+
 func (sm *Pools) findPool(key string, filter string) int {
 	poolIndex := -1
 	for i := range sm.Pools {
@@ -63,8 +71,8 @@ func (sm *Pools) findPool(key string, filter string) int {
 
 // UseConnections will look for pools that match a path and call a function for each one
 func (sm *Pools) UseConnections(path string, callback func(int)) {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
 	for i := range sm.Pools {
 		if i != 0 && (sm.Pools[i].Key == path || key.Match(sm.Pools[i].Key, path) || key.Match(path, sm.Pools[i].Key)) {
 			callback(i)
@@ -95,15 +103,7 @@ func (sm *Pools) Close(key string, filter string, client *Conn) {
 
 // New stream on a key
 func (sm *Pools) New(key string, filter string, w http.ResponseWriter, r *http.Request) (*Conn, error) {
-	upgrader := websocket.Upgrader{
-		// define the upgrade success
-		CheckOrigin: func(r *http.Request) bool {
-			return r.Header.Get("Upgrade") == "websocket"
-		},
-		Subprotocols: []string{"bearer"},
-	}
-
-	wsClient, err := upgrader.Upgrade(w, r, nil)
+	wsClient, err := StreamUpgrader.Upgrade(w, r, nil)
 
 	if err != nil {
 		sm.Console.Err("socketUpgradeError["+key+"]", err)
@@ -115,11 +115,11 @@ func (sm *Pools) New(key string, filter string, w http.ResponseWriter, r *http.R
 		return nil, err
 	}
 
-	return sm.Open(key, filter, wsClient), nil
+	return sm._New(key, filter, wsClient), nil
 }
 
 // Open a connection for a key
-func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn {
+func (sm *Pools) _New(key string, filter string, wsClient *websocket.Conn) *Conn {
 	client := &Conn{
 		conn:  wsClient,
 		mutex: sync.Mutex{},
@@ -137,12 +137,14 @@ func (sm *Pools) Open(key string, filter string, wsClient *websocket.Conn) *Conn
 				Filter:      filter,
 				connections: []*Conn{client}})
 		poolIndex = len(sm.Pools) - 1
-	} else {
-		// use existing pool
-		sm.Pools[poolIndex].connections = append(
-			sm.Pools[poolIndex].connections,
-			client)
+		sm.Console.Log("connections["+key+"]: ", len(sm.Pools[poolIndex].connections))
+		return client
 	}
+
+	// use existing pool
+	sm.Pools[poolIndex].connections = append(
+		sm.Pools[poolIndex].connections,
+		client)
 	sm.Console.Log("connections["+key+"]: ", len(sm.Pools[poolIndex].connections))
 	return client
 }
@@ -168,6 +170,7 @@ func (sm *Pools) Patch(poolIndex int, data []byte) ([]byte, bool, int64) {
 	}
 	// don't send the operations if they exceed the data size
 	if !sm.ForcePatch && len(operations) > len(data) {
+		// sm.Console.Err("patch operations bigger than data", string(operations))
 		return data, true, version
 	}
 
@@ -194,7 +197,6 @@ func (sm *Pools) Write(client *Conn, data string, snapshot bool, version int64) 
 // Broadcast message
 func (sm *Pools) Broadcast(poolIndex int, data string, snapshot bool, version int64) {
 	connections := sm.Pools[poolIndex].connections
-
 	for _, client := range connections {
 		go sm.Write(client, data, snapshot, version)
 	}
@@ -210,4 +212,47 @@ func (sm *Pools) Read(key string, filter string, client *Conn) {
 			break
 		}
 	}
+}
+
+// SetCache by key
+func (sm *Pools) SetCache(key string, data []byte) int64 {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	poolIndex := sm.findPool(key, key)
+	now := time.Now().UTC().UnixNano()
+	if poolIndex == -1 {
+		// create a pool
+		sm.Pools = append(
+			sm.Pools,
+			&Pool{
+				Key: key,
+				cache: Cache{
+					Version: now,
+					Data:    data,
+				},
+				connections: []*Conn{}})
+		return now
+	}
+
+	sm.Pools[poolIndex].cache = Cache{
+		Version: now,
+		Data:    data,
+	}
+	return now
+}
+
+// GetCache by key
+func (sm *Pools) GetCache(key string) (Cache, error) {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+	poolIndex := sm.findPool(key, key)
+	if poolIndex == -1 {
+		return Cache{}, errors.New("stream pool not found")
+	}
+	cache := sm.Pools[poolIndex].cache
+	if len(cache.Data) == 0 {
+		return cache, errors.New("stream pool cache empty")
+	}
+
+	return cache, nil
 }
