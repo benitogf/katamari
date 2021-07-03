@@ -15,7 +15,7 @@ func Time() string {
 }
 
 func (app *Server) sendTime() {
-	app.Stream.BroadcastTime(Time())
+	app.Stream.BroadcastClock(Time())
 }
 
 func (app *Server) tick() {
@@ -39,11 +39,11 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := app.Stream.New("", "", w, r)
+	client, err := app.Stream.New("", w, r)
 	if err != nil {
 		return
 	}
 
-	go app.Stream.WriteTime(client, Time())
-	app.Stream.Read("", "", client)
+	go app.Stream.WriteClock(client, Time())
+	app.Stream.Read("", client)
 }

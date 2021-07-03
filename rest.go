@@ -103,8 +103,7 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.console.Log("read", _key)
-	entry, err := app.ForceFetch(_key, _key)
-
+	entry, err := app.Fetch(_key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
