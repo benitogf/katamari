@@ -37,6 +37,10 @@ func Match(path string, key string) bool {
 	return match && countPath == countKey
 }
 
+func Peer(a string, b string) bool {
+	return a == b || Match(a, b) || Match(b, a)
+}
+
 // LastIndex will return the last sub path of the key
 func LastIndex(key string) string {
 	return key[strings.LastIndexAny(key, "/")+1:]

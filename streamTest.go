@@ -16,6 +16,7 @@ import (
 	"github.com/benitogf/katamari/objects"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/expect"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +39,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			wsEvent, err = messages.DecodeTest(message)
-			require.NoError(t, err)
+			expect.Nil(err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			wg.Done()
 		}
@@ -48,7 +49,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	wsCache = wsEvent.Data
 	wsVersion, err := strconv.ParseInt(wsEvent.Version, 16, 64)
 	require.NoError(t, err)
-	streamCache, err := app.Stream.GetCache("test")
+	streamCacheVersion, err := app.Stream.GetCacheVersion("test")
 	require.NoError(t, err)
 	app.console.Log("post data")
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
@@ -61,7 +62,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	err = json.Unmarshal(body, &postObject)
 	require.NoError(t, err)
 	require.Equal(t, 200, resp.StatusCode)
-	require.Equal(t, wsVersion, streamCache.Version)
+	require.Equal(t, wsVersion, streamCacheVersion)
 	wg.Wait()
 	wg.Add(1)
 
@@ -113,7 +114,7 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			wsEvent, err = messages.DecodeTest(message)
-			require.NoError(t, err)
+			expect.Nil(err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			wg.Done()
 		}
@@ -182,7 +183,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			wsEvent, err = messages.DecodeTest(message)
-			require.NoError(t, err)
+			expect.Nil(err)
 			app.console.Log("read wsClient", wsEvent.Data)
 			wg.Done()
 		}
@@ -241,28 +242,14 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	testData := messages.Encode([]byte("something 🧰"))
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
 	// extra filter
-	app.ReadFilter("extra", func(index string, data []byte) ([]byte, error) {
+	app.ReadFilter("test/*", func(index string, data []byte) ([]byte, error) {
 		return []byte("extra"), nil
 	})
 	// extra route
 	app.Router = mux.NewRouter()
-	app.Router.HandleFunc("/extra", func(w http.ResponseWriter, r *http.Request) {
-		client, err := app.Stream.New("test/*", "extra", w, r)
-		if err != nil {
-			return
-		}
-
-		entry, err := app.Fetch("test/*", "extra")
-		if err != nil {
-			return
-		}
-
-		go app.Stream.Write(client, messages.Encode(entry.Data), true, entry.Version)
-		app.Stream.Read("test/*", "extra", client)
-	}).Methods("GET")
 	app.Start("localhost:0")
 	app.Storage.Clear()
-	wsExtraURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/extra"}
+	wsExtraURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/test/*"}
 	wsExtraClient, _, err := websocket.DefaultDialer.Dial(wsExtraURL.String(), nil)
 	require.NoError(t, err)
 	wg.Add(1)
@@ -273,8 +260,8 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 				break
 			}
 			wsExtraEvent, err = messages.DecodeTest(message)
-			require.NoError(t, err)
-			app.console.Log("read wsClient", wsExtraEvent.Data)
+			expect.Nil(err)
+			app.console.Log("read wsClient", string(message))
 			wg.Done()
 		}
 	}()
@@ -293,5 +280,7 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	wg.Wait()
 	wsExtraClient.Close()
 
-	require.Equal(t, "extra", wsExtraEvent.Data)
+	// empty operations for a broadcast with no changes
+	require.Equal(t, false, wsExtraEvent.Snapshot)
+	require.Equal(t, "[]", wsExtraEvent.Data)
 }

@@ -139,6 +139,26 @@ func (r hooks) check(path string, static bool) error {
 	return r[match].apply(path)
 }
 
+func (r router) checkStatic(path string, static bool) error {
+	match := -1
+	for i, filter := range r {
+		if filter.path == path || key.Match(filter.path, path) {
+			match = i
+			break
+		}
+	}
+
+	if match == -1 && !static {
+		return nil
+	}
+
+	if match == -1 && static {
+		return errors.New("route not defined, static mode, key:" + path)
+	}
+
+	return nil
+}
+
 func (r router) check(path string, data []byte, static bool) ([]byte, error) {
 	match := -1
 	for i, filter := range r {

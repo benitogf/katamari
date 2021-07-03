@@ -72,7 +72,7 @@ type Server struct {
 	wg              sync.WaitGroup
 	server          *http.Server
 	Router          *mux.Router
-	Stream          stream.Pools
+	Stream          stream.Stream
 	filters         filters
 	Pivot           string
 	NoBroadcastKeys []string
@@ -157,86 +157,39 @@ func (app *Server) waitStart() {
 	app.console.Log("glad to serve[" + app.Address + "]")
 }
 
-// ForceFetch data, update cache and apply filter
-func (app *Server) ForceFetch(key string, filter string) (stream.Cache, error) {
-	var err error
+// Fetch data, update cache and apply filter
+func (app *Server) Fetch(key string) (stream.Cache, error) {
+	err := app.filters.Read.checkStatic(key, app.Static)
+	if err != nil {
+		return stream.Cache{}, err
+	}
+	return app.Stream.Refresh(key, app.getFilteredData), nil
+}
+
+// getFilteredData
+func (app *Server) getFilteredData(key string) ([]byte, error) {
 	raw, _ := app.Storage.Get(key)
 	if len(raw) == 0 {
 		raw = objects.EmptyObject
 	}
-	// newVersion := app.Stream.SetCache(key, raw)
-	newVersion := time.Now().UTC().Unix()
-	cache := stream.Cache{
-		Version: newVersion,
-		Data:    raw,
-	}
-	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
+	filteredData, err := app.filters.Read.check(key, raw, app.Static)
 	if err != nil {
-		return cache, err
+		return []byte(""), err
 	}
-	return cache, nil
-}
-
-// Fetch data, update cache and apply filter
-func (app *Server) Fetch(key string, filter string) (stream.Cache, error) {
-	cache, err := app.Stream.GetCache(key)
-	if err != nil {
-		raw, _ := app.Storage.Get(key)
-		if len(raw) == 0 {
-			raw = objects.EmptyObject
-		}
-		newVersion := app.Stream.SetCache(key, raw)
-		cache = stream.Cache{
-			Version: newVersion,
-			Data:    raw,
-		}
-	}
-	cache.Data, err = app.filters.Read.check(filter, cache.Data, app.Static)
-	if err != nil {
-		return cache, err
-	}
-	return cache, nil
-}
-
-// getPatch of the by a poolIndex, it returns
-//
-// - message (string)
-//
-// - bool flag to indicate if the message is a full snapshot
-//
-// - version timestamp
-//
-// - error
-func (app *Server) getPatch(poolIndex int) (string, bool, int64, error) {
-	raw, _ := app.Storage.Get(app.Stream.Pools[poolIndex].Key)
-	if len(raw) == 0 {
-		raw = objects.EmptyObject
-	}
-	filteredData, err := app.filters.Read.check(
-		app.Stream.Pools[poolIndex].Filter, raw, app.Static)
-	if err != nil {
-		return "", false, 0, err
-	}
-	modifiedData, snapshot, version := app.Stream.Patch(poolIndex, filteredData)
-	return messages.Encode(modifiedData), snapshot, version, nil
-}
-
-func (app *Server) broadcast(key string) {
-	app.Stream.UseConnections(key, func(poolIndex int) {
-		data, snapshot, version, err := app.getPatch(poolIndex)
-		if err != nil {
-			return
-		}
-		app.Stream.Broadcast(poolIndex, data, snapshot, version)
-	})
+	return filteredData, nil
 }
 
 func (app *Server) watch(sc StorageChan) {
+	broadcastOpt := stream.BroadcastOpt{
+		Get:      app.getFilteredData,
+		Encode:   messages.Encode,
+		Callback: nil,
+	}
 	for {
 		ev := <-sc
 		if ev.Key != "" {
 			app.console.Log("broadcast[" + ev.Key + "]")
-			go app.broadcast(ev.Key)
+			app.Stream.Broadcast(ev.Key, broadcastOpt)
 		}
 		if !app.Storage.Active() {
 			break
@@ -325,11 +278,7 @@ func (app *Server) defaults() {
 	}
 
 	app.Stream.ForcePatch = app.ForcePatch
-	if len(app.Stream.Pools) == 0 {
-		app.Stream.Pools = append(
-			app.Stream.Pools,
-			&stream.Pool{Key: ""})
-	}
+	app.Stream.InitClock()
 }
 
 // Start : initialize and start the http server and database connection

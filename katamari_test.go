@@ -97,7 +97,7 @@ func TestDoubleStart(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
-	// t.Skip()
+	t.Skip()
 	app := Server{}
 	app.Silence = true
 	app.Start("localhost:9889")
