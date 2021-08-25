@@ -190,7 +190,7 @@ func (sm *Stream) Broadcast(path string, opt BroadcastOpt) {
 func (sm *Stream) broadcast(poolIndex int, data string, snapshot bool, version int64) {
 	connections := sm.pools[poolIndex].connections
 	for _, client := range connections {
-		go sm.Write(client, data, snapshot, version)
+		sm.Write(client, data, snapshot, version)
 	}
 }
 
