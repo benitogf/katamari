@@ -6,6 +6,8 @@ github.com/benitogf/jsondiff v0.0.0-20200402083139-355fc2c95658 h1:wCbyHDE170Pt3
 github.com/benitogf/jsondiff v0.0.0-20200402083139-355fc2c95658/go.mod h1:w/Y8qUTRw+ewq+K23wa0CrhT19d1nsboJd8mFJoE9+0=
 github.com/benitogf/jsonpatch v0.0.0-20200902061850-bc36be00f341 h1:FQWRNXNBeQberwmMdl3/cfFharZPTUgcSucM3Du+Sq8=
 github.com/benitogf/jsonpatch v0.0.0-20200902061850-bc36be00f341/go.mod h1:/dqfb1omxp7PkYMtIxjlLRZleHKq0VNPh/yhrejRCqU=
+github.com/benitogf/jsonpatch v0.0.0-20210608090026-cebd07eba361 h1:c5ECN02frRXad0hmD6Y6WNIHL+kc6oV8ejErH5r/65M=
+github.com/benitogf/jsonpatch v0.0.0-20210608090026-cebd07eba361/go.mod h1:/dqfb1omxp7PkYMtIxjlLRZleHKq0VNPh/yhrejRCqU=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -13,6 +15,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/felixge/httpsnoop v1.0.1 h1:lvB5Jl89CsZtGIWuTcDM1E/vkVs49/Ml7JJe07l8SPQ=
 github.com/felixge/httpsnoop v1.0.1/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
+github.com/felixge/httpsnoop v1.0.2 h1:+nS9g82KMXccJ/wp0zyRW9ZBHFETmMGtkk+2CTTrW4o=
+github.com/felixge/httpsnoop v1.0.2/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590 h1:OhyiFx+yBN30O3IHrIq+9LAEhy6o7fin21wUQxF8NiE=
 github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590/go.mod h1:rE/jidqqHHG9sjSxC24Gd5YCfZ1AT91C2wjJ28TAOfA=
 github.com/getlantern/mockconn v0.0.0-20200818071412-cb30d065a848 h1:2MhMMVBTnaHrst6HyWFDhwQCaJ05PZuOv1bE2gN8WFY=
@@ -36,6 +40,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rs/cors v1.7.0 h1:+88SsELBHx5r+hZ8TCkggzSstaWNbDvThkVK8H6f9ik=
 github.com/rs/cors v1.7.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
+github.com/rs/cors v1.8.2 h1:KCooALfAYGs415Cwu5ABvv9n9509fSiG5SQJn/AQo4U=
+github.com/rs/cors v1.8.2/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
 github.com/stretchr/objx v0.1.0 h1:4G4v2dO3VZwixGIRoQ5Lfboy6nUhCyYzaqnIAPPhYs4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
