@@ -43,7 +43,7 @@ type audit func(r *http.Request) bool
 //
 // Workers: number of workers to use as readers of the storage->broadcast channel
 //
-// ForcePatch: flag to force patch operations
+// ForcePatch: flag to force patch operations even if the patch is bigger than the snapshot
 //
 // OnSubscribe: function to monitor subscribe events
 //
@@ -62,8 +62,6 @@ type audit func(r *http.Request) bool
 // Static: static routing flag
 //
 // Tick: time interval between ticks on the clock subscription
-//
-// NamedSocket: name of the ipc socket
 //
 // Signal: os signal channel
 //
@@ -92,7 +90,7 @@ type Server struct {
 	Silence         bool
 	Static          bool
 	Tick            time.Duration
-	console         *coat.Console
+	Console         *coat.Console
 	Signal          chan os.Signal
 	Client          *http.Client
 }
@@ -154,11 +152,11 @@ func (app *Server) waitStart() {
 		go app.watch(app.Storage.Watch())
 	}
 
-	app.console.Log("glad to serve[" + app.Address + "]")
+	app.Console.Log("glad to serve[" + app.Address + "]")
 }
 
 // Fetch data, update cache and apply filter
-func (app *Server) Fetch(key string) (stream.Cache, error) {
+func (app *Server) fetch(key string) (stream.Cache, error) {
 	err := app.filters.Read.checkStatic(key, app.Static)
 	if err != nil {
 		return stream.Cache{}, err
@@ -188,7 +186,7 @@ func (app *Server) watch(sc StorageChan) {
 	for {
 		ev := <-sc
 		if ev.Key != "" {
-			app.console.Log("broadcast[" + ev.Key + "]")
+			app.Console.Log("broadcast[" + ev.Key + "]")
 			app.Stream.Broadcast(ev.Key, broadcastOpt)
 		}
 		if !app.Storage.Active() {
@@ -215,12 +213,12 @@ func (app *Server) defaults() {
 		app.AllowedOrigins = []string{"*"}
 	}
 
-	if app.console == nil {
-		app.console = coat.NewConsole(app.Address, app.Silence)
+	if app.Console == nil {
+		app.Console = coat.NewConsole(app.Address, app.Silence)
 	}
 
 	if app.Stream.Console == nil {
-		app.Stream.Console = app.console
+		app.Stream.Console = app.Console
 	}
 
 	if app.Storage == nil {
@@ -261,11 +259,11 @@ func (app *Server) defaults() {
 
 	if app.Client == nil {
 		app.Client = &http.Client{
-			Timeout: 800 * time.Millisecond,
+			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
 				Dial: (&net.Dialer{
-					Timeout:   800 * time.Millisecond,
-					KeepAlive: 5 * time.Second,
+					Timeout:   1 * time.Second,
+					KeepAlive: 10 * time.Second,
 				}).Dial,
 				IdleConnTimeout:       10 * time.Second,
 				ResponseHeaderTimeout: 10 * time.Second,
@@ -285,7 +283,7 @@ func (app *Server) defaults() {
 func (app *Server) Start(address string) {
 	app.Address = address
 	if atomic.LoadInt64(&app.active) == 1 {
-		app.console.Err("server already active")
+		app.Console.Err("server already active")
 		return
 	}
 	atomic.StoreInt64(&app.active, 0)
@@ -304,7 +302,7 @@ func (app *Server) Start(address string) {
 	go app.waitListen()
 	app.wg.Wait()
 	app.waitStart()
-	app.console = coat.NewConsole(app.Address, app.Silence)
+	app.Console = coat.NewConsole(app.Address, app.Silence)
 	go app.tick()
 }
 
@@ -315,7 +313,7 @@ func (app *Server) Close(sig os.Signal) {
 		atomic.StoreInt64(&app.active, 0)
 		app.Storage.Close()
 		app.OnClose()
-		app.console.Err("shutdown", sig)
+		app.Console.Err("shutdown", sig)
 		if app.server != nil {
 			app.server.Shutdown(context.Background())
 		}

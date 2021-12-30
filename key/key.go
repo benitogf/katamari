@@ -38,7 +38,7 @@ func Match(path string, key string) bool {
 }
 
 func Peer(a string, b string) bool {
-	return a == b || Match(a, b) || Match(b, a)
+	return Match(a, b) || Match(b, a)
 }
 
 // LastIndex will return the last sub path of the key
@@ -70,7 +70,7 @@ func Decode(key string) int64 {
 // Contains find match in an array of paths
 func Contains(s []string, e string) bool {
 	for _, a := range s {
-		if Match(a, e) || Match(e, a) {
+		if Peer(a, e) {
 			return true
 		}
 	}

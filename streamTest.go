@@ -40,7 +40,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 			}
 			wsEvent, err = messages.DecodeTest(message)
 			expect.Nil(err)
-			app.console.Log("read wsClient", wsEvent.Data)
+			app.Console.Log("read wsClient", wsEvent.Data)
 			wg.Done()
 		}
 	}()
@@ -51,7 +51,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	require.NoError(t, err)
 	streamCacheVersion, err := app.Stream.GetCacheVersion("test")
 	require.NoError(t, err)
-	app.console.Log("post data")
+	app.Console.Log("post data")
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
 	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
@@ -115,7 +115,7 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 			}
 			wsEvent, err = messages.DecodeTest(message)
 			expect.Nil(err)
-			app.console.Log("read wsClient", wsEvent.Data)
+			app.Console.Log("read wsClient", wsEvent.Data)
 			wg.Done()
 		}
 	}()
@@ -184,14 +184,14 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server) {
 			}
 			wsEvent, err = messages.DecodeTest(message)
 			expect.Nil(err)
-			app.console.Log("read wsClient", wsEvent.Data)
+			app.Console.Log("read wsClient", wsEvent.Data)
 			wg.Done()
 		}
 	}()
 	wg.Wait()
 	wg.Add(1)
 	wsCache = wsEvent.Data
-	app.console.Log("post data")
+	app.Console.Log("post data")
 	var jsonStr = []byte(`{"data":"` + testData + `"}`)
 	req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
@@ -261,13 +261,13 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 			}
 			wsExtraEvent, err = messages.DecodeTest(message)
 			expect.Nil(err)
-			app.console.Log("read wsClient", string(message))
+			app.Console.Log("read wsClient", string(message))
 			wg.Done()
 		}
 	}()
 	wg.Wait()
 	wg.Add(1)
-	app.console.Log("post data")
+	app.Console.Log("post data")
 	req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)

@@ -16,7 +16,7 @@ func TestFilters(t *testing.T) {
 	app := Server{}
 	app.Silence = true
 	app.WriteFilter("test1", func(key string, data []byte) ([]byte, error) {
-		app.console.Log(string(data) != "test1")
+		app.Console.Log(string(data) != "test1")
 		if string(data) != "test1" {
 			return nil, errors.New("filtered")
 		}
