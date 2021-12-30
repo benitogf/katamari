@@ -35,7 +35,7 @@ func (app *Server) clock(w http.ResponseWriter, r *http.Request) {
 	if !app.Audit(r) {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
-		app.console.Err("socketConnectionUnauthorized time")
+		app.Console.Err("socketConnectionUnauthorized time")
 		return
 	}
 

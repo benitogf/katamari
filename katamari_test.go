@@ -49,7 +49,7 @@ func TestAudit(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/sa/test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.Err(err)
+	app.Console.Err(err)
 	require.Error(t, err)
 
 	app.Audit = func(r *http.Request) bool {
@@ -76,7 +76,7 @@ func TestAudit(t *testing.T) {
 	u = url.URL{Scheme: "ws", Host: app.Address, Path: "/"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.Err(err)
+	app.Console.Err(err)
 	require.Error(t, err)
 }
 
@@ -115,7 +115,7 @@ func TestGlobKey(t *testing.T) {
 	defer app.Close(os.Interrupt)
 	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/ws/test/*"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	app.console.Err(err)
+	app.Console.Err(err)
 	require.NotNil(t, c)
 	require.NoError(t, err)
 	c.Close()
@@ -130,17 +130,17 @@ func TestInvalidKey(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: app.Address, Path: "/sa//test"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.Err(err)
+	app.Console.Err(err)
 	require.Error(t, err)
 	u = url.URL{Scheme: "ws", Host: app.Address, Path: "/sa/test//1"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.Err(err)
+	app.Console.Err(err)
 	require.Error(t, err)
 	u = url.URL{Scheme: "ws", Host: app.Address, Path: "/sa/test/1/"}
 	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	require.Nil(t, c)
-	app.console.Err(err)
+	app.Console.Err(err)
 	require.Error(t, err)
 
 	req := httptest.NewRequest("GET", "/test//1", nil)

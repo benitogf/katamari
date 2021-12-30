@@ -61,7 +61,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	_key := key.Build(vkey)
 	data, err := app.filters.Write.check(_key, []byte(event.Data), app.Static)
 	if err != nil {
-		app.console.Err("setError["+_key+"]", err)
+		app.Console.Err("setError["+_key+"]", err)
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
 		return
@@ -75,7 +75,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("publish", _key)
+	app.Console.Log("publish", _key)
 	app.filters.After.check(_key)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "{"+
@@ -102,8 +102,8 @@ func (app *Server) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.console.Log("read", _key)
-	entry, err := app.Fetch(_key)
+	app.Console.Log("read", _key)
+	entry, err := app.fetch(_key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
@@ -135,17 +135,17 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 
 	err := app.filters.Delete.check(_key, app.Static)
 	if err != nil {
-		app.console.Err("detError["+_key+"]", err)
+		app.Console.Err("detError["+_key+"]", err)
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
 		return
 	}
 
-	app.console.Log("unpublish", _key)
+	app.Console.Log("unpublish", _key)
 	err = app.Storage.Del(_key)
 
 	if err != nil {
-		app.console.Err(err.Error())
+		app.Console.Err(err.Error())
 		if err.Error() == "leveldb: not found" || err.Error() == "katamari: not found" {
 			w.WriteHeader(http.StatusNotFound)
 		} else {

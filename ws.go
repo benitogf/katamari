@@ -18,9 +18,9 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send initial msg
-	entry, err := app.Fetch(_key)
+	entry, err := app.fetch(_key)
 	if err != nil {
-		app.console.Err("katamari: filtered route", err)
+		app.Console.Err("katamari: filtered route", err)
 		return
 	}
 

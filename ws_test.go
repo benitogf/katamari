@@ -29,10 +29,10 @@ func TestWsTime(t *testing.T) {
 		for {
 			_, message, err := c1.ReadMessage()
 			if err != nil {
-				app.console.Err("read c1", err)
+				app.Console.Err("read c1", err)
 				break
 			}
-			app.console.Log("time c1", string(message))
+			app.Console.Log("time c1", string(message))
 			wg.Done()
 		}
 	}()
@@ -40,10 +40,10 @@ func TestWsTime(t *testing.T) {
 	for {
 		_, message, err := c2.ReadMessage()
 		if err != nil {
-			app.console.Err("read c2", err)
+			app.Console.Err("read c2", err)
 			break
 		}
-		app.console.Log("time c2", string(message))
+		app.Console.Log("time c2", string(message))
 		err = c2.Close()
 		require.NoError(t, err)
 		wg.Done()
