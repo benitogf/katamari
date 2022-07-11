@@ -67,32 +67,36 @@ type audit func(r *http.Request) bool
 //
 // Client: http client to make requests
 type Server struct {
-	wg              sync.WaitGroup
-	server          *http.Server
-	Router          *mux.Router
-	Stream          stream.Stream
-	filters         filters
-	Pivot           string
-	NoBroadcastKeys []string
-	DbOpt           interface{}
-	Audit           audit
-	Workers         int
-	ForcePatch      bool
-	OnSubscribe     stream.Subscribe
-	OnUnsubscribe   stream.Unsubscribe
-	OnClose         func()
-	Deadline        time.Duration
-	AllowedOrigins  []string
-	Storage         Database
-	Address         string
-	closing         int64
-	active          int64
-	Silence         bool
-	Static          bool
-	Tick            time.Duration
-	Console         *coat.Console
-	Signal          chan os.Signal
-	Client          *http.Client
+	wg                sync.WaitGroup
+	server            *http.Server
+	Router            *mux.Router
+	Stream            stream.Stream
+	filters           filters
+	Pivot             string
+	NoBroadcastKeys   []string
+	DbOpt             interface{}
+	Audit             audit
+	Workers           int
+	ForcePatch        bool
+	OnSubscribe       stream.Subscribe
+	OnUnsubscribe     stream.Unsubscribe
+	OnClose           func()
+	Deadline          time.Duration
+	AllowedOrigins    []string
+	Storage           Database
+	Address           string
+	closing           int64
+	active            int64
+	Silence           bool
+	Static            bool
+	Tick              time.Duration
+	Console           *coat.Console
+	Signal            chan os.Signal
+	Client            *http.Client
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	ReadHeaderTimeout time.Duration
+	IdleTimeout       time.Duration
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -113,10 +117,10 @@ func (app *Server) waitListen() {
 		log.Fatal(err)
 	}
 	app.server = &http.Server{
-		WriteTimeout:      1 * time.Minute,
-		ReadTimeout:       1 * time.Minute,
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       10 * time.Second,
+		WriteTimeout:      app.WriteTimeout,
+		ReadTimeout:       app.ReadTimeout,
+		ReadHeaderTimeout: app.ReadHeaderTimeout,
+		IdleTimeout:       app.IdleTimeout,
 		Addr:              app.Address,
 		Handler: cors.New(cors.Options{
 			AllowedMethods: []string{"GET", "POST", "DELETE", "PUT"},
@@ -227,6 +231,22 @@ func (app *Server) defaults() {
 
 	if app.Tick == 0 {
 		app.Tick = 1 * time.Second
+	}
+
+	if app.ReadTimeout == 0 {
+		app.ReadTimeout = 1 * time.Minute
+	}
+
+	if app.WriteTimeout == 0 {
+		app.WriteTimeout = 1 * time.Minute
+	}
+
+	if app.ReadHeaderTimeout == 0 {
+		app.ReadHeaderTimeout = 10 * time.Second
+	}
+
+	if app.IdleTimeout == 0 {
+		app.IdleTimeout = 10 * time.Second
 	}
 
 	if app.Audit == nil {
