@@ -224,6 +224,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 		wg.Wait()
+		lk.Lock()
 		if !wsEvent.Snapshot {
 			patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
 			require.NoError(t, err)
@@ -235,6 +236,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 		} else {
 			wsCache = wsEvent.Data
 		}
+		lk.Unlock()
 	}
 
 	require.Equal(t, wsObject[0].Index, postObject.Index)
