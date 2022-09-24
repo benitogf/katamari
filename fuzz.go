@@ -3,8 +3,8 @@
 package katamari
 
 import (
-	"encoding/base64"
-	"encoding/json"
+	"github.com/cristalhq/base64"
+	"github.com/goccy/go-json"
 	"fmt"
 )
 

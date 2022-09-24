@@ -3,7 +3,7 @@ package katamari
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -86,7 +86,7 @@ func TestFilters(t *testing.T) {
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, 200, resp.StatusCode)
 	require.Equal(t, "intercepted:bag/1", string(body))

@@ -1,11 +1,13 @@
 package messages
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"io"
 	"strings"
+
+	"github.com/cristalhq/base64"
+
+	"github.com/goccy/go-json"
 )
 
 // Message sent through websocket connections

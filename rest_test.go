@@ -2,7 +2,7 @@ package katamari_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -119,7 +119,7 @@ func TestRestGet(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -129,7 +129,7 @@ func TestRestGet(t *testing.T) {
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	body, err = ioutil.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -157,7 +157,7 @@ func TestRestStats(t *testing.T) {
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
@@ -169,7 +169,7 @@ func TestRestStats(t *testing.T) {
 	w = httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp = w.Result()
-	body, err = ioutil.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))

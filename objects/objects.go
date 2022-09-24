@@ -2,9 +2,11 @@ package objects
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"io"
+
+	"github.com/cristalhq/base64"
+
+	"github.com/goccy/go-json"
 )
 
 // Object : data structure of elements

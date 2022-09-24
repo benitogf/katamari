@@ -36,7 +36,7 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 	app.ForcePatch = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	StreamGlobBroadcastTest(t, &app)
+	StreamGlobBroadcastTest(t, &app, 3)
 }
 
 func TestStreamBroadcastFilter(t *testing.T) {
