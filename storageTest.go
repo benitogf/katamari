@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/cristalhq/base64"
 
@@ -618,6 +619,7 @@ func StorageGetNTest(app *Server, t *testing.T, n int) {
 		key, err := app.Storage.Set("test/"+value, testData)
 		require.NoError(t, err)
 		require.Equal(t, value, key)
+		time.Sleep(time.Millisecond * 1)
 	}
 
 	limit := 1
@@ -636,6 +638,7 @@ func StorageGetNRangeTest(app *Server, t *testing.T, n int) {
 		key, err := app.Storage.Pivot("test/"+value, testData, int64(i), 0)
 		require.NoError(t, err)
 		require.Equal(t, value, key)
+		time.Sleep(time.Millisecond * 1)
 	}
 
 	_, err := app.Storage.Pivot("test/0", testData, 0, 0)
