@@ -2,12 +2,13 @@ package katamari
 
 import (
 	"bytes"
-	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"github.com/cristalhq/base64"
 
 	"github.com/goccy/go-json"
 
@@ -16,207 +17,6 @@ import (
 	"github.com/benitogf/katamari/objects"
 	"github.com/stretchr/testify/require"
 )
-
-// StorageObjectTest testing storage function
-func StorageObjectTest(app *Server, t *testing.T) {
-	app.Storage.Clear()
-	index, err := app.Storage.Set("test", "test")
-	require.NoError(t, err)
-	require.NotEmpty(t, index)
-	data, _ := app.Storage.Get("test")
-	testObject, err := objects.DecodeRaw(data)
-	require.NoError(t, err)
-	require.Equal(t, "test", testObject.Data)
-	require.Equal(t, int64(0), testObject.Updated)
-	index, err = app.Storage.Set("test", "test_update")
-	require.NoError(t, err)
-	require.NotEmpty(t, index)
-	data, err = app.Storage.Get("test")
-	require.NoError(t, err)
-	testObject, err = objects.DecodeRaw(data)
-	require.NoError(t, err)
-	require.Equal(t, "test_update", testObject.Data)
-	err = app.Storage.Del("test")
-	require.NoError(t, err)
-	raw, _ := app.Storage.Get("test")
-	dataDel := string(raw)
-	require.Empty(t, dataDel)
-}
-
-// StorageListTest testing storage function
-func StorageListTest(app *Server, t *testing.T, testData string) {
-	app.Storage.Clear()
-	modData := testData + testData
-	key, err := app.Storage.Set("test/123", testData)
-	require.NoError(t, err)
-	require.Equal(t, "123", key)
-	key, err = app.Storage.Set("test/456", modData)
-	require.NoError(t, err)
-	require.Equal(t, "456", key)
-	data, err := app.Storage.Get("test/*")
-	require.NoError(t, err)
-	var testObjects []objects.Object
-	err = json.Unmarshal(data, &testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(testObjects))
-	for i := range testObjects {
-		if testObjects[i].Index == "123" {
-			require.Equal(t, testData, testObjects[i].Data)
-		}
-
-		if testObjects[i].Index == "456" {
-			require.Equal(t, modData, testObjects[i].Data)
-		}
-	}
-	data1, err := app.Storage.Get("test/123")
-	require.NoError(t, err)
-	data2, err := app.Storage.Get("test/456")
-	require.NoError(t, err)
-	obj1, err := objects.DecodeRaw(data1)
-	require.NoError(t, err)
-	obj2, err := objects.DecodeRaw(data2)
-	require.NoError(t, err)
-	require.Equal(t, testData, obj1.Data)
-	require.Equal(t, modData, obj2.Data)
-	keys, err := app.Storage.Keys()
-	require.NoError(t, err)
-	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))
-
-	req := httptest.NewRequest(
-		"POST", "/test/*",
-		bytes.NewBuffer(
-			[]byte(`{"data":"testpost"}`),
-		),
-	)
-	w := httptest.NewRecorder()
-	app.Router.ServeHTTP(w, req)
-	resp := w.Result()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	dat, err := objects.DecodeRaw(body)
-	require.NoError(t, err)
-	data, err = app.Storage.Get("test/*")
-	app.Console.Log(string(data))
-	require.NoError(t, err)
-	err = json.Unmarshal(data, &testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 3, len(testObjects))
-	err = app.Storage.Del("test/" + dat.Index)
-	require.NoError(t, err)
-	data, err = app.Storage.Get("test/*")
-	require.NoError(t, err)
-	err = json.Unmarshal(data, &testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(testObjects))
-	key, err = app.Storage.Set("test/glob1/glob123", testData)
-	require.NoError(t, err)
-	require.Equal(t, "glob123", key)
-	key, err = app.Storage.Set("test/glob2/glob456", modData)
-	require.NoError(t, err)
-	require.Equal(t, "glob456", key)
-	data, err = app.Storage.Get("test/*/*")
-	require.NoError(t, err)
-	err = json.Unmarshal(data, &testObjects)
-	app.Console.Log(testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(testObjects))
-	key, err = app.Storage.Set("test/1/glob/g123", testData)
-	require.NoError(t, err)
-	require.Equal(t, "g123", key)
-	key, err = app.Storage.Set("test/2/glob/g456", modData)
-	require.NoError(t, err)
-	require.Equal(t, "g456", key)
-	data, err = app.Storage.Get("test/*/glob/*")
-	require.NoError(t, err)
-	err = json.Unmarshal(data, &testObjects)
-	app.Console.Log(testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(testObjects))
-	key, err = app.Storage.Set("test1", testData)
-	require.NoError(t, err)
-	require.Equal(t, "test1", key)
-	key, err = app.Storage.Set("test2", modData)
-	require.NoError(t, err)
-	require.Equal(t, "test2", key)
-	data, err = app.Storage.Get("*")
-	require.NoError(t, err)
-	err = json.Unmarshal(data, &testObjects)
-	app.Console.Log(testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(testObjects))
-	err = app.Storage.Del("*")
-	require.NoError(t, err)
-	data, err = app.Storage.Get("*")
-	require.NoError(t, err)
-	err = json.Unmarshal(data, &testObjects)
-	app.Console.Log(testObjects)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(testObjects))
-}
-
-// StorageSetGetDelTest testing storage function
-func StorageSetGetDelTest(db Database, b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		testData := messages.Encode([]byte(TEST_DATA))
-		_key := key.Build("test/*")
-		_, err := db.Set("test/"+_key, testData)
-		require.NoError(b, err)
-		fetched, err := db.Get("test/" + _key)
-		require.NoError(b, err)
-		decoded, err := objects.Decode(fetched)
-		require.NoError(b, err)
-		require.Equal(b, decoded.Data, TEST_DATA)
-		err = db.Del("test/" + _key)
-		require.NoError(b, err)
-		result, err := db.Get("test/*")
-		require.NoError(b, err)
-		require.Equal(b, "[]", string(result))
-	}
-}
-
-// StorageGetNTest testing storage GetN function
-func StorageGetNTest(app *Server, t *testing.T, n int) {
-	app.Storage.Clear()
-	testData := base64.StdEncoding.EncodeToString([]byte(units[0]))
-	for i := 0; i < n; i++ {
-		value := strconv.Itoa(i)
-		key, err := app.Storage.Set("test/"+value, testData)
-		require.NoError(t, err)
-		require.Equal(t, value, key)
-	}
-
-	limit := 1
-	testObjects, err := app.Storage.GetN("test/*", limit)
-	require.NoError(t, err)
-	require.Equal(t, limit, len(testObjects))
-	require.Equal(t, strconv.Itoa(n-1), testObjects[0].Index)
-}
-
-// StorageGetNRangeTest testing storage GetN function
-func StorageGetNRangeTest(app *Server, t *testing.T, n int) {
-	app.Storage.Clear()
-	testData := base64.StdEncoding.EncodeToString([]byte(units[0]))
-	for i := 1; i < n; i++ {
-		value := strconv.Itoa(i)
-		key, err := app.Storage.Pivot("test/"+value, testData, int64(i), 0)
-		require.NoError(t, err)
-		require.Equal(t, value, key)
-	}
-
-	_, err := app.Storage.Pivot("test/0", testData, 0, 0)
-	require.NoError(t, err)
-
-	limit := 1
-	testObjects, err := app.Storage.GetNRange("test/*", limit, 0, 1)
-	require.NoError(t, err)
-	require.Equal(t, limit, len(testObjects))
-	require.Equal(t, int64(0), testObjects[0].Created)
-	require.Equal(t, "0", testObjects[0].Index)
-	require.Equal(t, int64(1), testObjects[0].Created)
-	require.Equal(t, "1", testObjects[0].Index)
-}
 
 // https://gist.github.com/slaise/9b9d63e0d59e8c8923bbd9d53f5beb61
 // https://medium.com/geekculture/my-golang-json-evaluation-20a9ca6ef79c
@@ -637,7 +437,6 @@ var TEST_DATA = `{
 	}
   }`
 var units = []string{
-	TEST_DATA,
 	"\xe4\xef\xf0\xe9\xf9l\x100",
 	"V'\xe4\xc0\xbb>0\x86j",
 	"0'\xe40\x860",
@@ -651,10 +450,211 @@ var units = []string{
 	"",
 }
 
+// StorageObjectTest testing storage function
+func StorageObjectTest(app *Server, t *testing.T) {
+	app.Storage.Clear()
+	index, err := app.Storage.Set("test", "test")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+	data, _ := app.Storage.Get("test")
+	testObject, err := objects.DecodeRaw(data)
+	require.NoError(t, err)
+	require.Equal(t, "test", testObject.Data)
+	require.Equal(t, int64(0), testObject.Updated)
+	index, err = app.Storage.Set("test", "test_update")
+	require.NoError(t, err)
+	require.NotEmpty(t, index)
+	data, err = app.Storage.Get("test")
+	require.NoError(t, err)
+	testObject, err = objects.DecodeRaw(data)
+	require.NoError(t, err)
+	require.Equal(t, "test_update", testObject.Data)
+	err = app.Storage.Del("test")
+	require.NoError(t, err)
+	raw, _ := app.Storage.Get("test")
+	dataDel := string(raw)
+	require.Empty(t, dataDel)
+}
+
+// StorageListTest testing storage function
+func StorageListTest(app *Server, t *testing.T, testData string) {
+	app.Storage.Clear()
+	modData := testData + testData
+	key, err := app.Storage.Set("test/123", testData)
+	require.NoError(t, err)
+	require.Equal(t, "123", key)
+	key, err = app.Storage.Set("test/456", modData)
+	require.NoError(t, err)
+	require.Equal(t, "456", key)
+	data, err := app.Storage.Get("test/*")
+	require.NoError(t, err)
+	var testObjects []objects.Object
+	err = json.Unmarshal(data, &testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	for i := range testObjects {
+		if testObjects[i].Index == "123" {
+			require.Equal(t, testData, testObjects[i].Data)
+		}
+
+		if testObjects[i].Index == "456" {
+			require.Equal(t, modData, testObjects[i].Data)
+		}
+	}
+	data1, err := app.Storage.Get("test/123")
+	require.NoError(t, err)
+	data2, err := app.Storage.Get("test/456")
+	require.NoError(t, err)
+	obj1, err := objects.DecodeRaw(data1)
+	require.NoError(t, err)
+	obj2, err := objects.DecodeRaw(data2)
+	require.NoError(t, err)
+	require.Equal(t, testData, obj1.Data)
+	require.Equal(t, modData, obj2.Data)
+	keys, err := app.Storage.Keys()
+	require.NoError(t, err)
+	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))
+
+	req := httptest.NewRequest(
+		"POST", "/test/*",
+		bytes.NewBuffer(
+			[]byte(`{"data":"testpost"}`),
+		),
+	)
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	dat, err := objects.DecodeRaw(body)
+	require.NoError(t, err)
+	data, err = app.Storage.Get("test/*")
+	app.Console.Log(string(data))
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(testObjects))
+	err = app.Storage.Del("test/" + dat.Index)
+	require.NoError(t, err)
+	data, err = app.Storage.Get("test/*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	key, err = app.Storage.Set("test/glob1/glob123", testData)
+	require.NoError(t, err)
+	require.Equal(t, "glob123", key)
+	key, err = app.Storage.Set("test/glob2/glob456", modData)
+	require.NoError(t, err)
+	require.Equal(t, "glob456", key)
+	data, err = app.Storage.Get("test/*/*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.Console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	key, err = app.Storage.Set("test/1/glob/g123", testData)
+	require.NoError(t, err)
+	require.Equal(t, "g123", key)
+	key, err = app.Storage.Set("test/2/glob/g456", modData)
+	require.NoError(t, err)
+	require.Equal(t, "g456", key)
+	data, err = app.Storage.Get("test/*/glob/*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.Console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	key, err = app.Storage.Set("test1", testData)
+	require.NoError(t, err)
+	require.Equal(t, "test1", key)
+	key, err = app.Storage.Set("test2", modData)
+	require.NoError(t, err)
+	require.Equal(t, "test2", key)
+	data, err = app.Storage.Get("*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.Console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(testObjects))
+	err = app.Storage.Del("*")
+	require.NoError(t, err)
+	data, err = app.Storage.Get("*")
+	require.NoError(t, err)
+	err = json.Unmarshal(data, &testObjects)
+	app.Console.Log(testObjects)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(testObjects))
+}
+
+// StorageSetGetDelTest testing storage function
+func StorageSetGetDelTest(db Database, b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		testData := messages.Encode([]byte(TEST_DATA))
+		_key := key.Build("test/*")
+		_, err := db.Set("test/"+_key, testData)
+		require.NoError(b, err)
+		fetched, err := db.Get("test/" + _key)
+		require.NoError(b, err)
+		decoded, err := objects.Decode(fetched)
+		require.NoError(b, err)
+		require.Equal(b, decoded.Data, TEST_DATA)
+		err = db.Del("test/" + _key)
+		require.NoError(b, err)
+		result, err := db.Get("test/*")
+		require.NoError(b, err)
+		require.Equal(b, "[]", string(result))
+	}
+}
+
+// StorageGetNTest testing storage GetN function
+func StorageGetNTest(app *Server, t *testing.T, n int) {
+	app.Storage.Clear()
+	testData := base64.StdEncoding.EncodeToString([]byte(TEST_DATA))
+	for i := 0; i < n; i++ {
+		value := strconv.Itoa(i)
+		key, err := app.Storage.Set("test/"+value, testData)
+		require.NoError(t, err)
+		require.Equal(t, value, key)
+	}
+
+	limit := 1
+	testObjects, err := app.Storage.GetN("test/*", limit)
+	require.NoError(t, err)
+	require.Equal(t, limit, len(testObjects))
+	require.Equal(t, strconv.Itoa(n-1), testObjects[0].Index)
+}
+
+// StorageGetNRangeTest testing storage GetN function
+func StorageGetNRangeTest(app *Server, t *testing.T, n int) {
+	app.Storage.Clear()
+	testData := base64.StdEncoding.EncodeToString([]byte(TEST_DATA))
+	for i := 1; i < n; i++ {
+		value := strconv.Itoa(i)
+		key, err := app.Storage.Pivot("test/"+value, testData, int64(i), 0)
+		require.NoError(t, err)
+		require.Equal(t, value, key)
+	}
+
+	_, err := app.Storage.Pivot("test/0", testData, 0, 0)
+	require.NoError(t, err)
+
+	limit := 1
+	testObjects, err := app.Storage.GetNRange("test/*", limit, 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, limit, len(testObjects))
+	require.Equal(t, int64(0), testObjects[0].Created)
+	require.Equal(t, "0", testObjects[0].Index)
+	require.Equal(t, int64(1), testObjects[0].Created)
+	require.Equal(t, "1", testObjects[0].Index)
+}
+
 // StorageKeysRangeTest testing storage GetN function
 func StorageKeysRangeTest(app *Server, t *testing.T, n int) {
 	app.Storage.Clear()
-	testData := units[0]
+	testData := TEST_DATA
 	first := ""
 	for i := 0; i < n; i++ {
 		path := key.Build("test/*")

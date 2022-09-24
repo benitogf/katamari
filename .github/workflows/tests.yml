@@ -27,6 +27,8 @@ jobs:
         go get github.com/gorilla/handlers
         go get github.com/pkg/expect
         go get github.com/getlantern/httptest
+        go get github.com/cristalhq/base64
+        go get github.com/goccy/go-json
     - name: lint
       run: |
         go vet .
