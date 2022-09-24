@@ -648,8 +648,8 @@ func StorageGetNRangeTest(app *Server, t *testing.T, n int) {
 	testObjects, err := app.Storage.GetNRange("test/*", limit, 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, limit, len(testObjects))
-	require.Equal(t, int64(0), testObjects[0].Created)
-	require.Equal(t, "0", testObjects[0].Index)
+	// require.Equal(t, int64(0), testObjects[0].Created)
+	// require.Equal(t, "0", testObjects[0].Index)
 	require.Equal(t, int64(1), testObjects[0].Created)
 	require.Equal(t, "1", testObjects[0].Index)
 }
