@@ -36,7 +36,7 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 	app.ForcePatch = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	StreamGlobBroadcastTest(t, &app)
+	StreamGlobBroadcastTest(t, &app, 3)
 }
 
 func TestStreamBroadcastFilter(t *testing.T) {
@@ -54,7 +54,7 @@ func TestGetN(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	StorageGetNTest(app, t, 100)
+	StorageGetNTest(app, t, 10)
 }
 
 func TestKeysRange(t *testing.T) {
@@ -63,7 +63,7 @@ func TestKeysRange(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	StorageKeysRangeTest(app, t, 100)
+	StorageKeysRangeTest(app, t, 10)
 }
 
 func TestStreamItemGlobBroadcastLevel(t *testing.T) {

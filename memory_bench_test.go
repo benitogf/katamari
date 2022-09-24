@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// go test -bench -run=^$
+// go test -bench=.
 
 func BenchmarkMemoryStorageSetGetDel(b *testing.B) {
 	b.ReportAllocs()
