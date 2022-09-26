@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec
+	github.com/benitogf/jsondiff v0.0.0-20220926080659-c3db9b84b559
 	github.com/benitogf/jsonpatch v0.0.0-20220924150135-fc4b5c761ac7
 	github.com/cristalhq/base64 v0.1.2
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590

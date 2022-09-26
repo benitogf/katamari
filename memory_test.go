@@ -11,9 +11,7 @@ func TestStorageMemory(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	for range units {
-		StorageListTest(app, t)
-	}
+	StorageListTest(app, t)
 	StorageObjectTest(app, t)
 }
 

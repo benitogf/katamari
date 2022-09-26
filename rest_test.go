@@ -32,7 +32,21 @@ func TestRestPostEmptyData(t *testing.T) {
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	var jsonStr = []byte(`{"data":""}`)
+	var jsonStr = []byte(``)
+	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRestPostInvalidData(t *testing.T) {
+	// t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+	var jsonStr = []byte(`oldkoskdasoejd`)
 	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)

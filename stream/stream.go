@@ -177,11 +177,7 @@ func (sm *Stream) Broadcast(path string, opt BroadcastOpt) {
 
 			sm.pools[poolIndex].mutex.Lock()
 			modifiedData, snapshot, version := sm.Patch(poolIndex, data)
-			// jsonData, err := json.Marshal(modifiedData)
-			// if err != nil {
-			// 	continue
-			// }
-			sm.broadcast(poolIndex, string(modifiedData), snapshot, version)
+			sm.broadcast(poolIndex, modifiedData, snapshot, version)
 			sm.pools[poolIndex].mutex.Unlock()
 			if opt.Callback != nil {
 				opt.Callback()
@@ -191,10 +187,10 @@ func (sm *Stream) Broadcast(path string, opt BroadcastOpt) {
 }
 
 // broadcast message
-func (sm *Stream) broadcast(poolIndex int, data string, snapshot bool, version int64) {
+func (sm *Stream) broadcast(poolIndex int, data []byte, snapshot bool, version int64) {
 	connections := sm.pools[poolIndex].connections
 	for _, client := range connections {
-		sm.Write(client, data, snapshot, version)
+		sm.Write(client, string(data), snapshot, version)
 	}
 }
 

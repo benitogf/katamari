@@ -11,6 +11,7 @@ import (
 
 	"github.com/goccy/go-json"
 
+	"github.com/benitogf/jsondiff"
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/objects"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ import (
 
 // https://gist.github.com/slaise/9b9d63e0d59e8c8923bbd9d53f5beb61
 // https://medium.com/geekculture/my-golang-json-evaluation-20a9ca6ef79c
-var FULL_TEST_DATA = json.RawMessage(`{
+var TEST_DATA = json.RawMessage(`{
 	"statuses": [
 	  {
 		"coordinates": null,
@@ -435,7 +436,7 @@ var FULL_TEST_DATA = json.RawMessage(`{
 	}
   }`)
 
-var FULL_TEST_DATA_UPDATE = json.RawMessage(`{
+var TEST_DATA_UPDATE = json.RawMessage(`{
 	"statuses": [
 	  {
 		"coordinates": null,
@@ -852,30 +853,27 @@ var FULL_TEST_DATA_UPDATE = json.RawMessage(`{
 	}
   }`)
 
-var TRIM_TEST_DATA, _ = json.Marshal(FULL_TEST_DATA)
-var TRIM_TEST_DATA_UPDATE, _ = json.Marshal(FULL_TEST_DATA_UPDATE)
-var TEST_DATA = string(TRIM_TEST_DATA)
-var TEST_DATA_UPDATE = string(TRIM_TEST_DATA_UPDATE)
-
 // StorageObjectTest testing storage function
 func StorageObjectTest(app *Server, t *testing.T) {
 	app.Storage.Clear()
-	index, err := app.Storage.Set("test", FULL_TEST_DATA)
+	index, err := app.Storage.Set("test", TEST_DATA)
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, _ := app.Storage.Get("test")
-	testObject, err := objects.DecodeRaw(data)
+	testObject, err := objects.Decode(data)
 	require.NoError(t, err)
-	require.Equal(t, "test", testObject.Data)
+	same, _ := jsondiff.Compare(testObject.Data, TEST_DATA, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
 	require.Equal(t, int64(0), testObject.Updated)
-	index, err = app.Storage.Set("test", FULL_TEST_DATA_UPDATE)
+	index, err = app.Storage.Set("test", TEST_DATA_UPDATE)
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 	data, err = app.Storage.Get("test")
 	require.NoError(t, err)
-	testObject, err = objects.DecodeRaw(data)
+	testObject, err = objects.Decode(data)
 	require.NoError(t, err)
-	require.Equal(t, TEST_DATA_UPDATE, testObject.Data)
+	same, _ = jsondiff.Compare(testObject.Data, TEST_DATA_UPDATE, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
 	err = app.Storage.Del("test")
 	require.NoError(t, err)
 	raw, _ := app.Storage.Get("test")
@@ -900,32 +898,34 @@ func StorageListTest(app *Server, t *testing.T) {
 	require.Equal(t, 2, len(testObjects))
 	for i := range testObjects {
 		if testObjects[i].Index == "123" {
-			require.Equal(t, STRING_TEST_DATA, string(testObjects[i].Data))
+			same, _ := jsondiff.Compare(testObjects[i].Data, TEST_DATA, &jsondiff.Options{})
+			require.Equal(t, same, jsondiff.FullMatch)
 		}
 
 		if testObjects[i].Index == "456" {
-			require.Equal(t, STRING_TEST_DATA_UPDATE, string(testObjects[i].Data))
+			same, _ := jsondiff.Compare(testObjects[i].Data, TEST_DATA_UPDATE, &jsondiff.Options{})
+			require.Equal(t, same, jsondiff.FullMatch)
 		}
 	}
 	data1, err := app.Storage.Get("test/123")
 	require.NoError(t, err)
 	data2, err := app.Storage.Get("test/456")
 	require.NoError(t, err)
-	obj1, err := objects.DecodeRaw(data1)
+	obj1, err := objects.Decode(data1)
 	require.NoError(t, err)
-	obj2, err := objects.DecodeRaw(data2)
+	obj2, err := objects.Decode(data2)
 	require.NoError(t, err)
-	require.Equal(t, TEST_DATA, obj1.Data)
-	require.Equal(t, TEST_DATA_UPDATE, obj2.Data)
+	same, _ := jsondiff.Compare(obj1.Data, TEST_DATA, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
+	same, _ = jsondiff.Compare(obj2.Data, TEST_DATA_UPDATE, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
 	keys, err := app.Storage.Keys()
 	require.NoError(t, err)
 	require.Equal(t, "{\"keys\":[\"test/123\",\"test/456\"]}", string(keys))
 
 	req := httptest.NewRequest(
 		"POST", "/test/*",
-		bytes.NewBuffer(
-			[]byte(`{"data":"testpost"}`),
-		),
+		bytes.NewBuffer(TEST_DATA),
 	)
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
@@ -933,7 +933,7 @@ func StorageListTest(app *Server, t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	dat, err := objects.DecodeRaw(body)
+	dat, err := objects.Decode(body)
 	require.NoError(t, err)
 	data, err = app.Storage.Get("test/*")
 	app.Console.Log(string(data))
@@ -1005,7 +1005,8 @@ func StorageSetGetDelTest(db Database, b *testing.B) {
 		require.NoError(b, err)
 		decoded, err := objects.Decode(fetched)
 		require.NoError(b, err)
-		require.Equal(b, decoded.Data, TEST_DATA)
+		same, _ := jsondiff.Compare(decoded.Data, TEST_DATA, &jsondiff.Options{})
+		require.Equal(b, same, jsondiff.FullMatch)
 		err = db.Del("test/" + _key)
 		require.NoError(b, err)
 		result, err := db.Get("test/*")
@@ -1030,6 +1031,7 @@ func StorageGetNTest(app *Server, t *testing.T, n int) {
 	require.NoError(t, err)
 	require.Equal(t, limit, len(testObjects))
 	require.Equal(t, strconv.Itoa(n-1), testObjects[0].Index)
+	require.Equal(t, "test/"+strconv.Itoa(n-1), testObjects[0].Path)
 }
 
 // StorageGetNRangeTest testing storage GetN function
@@ -1037,23 +1039,21 @@ func StorageGetNRangeTest(app *Server, t *testing.T, n int) {
 	app.Storage.Clear()
 	for i := 1; i < n; i++ {
 		value := strconv.Itoa(i)
-		key, err := app.Storage.Pivot("test/"+value, TEST_DATA, int64(i), 0)
+		key, err := app.Storage.SetForce("test/"+value, TEST_DATA, int64(i), 0)
 		require.NoError(t, err)
 		require.Equal(t, value, key)
-		time.Sleep(time.Millisecond * 1)
 	}
 
-	_, err := app.Storage.Pivot("test/0", TEST_DATA, 0, 0)
+	_, err := app.Storage.SetForce("test/0", TEST_DATA, 0, 0)
 	require.NoError(t, err)
 
 	limit := 1
 	testObjects, err := app.Storage.GetNRange("test/*", limit, 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, limit, len(testObjects))
-	// require.Equal(t, int64(0), testObjects[0].Created)
-	// require.Equal(t, "0", testObjects[0].Index)
 	require.Equal(t, int64(1), testObjects[0].Created)
 	require.Equal(t, "1", testObjects[0].Index)
+	require.Equal(t, "test/1", testObjects[0].Path)
 }
 
 // StorageKeysRangeTest testing storage GetN function

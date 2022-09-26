@@ -12,6 +12,7 @@ type Object struct {
 	Created int64           `json:"created"`
 	Updated int64           `json:"updated"`
 	Index   string          `json:"index"`
+	Path    string          `json:"path"`
 	Data    json.RawMessage `json:"data"`
 }
 
@@ -42,14 +43,6 @@ func Encode(v interface{}) ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-// Decode json object
-func DecodeRaw(data []byte) (Object, error) {
-	var obj Object
-	err := json.Unmarshal(data, &obj)
-
-	return obj, err
 }
 
 // Decode json object
@@ -90,17 +83,6 @@ func DecodeListFromReader(r io.Reader) ([]Object, error) {
 	err := decoder.Decode(&objs)
 
 	return objs, err
-}
-
-// DecodeListRaw json objects
-func DecodeListRaw(data []byte) ([]Object, error) {
-	var objects []Object
-	err := json.Unmarshal(data, &objects)
-	if err != nil {
-		return objects, err
-	}
-
-	return objects, nil
 }
 
 // New object as json

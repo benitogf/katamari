@@ -12,6 +12,7 @@ import (
 
 	"github.com/goccy/go-json"
 
+	"github.com/benitogf/jsondiff"
 	"github.com/benitogf/jsonpatch"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
@@ -58,8 +59,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	streamCacheVersion, err := app.Stream.GetCacheVersion("test")
 	require.NoError(t, err)
 	app.Console.Log("post data")
-	var jsonStr = []byte(TEST_DATA)
-	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(TEST_DATA))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
@@ -72,15 +72,23 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	wg.Wait()
 	wg.Add(1)
 
-	patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
-	require.NoError(t, err)
-	modified, err := patch.Apply([]byte(wsCache))
-	require.NoError(t, err)
-	err = json.Unmarshal(modified, &wsObject)
-	require.NoError(t, err)
+	if !wsEvent.Snapshot {
+		patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
+		require.NoError(t, err)
+		modified, err := patch.Apply([]byte(wsCache))
+		require.NoError(t, err)
+		err = json.Unmarshal(modified, &wsObject)
+		require.NoError(t, err)
+		wsCache = modified
+	} else {
+		err = json.Unmarshal(wsEvent.Data, &wsObject)
+		require.NoError(t, err)
+		wsCache = wsEvent.Data
+	}
 
 	require.Equal(t, wsObject.Index, postObject.Index)
-	require.Equal(t, wsObject.Data, TEST_DATA)
+	same, _ := jsondiff.Compare(wsObject.Data, TEST_DATA, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
 
 	req = httptest.NewRequest("DELETE", "/test", nil)
 	w = httptest.NewRecorder()
@@ -89,12 +97,17 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	wg.Wait()
 
-	patch, err = jsonpatch.DecodePatch([]byte(wsEvent.Data))
-	require.NoError(t, err)
-	modified, err = patch.Apply([]byte(wsCache))
-	require.NoError(t, err)
-	err = json.Unmarshal(modified, &wsObject)
-	require.NoError(t, err)
+	if !wsEvent.Snapshot {
+		patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
+		require.NoError(t, err)
+		modified, err := patch.Apply([]byte(wsCache))
+		require.NoError(t, err)
+		err = json.Unmarshal(modified, &wsObject)
+		require.NoError(t, err)
+	} else {
+		err = json.Unmarshal(wsEvent.Data, &wsObject)
+		require.NoError(t, err)
+	}
 
 	wsClient.Close()
 
@@ -153,7 +166,8 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 	wsCache = modified
 
 	require.Equal(t, wsObject.Index, postObject.Index)
-	require.Equal(t, wsObject.Data, TEST_DATA)
+	same, _ := jsondiff.Compare(wsObject.Data, TEST_DATA, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
 
 	wg.Add(1)
 	req = httptest.NewRequest("DELETE", "/test/*", nil)
@@ -221,22 +235,20 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 		require.Equal(t, 200, resp.StatusCode)
 		wg.Wait()
 		lk.Lock()
-		if !wsEvent.Snapshot {
-			patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
-			require.NoError(t, err)
-			modified, err := patch.Apply([]byte(wsCache))
-			require.NoError(t, err)
-			err = json.Unmarshal(modified, &wsObject)
-			require.NoError(t, err)
-			wsCache = modified
-		} else {
-			wsCache = wsEvent.Data
-		}
+		require.False(t, wsEvent.Snapshot)
+		patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
+		require.NoError(t, err)
+		modified, err := patch.Apply([]byte(wsCache))
+		require.NoError(t, err)
+		err = json.Unmarshal(modified, &wsObject)
+		require.NoError(t, err)
+		wsCache = modified
 		lk.Unlock()
 	}
 
 	require.Equal(t, wsObject[0].Index, postObject.Index)
-	require.Equal(t, string(wsObject[0].Data), string(TEST_DATA))
+	same, _ := jsondiff.Compare(wsObject[0].Data, TEST_DATA, &jsondiff.Options{})
+	require.Equal(t, same, jsondiff.FullMatch)
 
 	wg.Add(1)
 	req := httptest.NewRequest("DELETE", "/test/*", nil)
@@ -247,17 +259,13 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 	wg.Wait()
 
 	lk.Lock()
-	if !wsEvent.Snapshot {
-		patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
-		require.NoError(t, err)
-		modified, err := patch.Apply([]byte(wsCache))
-		require.NoError(t, err)
-		err = json.Unmarshal(modified, &wsObject)
-		require.NoError(t, err)
-	} else {
-		err = json.Unmarshal([]byte(wsEvent.Data), &wsObject)
-		require.NoError(t, err)
-	}
+	require.False(t, wsEvent.Snapshot)
+	patch, err := jsonpatch.DecodePatch([]byte(wsEvent.Data))
+	require.NoError(t, err)
+	modified, err := patch.Apply([]byte(wsCache))
+	require.NoError(t, err)
+	err = json.Unmarshal(modified, &wsObject)
+	require.NoError(t, err)
 	lk.Unlock()
 
 	wsClient.Close()
@@ -271,7 +279,7 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	var postObject objects.Object
 	var wsExtraEvent messages.Message
 	// extra filter
-	app.ReadFilter("test/*", func(index string, data []byte) ([]byte, error) {
+	app.ReadFilter("test/*", func(index string, data json.RawMessage) (json.RawMessage, error) {
 		return []byte(`{"extra": "extra"}`), nil
 	})
 	// extra route

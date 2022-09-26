@@ -84,16 +84,16 @@ app.Static = true
 - if the static flag is enabled only filtered routes will be available
 
 ```golang
-app.WriteFilter("books/*", func(index string, data []byte) ([]byte, error) {
+app.WriteFilter("books/*", func(index string, data json.RawMessage) (json.RawMessage, error) {
   // returning an error will deny the write
   return data, nil
 })
-app.ReadFilter("books/taup", func(index string, data []byte) ([]byte, error) {
+app.ReadFilter("books/taup", func(index string, data json.RawMessage) (json.RawMessage, error) {
   // returning an error will deny the read
-  return []byte("intercepted"), nil
+  return json.RawMessage(`{"intercepted":true}`), nil
 })
 app.DeleteFilter("books/taup", func(key string) (error) {
-  // returning an error will deny the read
+  // returning an error will prevent the delete
   return errors.New("can't delete")
 })
 ```
@@ -124,11 +124,11 @@ server.OnUnsubscribe = func(key string) {
 ### extra routes
 
 ```golang
-// Predefine the router
+// Define custom endpoints
 app.Router = mux.NewRouter()
 app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
   w.Header().Set("Content-Type", "application/json")
-  fmt.Fprintf(w, "123")
+  fmt.Fprintf(w, "{}")
 })
 app.Start("localhost:8800")
 ```

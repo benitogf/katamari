@@ -2,7 +2,8 @@ github.com/bclicn/color v0.0.0-20180711051946-108f2023dc84 h1:cutFptzj+ospnc1PET
 github.com/bclicn/color v0.0.0-20180711051946-108f2023dc84/go.mod h1:Va9ap1qxjAWkIVaW1E9rH0aNgE8SDI5A4n8Ds8P0fAA=
 github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec h1:I2p/9YsiAMB+J2DrC+e7OvEWZCmpwolMQ23ejoEMFEE=
 github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec/go.mod h1:hl/Xd8DKuMgC/ClZ2dPZz6mvXaxdkjrt0mr0+jF4UkQ=
-github.com/benitogf/jsondiff v0.0.0-20200402083139-355fc2c95658 h1:wCbyHDE170Pt3F2YcJn9Q82ed9f/PB2YE4lYRDvJLf4=
+github.com/benitogf/jsondiff v0.0.0-20220926080659-c3db9b84b559 h1:0ERndS9JkEvEq/yXjiZq41lMb3QfmQWUIXycjkRbWOc=
+github.com/benitogf/jsondiff v0.0.0-20220926080659-c3db9b84b559/go.mod h1:gg2qmcNCGq/FXh5kQpsaEIf6GebYe2JMKrDSqZkuImc=
 github.com/benitogf/jsonpatch v0.0.0-20220924150135-fc4b5c761ac7 h1:bD4MAvpNi2d2kE/gbgRqQAs2ulu36brqQpv2olg8hqk=
 github.com/benitogf/jsonpatch v0.0.0-20220924150135-fc4b5c761ac7/go.mod h1:O1Z+hTPUrXzHUjmKlpmNYK9wcncZ5rS3K8PqItDO0x0=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=

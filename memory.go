@@ -124,7 +124,7 @@ func (db *MemoryStorage) Get(path string) ([]byte, error) {
 			return true
 		}
 
-		newObject, err := objects.DecodeRaw(value.([]byte))
+		newObject, err := objects.Decode(value.([]byte))
 		if err != nil {
 			return true
 		}
@@ -223,7 +223,7 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 		return now, 0
 	}
 
-	oldObject, err := objects.DecodeRaw(previous.([]byte))
+	oldObject, err := objects.Decode(previous.([]byte))
 	if err != nil {
 		return now, 0
 	}
@@ -233,6 +233,12 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 
 // Set a value
 func (db *MemoryStorage) Set(path string, data json.RawMessage) (string, error) {
+	if !key.IsValid(path) {
+		return path, errors.New("katamari: invalid storage path")
+	}
+	if len(data) == 0 {
+		return path, errors.New("katamari: invalid storage data (empty)")
+	}
 	now := time.Now().UTC().UnixNano()
 	index := key.LastIndex(path)
 	created, updated := db.Peek(path, now)
@@ -240,6 +246,7 @@ func (db *MemoryStorage) Set(path string, data json.RawMessage) (string, error) 
 		Created: created,
 		Updated: updated,
 		Index:   index,
+		Path:    path,
 		Data:    data,
 	}))
 
@@ -249,13 +256,17 @@ func (db *MemoryStorage) Set(path string, data json.RawMessage) (string, error) 
 	return index, nil
 }
 
-// Pivot set entries on pivot instances (force created/updated values)
-func (db *MemoryStorage) Pivot(path string, data json.RawMessage, created int64, updated int64) (string, error) {
+// SetForce set entries (force created/updated values)
+func (db *MemoryStorage) SetForce(path string, data json.RawMessage, created int64, updated int64) (string, error) {
+	if !key.IsValid(path) {
+		return path, errors.New("katamari: invalid storage path")
+	}
 	index := key.LastIndex(path)
 	db.mem.Store(path, objects.New(&objects.Object{
 		Created: created,
 		Updated: updated,
 		Index:   index,
+		Path:    path,
 		Data:    data,
 	}))
 

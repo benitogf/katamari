@@ -3,6 +3,8 @@ package katamari
 import (
 	"errors"
 
+	"github.com/goccy/go-json"
+
 	"github.com/benitogf/katamari/key"
 )
 
@@ -13,7 +15,7 @@ import (
 // returns
 // data: to be stored or sent to the client
 // error: will prevent data to pass the filter
-type Apply func(key string, data []byte) ([]byte, error)
+type Apply func(key string, data json.RawMessage) (json.RawMessage, error)
 
 // ApplyDelete callback function
 type ApplyDelete func(key string) error
@@ -46,10 +48,10 @@ type watchers []watch
 
 // Filters read and write
 type filters struct {
-	Write  router
-	Read   router
-	Delete hooks
-	After  watchers
+	Write      router
+	Read       router
+	Delete     hooks
+	AfterWrite watchers
 }
 
 // DeleteFilter add a filter that runs before sending a read result
@@ -70,9 +72,9 @@ func (app *Server) WriteFilter(path string, apply Apply) {
 	})
 }
 
-// AfterFilter add a filter that triggers after a successful write
-func (app *Server) AfterFilter(path string, apply Notify) {
-	app.filters.After = append(app.filters.After, watch{
+// AfterWrite add a filter that triggers after a successful write
+func (app *Server) AfterWrite(path string, apply Notify) {
+	app.filters.AfterWrite = append(app.filters.AfterWrite, watch{
 		path:  path,
 		apply: apply,
 	})
@@ -92,7 +94,7 @@ func NoopHook(index string) error {
 }
 
 // NoopFilter open noop filter
-func NoopFilter(index string, data []byte) ([]byte, error) {
+func NoopFilter(index string, data json.RawMessage) (json.RawMessage, error) {
 	return data, nil
 }
 
@@ -159,7 +161,7 @@ func (r router) checkStatic(path string, static bool) error {
 	return nil
 }
 
-func (r router) check(path string, data []byte, static bool) ([]byte, error) {
+func (r router) check(path string, data json.RawMessage, static bool) (json.RawMessage, error) {
 	match := -1
 	for i, filter := range r {
 		if filter.path == path || key.Match(filter.path, path) {
@@ -176,5 +178,18 @@ func (r router) check(path string, data []byte, static bool) ([]byte, error) {
 		return nil, errors.New("route not defined, static mode, key:" + path)
 	}
 
-	return r[match].apply(path, data)
+	filtered, err := r[match].apply(path, data)
+	if err != nil {
+		return nil, err
+	}
+	filteredDecoded, err := json.Marshal(filtered)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(filteredDecoded) == 0 {
+		return nil, errors.New("invalid filter result, key:" + path)
+	}
+
+	return filteredDecoded, nil
 }

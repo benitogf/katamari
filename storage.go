@@ -37,9 +37,11 @@ type StorageOpt struct {
 //
 // Set(key, data): store data under the provided key, key cannot not include glob pattern
 //
+// SetForce(key, data, created, updated): store data by manually providing created/updated time values
+//
 // Del(key): Delete a key from the storage
 //
-// Clear: will clear all keys from the storage (used for testing)
+// Clear: will clear all keys from the storage
 //
 // Watch: returns a channel that will receive any set or del operation
 type Database interface {
@@ -52,7 +54,7 @@ type Database interface {
 	GetN(path string, limit int) ([]objects.Object, error)
 	GetNRange(path string, limit int, from, to int64) ([]objects.Object, error)
 	Set(key string, data json.RawMessage) (string, error)
-	Pivot(key string, data json.RawMessage, created, updated int64) (string, error)
+	SetForce(key string, data json.RawMessage, created, updated int64) (string, error)
 	Del(key string) error
 	Clear()
 	Watch() StorageChan
