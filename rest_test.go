@@ -13,7 +13,7 @@ import (
 )
 
 func TestRestPostNonObject(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -27,7 +27,7 @@ func TestRestPostNonObject(t *testing.T) {
 }
 
 func TestRestPostEmptyData(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -41,7 +41,7 @@ func TestRestPostEmptyData(t *testing.T) {
 }
 
 func TestRestPostKey(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -55,13 +55,13 @@ func TestRestPostKey(t *testing.T) {
 }
 
 func TestRestDel(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
-	index, err := app.Storage.Set("test", "test")
+	index, err := app.Storage.Set("test", katamari.TEST_DATA)
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -79,10 +79,10 @@ func TestRestDel(t *testing.T) {
 	resp = w.Result()
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 
-	index, err = app.Storage.Set("test/1", "test1")
+	index, err = app.Storage.Set("test/1", katamari.TEST_DATA)
 	require.NoError(t, err)
 	require.Equal(t, "1", index)
-	index, err = app.Storage.Set("test/2", "test2")
+	index, err = app.Storage.Set("test/2", katamari.TEST_DATA_UPDATE)
 	require.NoError(t, err)
 	require.Equal(t, "2", index)
 
@@ -99,17 +99,17 @@ func TestRestDel(t *testing.T) {
 }
 
 func TestRestGet(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	app.Storage.Clear()
 	defer app.Close(os.Interrupt)
 	_ = app.Storage.Del("test")
-	index, err := app.Storage.Set("test", "test")
+	index, err := app.Storage.Set("test", katamari.TEST_DATA)
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
-	index, err = app.Storage.Set("sources", "list")
+	index, err = app.Storage.Set("sources", katamari.TEST_DATA_UPDATE)
 	require.NoError(t, err)
 	require.Equal(t, "sources", index)
 	data, _ := app.Storage.Get("test")
@@ -143,13 +143,13 @@ func TestRestGet(t *testing.T) {
 }
 
 func TestRestStats(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 
-	index, err := app.Storage.Set("test/1", "test1")
+	index, err := app.Storage.Set("test/1", katamari.TEST_DATA)
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 
@@ -177,17 +177,17 @@ func TestRestStats(t *testing.T) {
 }
 
 func TestRestResponseCode(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 
-	index, err := app.Storage.Set("test", "test")
+	index, err := app.Storage.Set("test", katamari.TEST_DATA)
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 
-	index, err = app.Storage.Set("test/1", "test1")
+	index, err = app.Storage.Set("test/1", katamari.TEST_DATA_UPDATE)
 	require.NoError(t, err)
 	require.NotEmpty(t, index)
 
@@ -229,7 +229,7 @@ func TestRestResponseCode(t *testing.T) {
 }
 
 func TestRestGetBadRequest(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -243,7 +243,7 @@ func TestRestGetBadRequest(t *testing.T) {
 }
 
 func TestRestPostInvalidKey(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -257,7 +257,7 @@ func TestRestPostInvalidKey(t *testing.T) {
 }
 
 func TestRestGetInvalidKey(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -271,7 +271,7 @@ func TestRestGetInvalidKey(t *testing.T) {
 }
 
 func TestRestDeleteInvalidKey(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := katamari.Server{}
 	app.Silence = true
 	app.Start("localhost:0")

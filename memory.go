@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goccy/go-json"
+
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/objects"
 )
@@ -230,7 +232,7 @@ func (db *MemoryStorage) Peek(key string, now int64) (int64, int64) {
 }
 
 // Set a value
-func (db *MemoryStorage) Set(path string, data string) (string, error) {
+func (db *MemoryStorage) Set(path string, data json.RawMessage) (string, error) {
 	now := time.Now().UTC().UnixNano()
 	index := key.LastIndex(path)
 	created, updated := db.Peek(path, now)
@@ -248,7 +250,7 @@ func (db *MemoryStorage) Set(path string, data string) (string, error) {
 }
 
 // Pivot set entries on pivot instances (force created/updated values)
-func (db *MemoryStorage) Pivot(path string, data string, created int64, updated int64) (string, error) {
+func (db *MemoryStorage) Pivot(path string, data json.RawMessage, created int64, updated int64) (string, error) {
 	index := key.LastIndex(path)
 	db.mem.Store(path, objects.New(&objects.Object{
 		Created: created,

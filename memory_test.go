@@ -3,24 +3,22 @@ package katamari
 import (
 	"os"
 	"testing"
-
-	"github.com/benitogf/katamari/messages"
 )
 
 func TestStorageMemory(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := &Server{}
 	app.Silence = true
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
-	for i := range units {
-		StorageListTest(app, t, messages.Encode([]byte(units[i])))
+	for range units {
+		StorageListTest(app, t)
 	}
 	StorageObjectTest(app, t)
 }
 
 func TestStreamBroadcastMemory(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
@@ -30,7 +28,7 @@ func TestStreamBroadcastMemory(t *testing.T) {
 }
 
 func TestStreamGlobBroadcastMemory(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
@@ -40,7 +38,7 @@ func TestStreamGlobBroadcastMemory(t *testing.T) {
 }
 
 func TestStreamBroadcastFilter(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true
@@ -49,7 +47,7 @@ func TestStreamBroadcastFilter(t *testing.T) {
 }
 
 func TestGetN(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := &Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -58,7 +56,7 @@ func TestGetN(t *testing.T) {
 }
 
 func TestKeysRange(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := &Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -67,7 +65,7 @@ func TestKeysRange(t *testing.T) {
 }
 
 func TestStreamItemGlobBroadcastLevel(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.ForcePatch = true

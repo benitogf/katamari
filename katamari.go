@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/benitogf/coat"
-	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
 	"github.com/benitogf/katamari/stream"
 	"github.com/gorilla/handlers"
@@ -184,7 +183,6 @@ func (app *Server) getFilteredData(key string) ([]byte, error) {
 func (app *Server) watch(sc StorageChan) {
 	broadcastOpt := stream.BroadcastOpt{
 		Get:      app.getFilteredData,
-		Encode:   messages.Encode,
 		Callback: nil,
 	}
 	for {

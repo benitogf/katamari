@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/benitogf/katamari/messages"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,7 +68,7 @@ func TestFilters(t *testing.T) {
 	require.NoError(t, err)
 	_, err = app.filters.Read.check("book/1", []byte("test1"), true)
 	require.NoError(t, err)
-	var jsonStr = []byte(`{"data":"` + messages.Encode([]byte("notest")) + `"}`)
+	var jsonStr = []byte(TEST_DATA)
 	req := httptest.NewRequest("POST", "/test/1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)

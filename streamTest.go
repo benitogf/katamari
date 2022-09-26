@@ -29,8 +29,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	var postObject objects.Object
 	var wsObject objects.Object
 	var wsEvent messages.Message
-	var wsCache string
-	testData := messages.Encode([]byte(TEST_DATA))
+	var wsCache json.RawMessage
 	wsURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/test"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -59,7 +58,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	streamCacheVersion, err := app.Stream.GetCacheVersion("test")
 	require.NoError(t, err)
 	app.Console.Log("post data")
-	var jsonStr = []byte(`{"data":"` + testData + `"}`)
+	var jsonStr = []byte(TEST_DATA)
 	req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
@@ -81,7 +80,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 	require.NoError(t, err)
 
 	require.Equal(t, wsObject.Index, postObject.Index)
-	require.Equal(t, wsObject.Data, testData)
+	require.Equal(t, wsObject.Data, TEST_DATA)
 
 	req = httptest.NewRequest("DELETE", "/test", nil)
 	w = httptest.NewRecorder()
@@ -110,8 +109,7 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 	var postObject objects.Object
 	var wsObject objects.Object
 	var wsEvent messages.Message
-	var wsCache string
-	testData := messages.Encode([]byte(TEST_DATA))
+	var wsCache json.RawMessage
 	wsURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/test/1"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -135,7 +133,7 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 	lk.Lock()
 	wsCache = wsEvent.Data
 	lk.Unlock()
-	var jsonStr = []byte(`{"data":"` + testData + `"}`)
+	var jsonStr = []byte(TEST_DATA)
 	req := httptest.NewRequest("POST", "/test/1", bytes.NewBuffer(jsonStr))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
@@ -152,10 +150,10 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 	require.NoError(t, err)
 	err = json.Unmarshal(modified, &wsObject)
 	require.NoError(t, err)
-	wsCache = string(modified)
+	wsCache = modified
 
 	require.Equal(t, wsObject.Index, postObject.Index)
-	require.Equal(t, wsObject.Data, testData)
+	require.Equal(t, wsObject.Data, TEST_DATA)
 
 	wg.Add(1)
 	req = httptest.NewRequest("DELETE", "/test/*", nil)
@@ -185,8 +183,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 	var postObject objects.Object
 	var wsObject []objects.Object
 	var wsEvent messages.Message
-	var wsCache string
-	testData := messages.Encode([]byte(TEST_DATA))
+	var wsCache json.RawMessage
 	wsURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/test/*"}
 	wsClient, _, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 	require.NoError(t, err)
@@ -211,10 +208,9 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 	wsCache = wsEvent.Data
 	lk.Unlock()
 	app.Console.Log("post data")
-	var jsonStr = []byte(`{"data":"` + testData + `"}`)
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
+		req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(TEST_DATA))
 		w := httptest.NewRecorder()
 		app.Router.ServeHTTP(w, req)
 		resp := w.Result()
@@ -232,7 +228,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 			require.NoError(t, err)
 			err = json.Unmarshal(modified, &wsObject)
 			require.NoError(t, err)
-			wsCache = string(modified)
+			wsCache = modified
 		} else {
 			wsCache = wsEvent.Data
 		}
@@ -240,7 +236,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 	}
 
 	require.Equal(t, wsObject[0].Index, postObject.Index)
-	require.Equal(t, wsObject[0].Data, testData)
+	require.Equal(t, string(wsObject[0].Data), string(TEST_DATA))
 
 	wg.Add(1)
 	req := httptest.NewRequest("DELETE", "/test/*", nil)
@@ -274,11 +270,9 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	var wg sync.WaitGroup
 	var postObject objects.Object
 	var wsExtraEvent messages.Message
-	testData := messages.Encode([]byte(TEST_DATA))
-	var jsonStr = []byte(`{"data":"` + testData + `"}`)
 	// extra filter
 	app.ReadFilter("test/*", func(index string, data []byte) ([]byte, error) {
-		return []byte("extra"), nil
+		return []byte(`{"extra": "extra"}`), nil
 	})
 	// extra route
 	app.Router = mux.NewRouter()
@@ -303,7 +297,7 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	wg.Wait()
 	wg.Add(1)
 	app.Console.Log("post data")
-	req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
+	req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(TEST_DATA))
 	w := httptest.NewRecorder()
 	app.Router.ServeHTTP(w, req)
 	resp := w.Result()
@@ -317,5 +311,5 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 
 	// empty operations for a broadcast with no changes
 	require.Equal(t, false, wsExtraEvent.Snapshot)
-	require.Equal(t, "[]", wsExtraEvent.Data)
+	require.Equal(t, "[]", string(wsExtraEvent.Data))
 }

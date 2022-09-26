@@ -8,12 +8,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/goccy/go-json"
+
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAudit(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.Audit = func(r *http.Request) bool {
@@ -22,7 +24,7 @@ func TestAudit(t *testing.T) {
 	app.Start("localhost:0")
 	defer app.Close(os.Interrupt)
 
-	index, err := app.Storage.Set("test", "test")
+	index, err := app.Storage.Set("test", json.RawMessage(`{"test": "123"}`))
 	require.NoError(t, err)
 	require.Equal(t, "test", index)
 
@@ -106,7 +108,7 @@ func TestRestart(t *testing.T) {
 }
 
 func TestGlobKey(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")
@@ -120,7 +122,7 @@ func TestGlobKey(t *testing.T) {
 }
 
 func TestInvalidKey(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	app := Server{}
 	app.Silence = true
 	app.Start("localhost:0")

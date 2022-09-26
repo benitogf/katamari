@@ -1,6 +1,8 @@
 package katamari
 
 import (
+	"github.com/goccy/go-json"
+
 	"github.com/benitogf/katamari/objects"
 )
 
@@ -49,8 +51,8 @@ type Database interface {
 	Get(key string) ([]byte, error)
 	GetN(path string, limit int) ([]objects.Object, error)
 	GetNRange(path string, limit int, from, to int64) ([]objects.Object, error)
-	Set(key string, data string) (string, error)
-	Pivot(key string, data string, created, updated int64) (string, error)
+	Set(key string, data json.RawMessage) (string, error)
+	Pivot(key string, data json.RawMessage, created, updated int64) (string, error)
 	Del(key string) error
 	Clear()
 	Watch() StorageChan

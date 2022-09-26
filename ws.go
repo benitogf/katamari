@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/benitogf/katamari/messages"
 	"github.com/gorilla/mux"
 )
 
@@ -25,7 +24,7 @@ func (app *Server) ws(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if version != strconv.FormatInt(entry.Version, 16) {
-		go app.Stream.Write(client, messages.Encode(entry.Data), true, entry.Version)
+		go app.Stream.Write(client, string(entry.Data), true, entry.Version)
 	}
 	app.Stream.Read(_key, client)
 }

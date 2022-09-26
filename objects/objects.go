@@ -4,21 +4,19 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/cristalhq/base64"
-
 	"github.com/goccy/go-json"
 )
 
 // Object : data structure of elements
 type Object struct {
-	Created int64  `json:"created"`
-	Updated int64  `json:"updated"`
-	Index   string `json:"index"`
-	Data    string `json:"data"`
+	Created int64           `json:"created"`
+	Updated int64           `json:"updated"`
+	Index   string          `json:"index"`
+	Data    json.RawMessage `json:"data"`
 }
 
 // EmptyObject byte array value
-var EmptyObject = []byte(`{ "created": 0, "updated": 0, "index": "", "data": "e30=" }`)
+var EmptyObject = []byte(`{ "created": 0, "updated": 0, "index": "", "data": {} }`)
 
 func max(a, b int64) int64 {
 	if a > b {
@@ -61,12 +59,6 @@ func Decode(data []byte) (Object, error) {
 	if err != nil {
 		return obj, err
 	}
-	aux, err := base64.StdEncoding.DecodeString(obj.Data)
-	if err != nil {
-		return obj, err
-	}
-
-	obj.Data = string(aux)
 
 	return obj, err
 }
@@ -88,7 +80,7 @@ func DecodeList(data []byte) ([]Object, error) {
 		return objects, err
 	}
 
-	return DecodeListData(objects)
+	return objects, nil
 }
 
 // DecodeListFromReader objects from io reader
@@ -109,21 +101,6 @@ func DecodeListRaw(data []byte) ([]Object, error) {
 	}
 
 	return objects, nil
-}
-
-// DecodeListData will decode the data field in an objects list
-func DecodeListData(objects []Object) ([]Object, error) {
-	var err error
-	for i := range objects {
-		var aux []byte
-		aux, err = base64.StdEncoding.DecodeString(objects[i].Data)
-		if err != nil {
-			break
-		}
-		objects[i].Data = string(aux)
-	}
-
-	return objects, err
 }
 
 // New object as json

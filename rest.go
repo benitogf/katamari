@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/goccy/go-json"
+
 	"github.com/benitogf/katamari/key"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
@@ -52,14 +54,14 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != nil {
+	if err != nil || len(event) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", err)
 		return
 	}
 
 	_key := key.Build(vkey)
-	data, err := app.filters.Write.check(_key, []byte(event.Data), app.Static)
+	data, err := app.filters.Write.check(_key, event, app.Static)
 	if err != nil {
 		app.Console.Err("setError["+_key+"]", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -67,7 +69,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	index, err := app.Storage.Set(_key, string(data))
+	index, err := app.Storage.Set(_key, json.RawMessage(data))
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

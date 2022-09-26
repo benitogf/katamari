@@ -149,16 +149,12 @@ func TestConcurrentBroadcast(t *testing.T) {
 	fakeGet := func(key string) ([]byte, error) {
 		return []byte(testData), nil
 	}
-	fakeEncode := func(data []byte) string {
-		return string(data)
-	}
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			stream.Broadcast("a", BroadcastOpt{
-				Get:    fakeGet,
-				Encode: fakeEncode,
+				Get: fakeGet,
 				Callback: func() {
 					wg.Done()
 				},
@@ -170,8 +166,7 @@ func TestConcurrentBroadcast(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			go stream.Broadcast("b", BroadcastOpt{
-				Get:    fakeGet,
-				Encode: fakeEncode,
+				Get: fakeGet,
 				Callback: func() {
 					wg.Done()
 				},

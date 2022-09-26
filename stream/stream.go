@@ -57,7 +57,6 @@ type Stream struct {
 
 type BroadcastOpt struct {
 	Get      GetFn
-	Encode   EncodeFn
 	Callback func()
 }
 
@@ -178,7 +177,11 @@ func (sm *Stream) Broadcast(path string, opt BroadcastOpt) {
 
 			sm.pools[poolIndex].mutex.Lock()
 			modifiedData, snapshot, version := sm.Patch(poolIndex, data)
-			sm.broadcast(poolIndex, opt.Encode(modifiedData), snapshot, version)
+			// jsonData, err := json.Marshal(modifiedData)
+			// if err != nil {
+			// 	continue
+			// }
+			sm.broadcast(poolIndex, string(modifiedData), snapshot, version)
 			sm.pools[poolIndex].mutex.Unlock()
 			if opt.Callback != nil {
 				opt.Callback()
@@ -230,7 +233,7 @@ func (sm *Stream) Write(client *Conn, data string, snapshot bool, version int64)
 	err := client.conn.WriteMessage(websocket.BinaryMessage, []byte("{"+
 		"\"snapshot\": "+strconv.FormatBool(snapshot)+","+
 		"\"version\": \""+strconv.FormatInt(version, 16)+"\","+
-		"\"data\": \""+data+"\""+
+		"\"data\": "+data+
 		"}"))
 
 	if err != nil {
