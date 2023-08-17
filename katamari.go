@@ -55,6 +55,12 @@ type audit func(r *http.Request) bool
 //
 // AllowedOrigins: list of allowed origins for cross domain access, defaults to ["*"]
 //
+// AllowedMethods: list of allowed methods for cross domain access, defaults to ["GET", "POST", "DELETE", "PUT"]
+//
+// AllowedHeaders: list of allowed headers for cross domain access, defaults to ["Authorization", "Content-Type"]
+//
+// ExposedHeaders: list of exposed headers for cross domain access, defaults to nil
+//
 // Storage: database interdace implementation
 //
 // Silence: output silence flag
@@ -83,6 +89,9 @@ type Server struct {
 	OnClose           func()
 	Deadline          time.Duration
 	AllowedOrigins    []string
+	AllowedMethods    []string
+	AllowedHeaders    []string
+	ExposedHeaders    []string
 	Storage           Database
 	Address           string
 	closing           int64
@@ -123,9 +132,10 @@ func (app *Server) waitListen() {
 		IdleTimeout:       app.IdleTimeout,
 		Addr:              app.Address,
 		Handler: cors.New(cors.Options{
-			AllowedMethods: []string{"GET", "POST", "DELETE", "PUT"},
+			AllowedMethods: app.AllowedHeaders,
 			AllowedOrigins: app.AllowedOrigins,
-			AllowedHeaders: []string{"Authorization", "Content-Type"},
+			AllowedHeaders: app.AllowedHeaders,
+			ExposedHeaders: app.ExposedHeaders,
 			// AllowCredentials: true,
 			// Debug:          true,
 		}).Handler(handlers.CompressHandler(app.Router))}
@@ -215,6 +225,14 @@ func (app *Server) defaults() {
 
 	if app.AllowedOrigins == nil || len(app.AllowedOrigins) == 0 {
 		app.AllowedOrigins = []string{"*"}
+	}
+
+	if app.AllowedMethods == nil || len(app.AllowedMethods) == 0 {
+		app.AllowedMethods = []string{"GET", "POST", "DELETE", "PUT"}
+	}
+
+	if app.AllowedHeaders == nil || len(app.AllowedHeaders) == 0 {
+		app.AllowedHeaders = []string{"Authorization", "Content-Type"}
 	}
 
 	if app.Console == nil {
