@@ -132,7 +132,7 @@ func (app *Server) waitListen() {
 		IdleTimeout:       app.IdleTimeout,
 		Addr:              app.Address,
 		Handler: cors.New(cors.Options{
-			AllowedMethods: app.AllowedHeaders,
+			AllowedMethods: app.AllowedMethods,
 			AllowedOrigins: app.AllowedOrigins,
 			AllowedHeaders: app.AllowedHeaders,
 			ExposedHeaders: app.ExposedHeaders,
