@@ -39,7 +39,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	vkey := mux.Vars(r)["key"]
 	count := strings.Count(vkey, "*")
 	where := strings.Index(vkey, "*")
-	event, err := messages.Decode(r.Body)
+	event, err := messages.DecodeReader(r.Body)
 	if !key.IsValid(vkey) || count > 1 || (count == 1 && where != len(vkey)-1) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid"))
