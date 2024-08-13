@@ -16,7 +16,7 @@ func makeStreamRequestMock(url string) (*http.Request, *hjhttptest.HijackableRes
 	req := httptest.NewRequest("GET", url, nil)
 	req.Header.Add("Connection", "upgrade")
 	req.Header.Add("Sec-Websocket-Version", "13")
-	req.Header.Add("Sec-Websocket-Key", "alo")
+	req.Header.Add("Sec-Websocket-Key", "IRhw449z7G0Mov9CahJ+Ow==")
 	req.Header.Add("Upgrade", "websocket")
 	w := hjhttptest.NewRecorder(nil)
 
@@ -153,7 +153,7 @@ func TestConcurrentBroadcast(t *testing.T) {
 		return string(data)
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			stream.Broadcast("a", BroadcastOpt{
@@ -166,7 +166,7 @@ func TestConcurrentBroadcast(t *testing.T) {
 		}()
 	}
 
-	for y := 0; y < 10; y++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			go stream.Broadcast("b", BroadcastOpt{

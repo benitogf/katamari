@@ -42,7 +42,7 @@ func StreamBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			lk.Lock()
-			wsEvent, err = messages.DecodeTest(message)
+			wsEvent, err = messages.DecodeBuffer(message)
 			lk.Unlock()
 			expect.Nil(err)
 			app.Console.Log("read wsClient", wsEvent.Data)
@@ -123,7 +123,7 @@ func StreamItemGlobBroadcastTest(t *testing.T, app *Server) {
 				break
 			}
 			lk.Lock()
-			wsEvent, err = messages.DecodeTest(message)
+			wsEvent, err = messages.DecodeBuffer(message)
 			lk.Unlock()
 			expect.Nil(err)
 			app.Console.Log("read wsClient", wsEvent.Data)
@@ -198,7 +198,7 @@ func StreamGlobBroadcastTest(t *testing.T, app *Server, n int) {
 				break
 			}
 			lk.Lock()
-			wsEvent, err = messages.DecodeTest(message)
+			wsEvent, err = messages.DecodeBuffer(message)
 			lk.Unlock()
 			expect.Nil(err)
 			app.Console.Log("read wsClient", wsEvent.Data)
@@ -294,7 +294,7 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 			if err != nil {
 				break
 			}
-			wsExtraEvent, err = messages.DecodeTest(message)
+			wsExtraEvent, err = messages.DecodeBuffer(message)
 			expect.Nil(err)
 			app.Console.Log("read wsClient", string(message))
 			wg.Done()
