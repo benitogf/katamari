@@ -71,7 +71,6 @@ func TestClientClose(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	// client.DEBUG = true
 	go client.Subscribe(ctx, "ws", server.Address, "devices/*",
 		func(devices []client.Meta[Device]) {
 			wg.Done()
