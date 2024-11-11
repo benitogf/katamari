@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 	"testing"
@@ -34,6 +35,13 @@ func createDevice(t *testing.T, server *katamari.Server, name string) {
 	server.Storage.Set(newKey, newDeviceDataEncoded)
 }
 
+// Sort by created/updated
+func SortDevices(obj []client.Meta[Device]) func(i, j int) bool {
+	return func(i, j int) bool {
+		return obj[i].Created > obj[j].Created
+	}
+}
+
 func TestClientList(t *testing.T) {
 	server := katamari.Server{}
 	server.Silence = true
@@ -47,6 +55,7 @@ func TestClientList(t *testing.T) {
 	wg.Add(1)
 	go client.Subscribe(ctx, "ws", server.Address, "devices/*",
 		func(devices []client.Meta[Device]) {
+			sort.Slice(devices, SortDevices(devices))
 			if len(devices) > 0 {
 				require.Equal(t, "device "+strconv.Itoa(len(devices)-1), devices[0].Data.Name)
 			}
