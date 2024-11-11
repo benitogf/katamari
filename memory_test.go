@@ -48,6 +48,14 @@ func TestStreamBroadcastFilter(t *testing.T) {
 	StreamBroadcastFilterTest(t, &app)
 }
 
+func TestStreamNoPatch(t *testing.T) {
+	t.Parallel()
+	app := Server{}
+	app.Silence = true
+	defer app.Close(os.Interrupt)
+	StreamBroadcastNoPatchTest(t, &app)
+}
+
 func TestGetN(t *testing.T) {
 	t.Parallel()
 	app := &Server{}

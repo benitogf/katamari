@@ -84,6 +84,7 @@ type Server struct {
 	Audit             audit
 	Workers           int
 	ForcePatch        bool
+	NoPatch           bool
 	OnSubscribe       stream.Subscribe
 	OnUnsubscribe     stream.Unsubscribe
 	OnClose           func()
@@ -314,6 +315,10 @@ func (app *Server) defaults() {
 	}
 
 	app.Stream.ForcePatch = app.ForcePatch
+	app.Stream.NoPatch = app.NoPatch
+	if app.Stream.ForcePatch && app.Stream.NoPatch {
+		app.Console.Err("both ForcePatch and NoPatch are enabled, only NoPatch will be used")
+	}
 	app.Stream.InitClock()
 }
 

@@ -319,3 +319,63 @@ func StreamBroadcastFilterTest(t *testing.T, app *Server) {
 	require.Equal(t, false, wsExtraEvent.Snapshot)
 	require.Equal(t, "[]", wsExtraEvent.Data)
 }
+
+// StreamBroadcastNoPatchTest testing stream function
+func StreamBroadcastNoPatchTest(t *testing.T, app *Server) {
+	var wg sync.WaitGroup
+	var postObject objects.Object
+	var wsExtraEvent messages.Message
+
+	testData := messages.Encode([]byte(TEST_DATA))
+	var jsonStr = []byte(`{"data":"` + testData + `"}`)
+	// extra route
+	app.Router = mux.NewRouter()
+	app.NoPatch = true
+	app.Start("localhost:0")
+	app.Storage.Clear()
+	wsExtraURL := url.URL{Scheme: "ws", Host: app.Address, Path: "/test/*"}
+	wsExtraClient, _, err := websocket.DefaultDialer.Dial(wsExtraURL.String(), nil)
+	require.NoError(t, err)
+	wg.Add(1)
+	go func() {
+		for {
+			_, message, err := wsExtraClient.ReadMessage()
+			if err != nil {
+				break
+			}
+			wsExtraEvent, err = messages.DecodeBuffer(message)
+			expect.Nil(err)
+			expect.True(wsExtraEvent.Snapshot)
+			app.Console.Log("read wsClient", string(message))
+			wg.Done()
+		}
+	}()
+	wg.Wait()
+	wg.Add(1)
+	app.Console.Log("post data")
+	req := httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(body, &postObject)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.StatusCode)
+	wg.Wait()
+
+	wg.Add(1)
+	app.Console.Log("post data")
+	req = httptest.NewRequest("POST", "/test/*", bytes.NewBuffer(jsonStr))
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	body, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(body, &postObject)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.StatusCode)
+	wg.Wait()
+
+	wsExtraClient.Close()
+}
