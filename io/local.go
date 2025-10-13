@@ -37,7 +37,7 @@ func GetList[T any](server *katamari.Server, path string) ([]client.Meta[T], err
 		// log.Println("GetList["+path+"]: unmarshalling data", obj.Created, obj.Data)
 		err = json.Unmarshal([]byte(obj.Data), &item)
 		if err != nil {
-			log.Println("GetList["+path+"]: failed to unmarshal data", err)
+			log.Println("GetList["+path+"]: failed to unmarshal data", string(obj.Data), err)
 			continue
 		}
 		// log.Println("GetList["+path+"]: marshalled data", item)

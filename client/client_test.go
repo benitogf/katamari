@@ -67,7 +67,7 @@ func TestClientList(t *testing.T) {
 	for i := range 5 {
 		wg.Add(1)
 		createDevice(t, &server, "device "+strconv.Itoa(i))
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS == "windows" {
 			time.Sleep(10 * time.Millisecond)
 		}
 		wg.Wait()
@@ -168,7 +168,7 @@ func TestClientListCallbackCurry(t *testing.T) {
 	for i := range NUM_DEVICES {
 		wg.Add(1)
 		createDevice(t, &server, "device "+strconv.Itoa(i))
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS == "windows" {
 			time.Sleep(10 * time.Millisecond)
 		}
 		wg.Wait()
