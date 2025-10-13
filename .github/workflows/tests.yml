@@ -37,6 +37,7 @@ jobs:
         go vet ./messages/
         go vet ./objects/
         go vet ./client/
+        go vet ./io/
     - name: Test Main
       run: go test -v -coverprofile cover.out -count 1 -failfast -race -bench .
     - name: Test Stream
@@ -45,3 +46,5 @@ jobs:
       run: go test -v -coverprofile cover.out -count 1 -failfast -race ./key/
     - name: Test Client
       run: go test -v -coverprofile cover.out -count 1 -failfast -race ./client/
+    - name: Test IO
+      run: go test -v -coverprofile cover.out -count 1 -failfast -race ./io/
