@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
+	"runtime"
 	"sort"
 	"strconv"
 	"sync"
@@ -47,8 +48,7 @@ func TestClientList(t *testing.T) {
 	server.Silence = true
 	server.Start("localhost:0")
 	defer server.Close(os.Interrupt)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	wg := sync.WaitGroup{}
 
@@ -67,6 +67,9 @@ func TestClientList(t *testing.T) {
 	for i := range 5 {
 		wg.Add(1)
 		createDevice(t, &server, "device "+strconv.Itoa(i))
+		if runtime.GOOS != "windows" {
+			time.Sleep(10 * time.Millisecond)
+		}
 		wg.Wait()
 	}
 }
@@ -76,7 +79,7 @@ func TestClientClose(t *testing.T) {
 	server.Silence = true
 	server.Start("localhost:0")
 	defer server.Close(os.Interrupt)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -97,7 +100,7 @@ func TestClientCloseWhileReconnecting(t *testing.T) {
 	server.Silence = true
 	server.Start("localhost:0")
 	defer server.Close(os.Interrupt)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -119,7 +122,7 @@ func TestClientCloseWhileReconnecting(t *testing.T) {
 }
 
 func TestClientCloseWithoutConnection(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	client.HandshakeTimeout = 10 * time.Millisecond
 	go client.Subscribe(ctx, "ws", "notAnIP", "devices/*",
@@ -140,7 +143,7 @@ func TestClientListCallbackCurry(t *testing.T) {
 	server.Silence = true
 	server.Start("localhost:0")
 	defer server.Close(os.Interrupt)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	wg := sync.WaitGroup{}
@@ -165,6 +168,9 @@ func TestClientListCallbackCurry(t *testing.T) {
 	for i := range NUM_DEVICES {
 		wg.Add(1)
 		createDevice(t, &server, "device "+strconv.Itoa(i))
+		if runtime.GOOS != "windows" {
+			time.Sleep(10 * time.Millisecond)
+		}
 		wg.Wait()
 	}
 
