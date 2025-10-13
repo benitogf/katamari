@@ -1,19 +1,19 @@
 module github.com/benitogf/katamari
 
-go 1.22
+go 1.25
 
 require (
 	github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec
-	github.com/benitogf/jsonpatch v0.0.0-20220924150135-fc4b5c761ac7
+	github.com/benitogf/jsonpatch v0.0.0-20250219100646-458e71efe70d
 	github.com/cristalhq/base64 v0.1.2
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
-	github.com/goccy/go-json v0.10.3
+	github.com/goccy/go-json v0.10.5
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/pkg/expect v0.0.0-20191209053905-1fe4c9394a8a
-	github.com/rs/cors v1.11.0
-	github.com/stretchr/testify v1.9.0
+	github.com/rs/cors v1.11.1
+	github.com/stretchr/testify v1.11.1
 )
 
 require (

@@ -78,7 +78,7 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 	app.Console.Log("publish", _key)
 	app.filters.After.check(_key)
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, "{"+
+	fmt.Fprintf(w, "%s", "{"+
 		"\"index\": \""+index+"\""+
 		"}")
 }
@@ -165,5 +165,5 @@ func (app *Server) unpublish(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	w.WriteHeader(http.StatusNoContent)
-	fmt.Fprintf(w, "unpublish "+_key)
+	fmt.Fprintf(w, "%s", "unpublish "+_key)
 }
