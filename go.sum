@@ -4,8 +4,8 @@ github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec h1:I2p/9YsiAMB+J2DrC
 github.com/benitogf/coat v0.0.0-20200402073050-ff807656cbec/go.mod h1:hl/Xd8DKuMgC/ClZ2dPZz6mvXaxdkjrt0mr0+jF4UkQ=
 github.com/benitogf/jsondiff v0.0.0-20200402083139-355fc2c95658 h1:wCbyHDE170Pt3F2YcJn9Q82ed9f/PB2YE4lYRDvJLf4=
 github.com/benitogf/jsondiff v0.0.0-20200402083139-355fc2c95658/go.mod h1:w/Y8qUTRw+ewq+K23wa0CrhT19d1nsboJd8mFJoE9+0=
-github.com/benitogf/jsonpatch v0.0.0-20220924150135-fc4b5c761ac7 h1:bD4MAvpNi2d2kE/gbgRqQAs2ulu36brqQpv2olg8hqk=
-github.com/benitogf/jsonpatch v0.0.0-20220924150135-fc4b5c761ac7/go.mod h1:O1Z+hTPUrXzHUjmKlpmNYK9wcncZ5rS3K8PqItDO0x0=
+github.com/benitogf/jsonpatch v0.0.0-20250219100646-458e71efe70d h1:ZpQQZiG0Lca3Vb9EPVD2aOwRQiDBRXrpTCg1tF397Hk=
+github.com/benitogf/jsonpatch v0.0.0-20250219100646-458e71efe70d/go.mod h1:O1Z+hTPUrXzHUjmKlpmNYK9wcncZ5rS3K8PqItDO0x0=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cristalhq/base64 v0.1.2 h1:edsefYyYDiac7Ytdh2xdaiiSSJzcI2f0yIkdGEf1qY0=
 github.com/cristalhq/base64 v0.1.2/go.mod h1:sy4+2Hale2KbtSqkzpdMeYTP/IrB+HCvxVHWsh2VSYk=
@@ -17,8 +17,8 @@ github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590 h1:OhyiFx+yBN3
 github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590/go.mod h1:rE/jidqqHHG9sjSxC24Gd5YCfZ1AT91C2wjJ28TAOfA=
 github.com/getlantern/mockconn v0.0.0-20200818071412-cb30d065a848 h1:2MhMMVBTnaHrst6HyWFDhwQCaJ05PZuOv1bE2gN8WFY=
 github.com/getlantern/mockconn v0.0.0-20200818071412-cb30d065a848/go.mod h1:+F5GJ7qGpQ03DBtcOEyQpM30ix4BLswdaojecFtsdy8=
-github.com/goccy/go-json v0.10.3 h1:KZ5WoDbxAIgm2HNbYckL0se1fHD6rz5j4ywS6ebzDqA=
-github.com/goccy/go-json v0.10.3/go.mod h1:oq7eo15ShAhp70Anwd5lgX2pLfOS3QCiwU/PULtXL6M=
+github.com/goccy/go-json v0.10.5 h1:Fq85nIqj+gXn/S5ahsiTlK3TmC85qgirsdTP/+DeaC4=
+github.com/goccy/go-json v0.10.5/go.mod h1:oq7eo15ShAhp70Anwd5lgX2pLfOS3QCiwU/PULtXL6M=
 github.com/gorilla/handlers v1.5.2 h1:cLTUSsNkgcwhgRqvCNmdbRWG0A3N4F+M2nWKdScwyEE=
 github.com/gorilla/handlers v1.5.2/go.mod h1:dX+xVpaxdSw+q0Qek8SSsl3dfMk3jNddUkMzo0GtH0w=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
@@ -35,10 +35,10 @@ github.com/pkg/expect v0.0.0-20191209053905-1fe4c9394a8a h1:vt+MDYAsRPsJSRWY9m6l
 github.com/pkg/expect v0.0.0-20191209053905-1fe4c9394a8a/go.mod h1:FWZrgn7FR+z4swTr6vGIJQu0ZPLHThpHDSTgzlIOQ9Y=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/rs/cors v1.11.0 h1:0B9GE/r9Bc2UxRMMtymBkHTenPkHDv0CW4Y98GBY+po=
-github.com/rs/cors v1.11.0/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
-github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
-github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/rs/cors v1.11.1 h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=
+github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
+github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
+github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=

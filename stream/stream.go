@@ -98,15 +98,15 @@ func (sm *Stream) InitClock() {
 
 // New stream on a key
 func (sm *Stream) New(key string, w http.ResponseWriter, r *http.Request) (*Conn, error) {
+	err := sm.OnSubscribe(key)
+	if err != nil {
+		return nil, err
+	}
+
 	wsClient, err := StreamUpgrader.Upgrade(w, r, nil)
 
 	if err != nil {
 		sm.Console.Err("socketUpgradeError["+key+"]", err)
-		return nil, err
-	}
-
-	err = sm.OnSubscribe(key)
-	if err != nil {
 		return nil, err
 	}
 
@@ -171,13 +171,15 @@ func (sm *Stream) Broadcast(path string, opt BroadcastOpt) {
 	// skip pool 0 (clock)
 	for poolIndex := 1; poolIndex < len(sm.pools); poolIndex++ {
 		if key.Peer(sm.pools[poolIndex].Key, path) {
+			sm.pools[poolIndex].mutex.Lock()
 			data, err := opt.Get(sm.pools[poolIndex].Key)
 			// this error means that the broadcast was filtered
 			if err != nil {
+				sm.Console.Err("broadcast["+sm.pools[poolIndex].Key+"]: failed to get data", err)
+				sm.pools[poolIndex].mutex.Unlock()
 				continue
 			}
 
-			sm.pools[poolIndex].mutex.Lock()
 			modifiedData, snapshot, version := sm.Patch(poolIndex, data)
 			sm.broadcast(poolIndex, opt.Encode(modifiedData), snapshot, version)
 			sm.pools[poolIndex].mutex.Unlock()
@@ -306,8 +308,11 @@ func (sm *Stream) GetCacheVersion(key string) (int64, error) {
 	return sm.pools[poolIndex].cache.Version, nil
 }
 
-func (sm *Stream) Refresh(path string, getDataFn GetFn) Cache {
-	raw, _ := getDataFn(path)
+func (sm *Stream) Refresh(path string, getDataFn GetFn) (Cache, error) {
+	raw, err := getDataFn(path)
+	if err != nil {
+		return Cache{}, err
+	}
 	if len(raw) == 0 {
 		raw = objects.EmptyObject
 	}
@@ -318,9 +323,9 @@ func (sm *Stream) Refresh(path string, getDataFn GetFn) Cache {
 	if err != nil {
 		newVersion := sm.setCache(path, raw)
 		cache.Version = newVersion
-		return cache
+		return cache, nil
 	}
 
 	cache.Version = cacheVersion
-	return cache
+	return cache, nil
 }

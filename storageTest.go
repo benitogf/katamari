@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -667,6 +668,10 @@ func StorageKeysRangeTest(app *Server, t *testing.T, n int) {
 		}
 		require.NoError(t, err)
 		require.Equal(t, path, "test/"+key)
+		if runtime.GOOS == "windows" {
+			// time granularity in windows is not fast enough
+			time.Sleep(time.Millisecond * 1)
+		}
 	}
 
 	keys, err := app.Storage.KeysRange("test/*", 0, key.Decode(first))
