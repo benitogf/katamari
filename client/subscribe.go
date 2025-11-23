@@ -26,6 +26,13 @@ type Meta[T any] struct {
 }
 type OnMessageCallback[T any] func([]Meta[T])
 
+// Path represents a subscription path configuration.
+type Path struct {
+	Protocol string
+	Host     string
+	Path     string
+}
+
 func Subscribe[T any](ctx context.Context, protocol, host, path string, callback OnMessageCallback[T]) {
 	retryCount := 0
 	cache := ""
