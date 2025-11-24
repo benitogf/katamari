@@ -56,6 +56,9 @@ func TestIObasic(t *testing.T) {
 	}
 	err = io.Push(server, THINGS_PATH, thing2.Data)
 	require.NoError(t, err)
+	if runtime.GOOS == "windows" {
+		time.Sleep(10 * time.Millisecond)
+	}
 
 	things, err := io.GetList[Thing](server, THINGS_PATH)
 	require.NoError(t, err)
