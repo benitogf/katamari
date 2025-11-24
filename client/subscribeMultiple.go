@@ -2,6 +2,11 @@ package client
 
 import "context"
 
+type MultiState[T any] struct {
+	Data    []Meta[T]
+	Updated bool
+}
+
 // SubscribeMultiple2 subscribes to 2 paths with different types and a single callback.
 // When any subscription updates, the callback receives ALL current states.
 // Uses typed channels for type-safe, lock-free state management.
@@ -9,7 +14,7 @@ func SubscribeMultiple2[T1, T2 any](
 	ctx context.Context,
 	path1 Path,
 	path2 Path,
-	callback func([]Meta[T1], []Meta[T2]),
+	callback func(MultiState[T1], MultiState[T2]),
 ) {
 	ch1 := make(chan []Meta[T1], 10)
 	ch2 := make(chan []Meta[T2], 10)
@@ -24,9 +29,9 @@ func SubscribeMultiple2[T1, T2 any](
 			case <-ctx.Done():
 				return
 			case state1 = <-ch1:
-				callback(state1, state2)
+				callback(MultiState[T1]{Data: state1, Updated: true}, MultiState[T2]{Data: state2, Updated: false})
 			case state2 = <-ch2:
-				callback(state1, state2)
+				callback(MultiState[T1]{Data: state1, Updated: false}, MultiState[T2]{Data: state2, Updated: true})
 			}
 		}
 	}()
@@ -54,7 +59,7 @@ func SubscribeMultiple3[T1, T2, T3 any](
 	path1 Path,
 	path2 Path,
 	path3 Path,
-	callback func([]Meta[T1], []Meta[T2], []Meta[T3]),
+	callback func(MultiState[T1], MultiState[T2], MultiState[T3]),
 ) {
 	ch1 := make(chan []Meta[T1], 10)
 	ch2 := make(chan []Meta[T2], 10)
@@ -71,11 +76,23 @@ func SubscribeMultiple3[T1, T2, T3 any](
 			case <-ctx.Done():
 				return
 			case state1 = <-ch1:
-				callback(state1, state2, state3)
+				callback(
+					MultiState[T1]{Data: state1, Updated: true},
+					MultiState[T2]{Data: state2, Updated: false},
+					MultiState[T3]{Data: state3, Updated: false},
+				)
 			case state2 = <-ch2:
-				callback(state1, state2, state3)
+				callback(
+					MultiState[T1]{Data: state1, Updated: false},
+					MultiState[T2]{Data: state2, Updated: true},
+					MultiState[T3]{Data: state3, Updated: false},
+				)
 			case state3 = <-ch3:
-				callback(state1, state2, state3)
+				callback(
+					MultiState[T1]{Data: state1, Updated: false},
+					MultiState[T2]{Data: state2, Updated: false},
+					MultiState[T3]{Data: state3, Updated: true},
+				)
 			}
 		}
 	}()
@@ -111,7 +128,7 @@ func SubscribeMultiple4[T1, T2, T3, T4 any](
 	path2 Path,
 	path3 Path,
 	path4 Path,
-	callback func([]Meta[T1], []Meta[T2], []Meta[T3], []Meta[T4]),
+	callback func(MultiState[T1], MultiState[T2], MultiState[T3], MultiState[T4]),
 ) {
 	ch1 := make(chan []Meta[T1], 10)
 	ch2 := make(chan []Meta[T2], 10)
@@ -130,13 +147,33 @@ func SubscribeMultiple4[T1, T2, T3, T4 any](
 			case <-ctx.Done():
 				return
 			case state1 = <-ch1:
-				callback(state1, state2, state3, state4)
+				callback(
+					MultiState[T1]{Data: state1, Updated: true},
+					MultiState[T2]{Data: state2, Updated: false},
+					MultiState[T3]{Data: state3, Updated: false},
+					MultiState[T4]{Data: state4, Updated: false},
+				)
 			case state2 = <-ch2:
-				callback(state1, state2, state3, state4)
+				callback(
+					MultiState[T1]{Data: state1, Updated: false},
+					MultiState[T2]{Data: state2, Updated: true},
+					MultiState[T3]{Data: state3, Updated: false},
+					MultiState[T4]{Data: state4, Updated: false},
+				)
 			case state3 = <-ch3:
-				callback(state1, state2, state3, state4)
+				callback(
+					MultiState[T1]{Data: state1, Updated: false},
+					MultiState[T2]{Data: state2, Updated: false},
+					MultiState[T3]{Data: state3, Updated: true},
+					MultiState[T4]{Data: state4, Updated: false},
+				)
 			case state4 = <-ch4:
-				callback(state1, state2, state3, state4)
+				callback(
+					MultiState[T1]{Data: state1, Updated: false},
+					MultiState[T2]{Data: state2, Updated: false},
+					MultiState[T3]{Data: state3, Updated: false},
+					MultiState[T4]{Data: state4, Updated: true},
+				)
 			}
 		}
 	}()

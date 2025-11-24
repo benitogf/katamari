@@ -89,7 +89,6 @@ func TestSubscribeMultiple2_BasicFunctionality(t *testing.T) {
 
 	var lastUsers []client.Meta[TestUser]
 	var lastPosts []client.Meta[TestPost]
-
 	wg := sync.WaitGroup{}
 	// Wait for 2 initial callbacks (one per subscription path)
 	wg.Add(2)
@@ -99,9 +98,13 @@ func TestSubscribeMultiple2_BasicFunctionality(t *testing.T) {
 			ctx,
 			client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
 			client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
-			func(users []client.Meta[TestUser], posts []client.Meta[TestPost]) {
-				lastUsers = users
-				lastPosts = posts
+			func(users client.MultiState[TestUser], posts client.MultiState[TestPost]) {
+				if users.Updated {
+					lastUsers = users.Data
+				}
+				if posts.Updated {
+					lastPosts = posts.Data
+				}
 				wg.Done()
 			},
 		)
@@ -151,20 +154,18 @@ func TestSubscribeMultiple2_StateAggregation(t *testing.T) {
 	// Wait for 2 initial callbacks (one per subscription path)
 	wg.Add(2)
 
-	go func() {
-		client.SubscribeMultiple2(
-			ctx,
-			client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
-			client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
-			func(users []client.Meta[TestUser], posts []client.Meta[TestPost]) {
-				receivedStates = append(receivedStates, struct {
-					userCount int
-					postCount int
-				}{len(users), len(posts)})
-				wg.Done()
-			},
-		)
-	}()
+	go client.SubscribeMultiple2(
+		ctx,
+		client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
+		client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
+		func(users client.MultiState[TestUser], posts client.MultiState[TestPost]) {
+			receivedStates = append(receivedStates, struct {
+				userCount int
+				postCount int
+			}{len(users.Data), len(posts.Data)})
+			wg.Done()
+		},
+	)
 
 	// Wait for initial callbacks from both paths
 	wg.Wait()
@@ -214,7 +215,7 @@ func TestSubscribeMultiple2_ContextCancellation(t *testing.T) {
 		ctx,
 		client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
 		client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
-		func(users []client.Meta[TestUser], posts []client.Meta[TestPost]) {
+		func(users client.MultiState[TestUser], posts client.MultiState[TestPost]) {
 			callbackCount++
 			wg.Done()
 		},
@@ -275,10 +276,10 @@ func TestSubscribeMultiple3_BasicFunctionality(t *testing.T) {
 		client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
 		client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
 		client.Path{Protocol: "ws", Host: server.Address, Path: "comments/*"},
-		func(users []client.Meta[TestUser], posts []client.Meta[TestPost], comments []client.Meta[TestComment]) {
-			lastUsers = users
-			lastPosts = posts
-			lastComments = comments
+		func(users client.MultiState[TestUser], posts client.MultiState[TestPost], comments client.MultiState[TestComment]) {
+			lastUsers = users.Data
+			lastPosts = posts.Data
+			lastComments = comments.Data
 			wg.Done()
 		},
 	)
@@ -344,11 +345,11 @@ func TestSubscribeMultiple4_BasicFunctionality(t *testing.T) {
 		client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
 		client.Path{Protocol: "ws", Host: server.Address, Path: "comments/*"},
 		client.Path{Protocol: "ws", Host: server.Address, Path: "likes/*"},
-		func(users []client.Meta[TestUser], posts []client.Meta[TestPost], comments []client.Meta[TestComment], likes []client.Meta[TestLike]) {
-			lastUsers = users
-			lastPosts = posts
-			lastComments = comments
-			lastLikes = likes
+		func(users client.MultiState[TestUser], posts client.MultiState[TestPost], comments client.MultiState[TestComment], likes client.MultiState[TestLike]) {
+			lastUsers = users.Data
+			lastPosts = posts.Data
+			lastComments = comments.Data
+			lastLikes = likes.Data
 			wg.Done()
 		},
 	)
@@ -423,12 +424,12 @@ func TestSubscribeMultiple2_ConcurrentUpdates(t *testing.T) {
 		ctx,
 		client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
 		client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
-		func(users []client.Meta[TestUser], posts []client.Meta[TestPost]) {
+		func(users client.MultiState[TestUser], posts client.MultiState[TestPost]) {
 			// Make copies to avoid race conditions
-			usersCopy := make([]client.Meta[TestUser], len(users))
-			postsCopy := make([]client.Meta[TestPost], len(posts))
-			copy(usersCopy, users)
-			copy(postsCopy, posts)
+			usersCopy := make([]client.Meta[TestUser], len(users.Data))
+			postsCopy := make([]client.Meta[TestPost], len(posts.Data))
+			copy(usersCopy, users.Data)
+			copy(postsCopy, posts.Data)
 			allStates = append(allStates, struct {
 				users []client.Meta[TestUser]
 				posts []client.Meta[TestPost]
@@ -465,6 +466,107 @@ func TestSubscribeMultiple2_ConcurrentUpdates(t *testing.T) {
 	finalState := allStates[len(allStates)-1]
 	require.Len(t, finalState.users, 5, "Final state should have exactly 5 users")
 	require.Len(t, finalState.posts, 5, "Final state should have exactly 5 posts")
+}
+
+func TestSubscribeMultiple2_DerivedStateWithSeparateReader(t *testing.T) {
+	server := katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Derived state: a simple summary combining users and posts
+	type Summary struct {
+		TotalUsers int
+		TotalPosts int
+		LastUpdate time.Time
+	}
+
+	var (
+		mu             sync.RWMutex
+		currentSummary Summary
+	)
+
+	wg := sync.WaitGroup{}
+	// Wait for 2 initial callbacks
+	wg.Add(2)
+
+	// Subscription goroutine: maintains derived state
+	go client.SubscribeMultiple2(
+		ctx,
+		client.Path{Protocol: "ws", Host: server.Address, Path: "users/*"},
+		client.Path{Protocol: "ws", Host: server.Address, Path: "posts/*"},
+		func(users client.MultiState[TestUser], posts client.MultiState[TestPost]) {
+			mu.Lock()
+			// Use Updated flag to selectively update only changed parts
+			if users.Updated {
+				currentSummary.TotalUsers = len(users.Data)
+				currentSummary.LastUpdate = time.Now()
+			}
+			if posts.Updated {
+				currentSummary.TotalPosts = len(posts.Data)
+				currentSummary.LastUpdate = time.Now()
+			}
+			mu.Unlock()
+			wg.Done()
+		},
+	)
+
+	// Wait for initial callbacks
+	wg.Wait()
+
+	// Separate reader goroutine: periodically reads the derived state
+	readResults := make([]Summary, 0)
+	readDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+		for range 5 {
+			<-ticker.C
+			mu.RLock()
+			snapshot := currentSummary
+			mu.RUnlock()
+			readResults = append(readResults, snapshot)
+		}
+		close(readDone)
+	}()
+
+	// Create data and verify derived state updates
+	wg.Add(1)
+	createUser(t, &server, 1, "Alice")
+	sleepAfterWrite()
+	wg.Wait()
+
+	// Read current state from a separate context (simulating external read)
+	mu.RLock()
+	summary := currentSummary
+	mu.RUnlock()
+	require.Equal(t, 1, summary.TotalUsers, "Expected 1 user in derived state")
+	require.Equal(t, 0, summary.TotalPosts, "Expected 0 posts in derived state")
+
+	wg.Add(1)
+	createPost(t, &server, 1, "First Post")
+	sleepAfterWrite()
+	wg.Wait()
+
+	mu.RLock()
+	summary = currentSummary
+	mu.RUnlock()
+	require.Equal(t, 1, summary.TotalUsers, "Expected 1 user in derived state")
+	require.Equal(t, 1, summary.TotalPosts, "Expected 1 post in derived state")
+
+	// Wait for reader goroutine to complete
+	<-readDone
+
+	// Verify reader goroutine successfully read the state
+	require.GreaterOrEqual(t, len(readResults), 5, "Reader should have collected at least 5 snapshots")
+
+	// Verify the last snapshot reflects the final state
+	lastSnapshot := readResults[len(readResults)-1]
+	require.Equal(t, 1, lastSnapshot.TotalUsers, "Last snapshot should have 1 user")
+	require.Equal(t, 1, lastSnapshot.TotalPosts, "Last snapshot should have 1 post")
 }
 
 func TestPath_Struct(t *testing.T) {
