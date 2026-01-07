@@ -340,6 +340,8 @@ func (app *Server) Start(address string) {
 		http.HandlerFunc(app.unpublish), app.Deadline, deadlineMsg)).Methods("DELETE")
 	app.Router.Handle("/{key:[a-zA-Z\\*\\d\\/]+}", http.TimeoutHandler(
 		http.HandlerFunc(app.publish), app.Deadline, deadlineMsg)).Methods("POST")
+	app.Router.Handle("/{key:[a-zA-Z\\*\\d\\/]+}", http.TimeoutHandler(
+		http.HandlerFunc(app.patch), app.Deadline, deadlineMsg)).Methods("PATCH")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.read).Methods("GET")
 	app.Router.HandleFunc("/{key:[a-zA-Z\\*\\d\\/]+}", app.read).Queries("v", "{[\\d]}").Methods("GET")
 	app.wg.Add(1)

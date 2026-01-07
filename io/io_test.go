@@ -79,6 +79,63 @@ func TestIObasic(t *testing.T) {
 	require.Equal(t, "this", things[2].Data.This)
 }
 
+func TestIOPatch(t *testing.T) {
+	server := &katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	err := io.Set(server, THING1_PATH, Thing{
+		This: "original",
+		That: "data",
+	})
+	require.NoError(t, err)
+
+	thing1, err := io.Get[Thing](server, THING1_PATH)
+	require.NoError(t, err)
+	require.Equal(t, "original", thing1.Data.This)
+	originalCreated := thing1.Created
+
+	err = io.Patch(server, THING1_PATH, Thing{
+		This: "patched",
+		That: "updated",
+	})
+	require.NoError(t, err)
+
+	patchedThing, err := io.Get[Thing](server, THING1_PATH)
+	require.NoError(t, err)
+	require.Equal(t, "patched", patchedThing.Data.This)
+	require.Equal(t, "updated", patchedThing.Data.That)
+	require.Equal(t, originalCreated, patchedThing.Created)
+	require.Greater(t, patchedThing.Updated, originalCreated)
+}
+
+func TestIOPatchNotFound(t *testing.T) {
+	server := &katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	err := io.Patch(server, "nonexistent", Thing{
+		This: "patched",
+		That: "updated",
+	})
+	require.Error(t, err)
+}
+
+func TestIOPatchListError(t *testing.T) {
+	server := &katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	err := io.Patch(server, THINGS_PATH, Thing{
+		This: "patched",
+		That: "updated",
+	})
+	require.Error(t, err)
+}
+
 func TestRemoteIO(t *testing.T) {
 	server := &katamari.Server{}
 	server.Silence = true
@@ -128,4 +185,61 @@ func TestRemoteIO(t *testing.T) {
 	require.Equal(t, 3, len(things))
 	require.Equal(t, "what", things[0].Data.This)
 	require.Equal(t, "this", things[2].Data.This)
+}
+
+func TestRemotePatch(t *testing.T) {
+	server := &katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	err := io.RemoteSet(server.Client, false, server.Address, THING1_PATH, Thing{
+		This: "original",
+		That: "data",
+	})
+	require.NoError(t, err)
+
+	thing1, err := io.RemoteGet[Thing](server.Client, false, server.Address, THING1_PATH)
+	require.NoError(t, err)
+	require.Equal(t, "original", thing1.Data.This)
+	originalCreated := thing1.Created
+
+	err = io.RemotePatch(server.Client, false, server.Address, THING1_PATH, Thing{
+		This: "patched",
+		That: "updated",
+	})
+	require.NoError(t, err)
+
+	patchedThing, err := io.RemoteGet[Thing](server.Client, false, server.Address, THING1_PATH)
+	require.NoError(t, err)
+	require.Equal(t, "patched", patchedThing.Data.This)
+	require.Equal(t, "updated", patchedThing.Data.That)
+	require.Equal(t, originalCreated, patchedThing.Created)
+	require.Greater(t, patchedThing.Updated, originalCreated)
+}
+
+func TestRemotePatchNotFound(t *testing.T) {
+	server := &katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	err := io.RemotePatch(server.Client, false, server.Address, "nonexistent", Thing{
+		This: "patched",
+		That: "updated",
+	})
+	require.Error(t, err)
+}
+
+func TestRemotePatchListError(t *testing.T) {
+	server := &katamari.Server{}
+	server.Silence = true
+	server.Start("localhost:0")
+	defer server.Close(os.Interrupt)
+
+	err := io.RemotePatch(server.Client, false, server.Address, THINGS_PATH, Thing{
+		This: "patched",
+		That: "updated",
+	})
+	require.Error(t, err)
 }
