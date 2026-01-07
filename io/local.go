@@ -9,6 +9,7 @@ import (
 	"github.com/benitogf/katamari"
 	"github.com/benitogf/katamari/client"
 	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/merge"
 	"github.com/benitogf/katamari/objects"
 )
 
@@ -102,6 +103,43 @@ func Set[T any](server *katamari.Server, path string, item T) error {
 
 	// log.Println("Set["+path+"]: marshalled data", string(jsonData))
 	encoded := base64.StdEncoding.EncodeToString(jsonData)
+	_, err = server.Storage.Set(path, encoded)
+	return err
+}
+
+func Patch[T any](server *katamari.Server, path string, item T) error {
+	lastPath := key.LastIndex(path)
+	isList := lastPath == "*"
+
+	if isList {
+		return errors.New("Patch[" + path + "]: path is a list")
+	}
+
+	currentRaw, err := server.Storage.Get(path)
+	if err != nil {
+		log.Println("Patch["+path+"]: failed to get current data", err)
+		return err
+	}
+
+	currentObj, err := objects.Decode(currentRaw)
+	if err != nil {
+		log.Println("Patch["+path+"]: failed to decode current data", err)
+		return err
+	}
+
+	patchData, err := json.Marshal(item)
+	if err != nil {
+		log.Println("Patch["+path+"]: failed to marshal patch data", err)
+		return err
+	}
+
+	mergedBytes, _, err := merge.MergeBytes([]byte(currentObj.Data), patchData)
+	if err != nil {
+		log.Println("Patch["+path+"]: failed to merge data", err)
+		return err
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(mergedBytes)
 	_, err = server.Storage.Set(path, encoded)
 	return err
 }

@@ -98,6 +98,58 @@ func RemotePush[T any](_client *http.Client, ssl bool, host string, path string,
 	return err
 }
 
+func RemotePatch[T any](_client *http.Client, ssl bool, host string, path string, item T) error {
+	lastPath := key.LastIndex(path)
+	isList := lastPath == "*"
+
+	if isList {
+		return errors.New("RemotePatch[" + path + "]: path is a list")
+	}
+
+	jsonData, err := json.Marshal(item)
+	if err != nil {
+		log.Println("RemotePatch["+path+"]: failed to marshal data", err)
+		return err
+	}
+	encoded := base64.StdEncoding.EncodeToString(jsonData)
+
+	postBody := PostBody{
+		Data: encoded,
+	}
+	jsonPostBodyData, err := json.Marshal(postBody)
+	if err != nil {
+		log.Println("RemotePatch["+path+"]: failed to marshal data", err)
+		return err
+	}
+
+	var url string
+	if ssl {
+		url = "https://" + host + "/" + path
+	} else {
+		url = "http://" + host + "/" + path
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewReader(jsonPostBodyData))
+	if err != nil {
+		log.Println("RemotePatch["+path+"]: failed to create request", err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := _client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return errors.New("RemotePatch[" + path + "]: " + string(body))
+	}
+
+	return nil
+}
+
 func RemoteGet[T any](_client *http.Client, ssl bool, host string, path string) (client.Meta[T], error) {
 	lastPath := key.LastIndex(path)
 	isList := lastPath == "*"

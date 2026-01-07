@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/benitogf/katamari/key"
+	"github.com/benitogf/katamari/merge"
 	"github.com/benitogf/katamari/messages"
 	"github.com/benitogf/katamari/objects"
+	"github.com/cristalhq/base64"
 	"github.com/gorilla/mux"
 )
 
@@ -77,6 +79,84 @@ func (app *Server) publish(w http.ResponseWriter, r *http.Request) {
 
 	app.Console.Log("publish", _key)
 	app.filters.After.check(_key)
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, "%s", "{"+
+		"\"index\": \""+index+"\""+
+		"}")
+}
+
+func (app *Server) patch(w http.ResponseWriter, r *http.Request) {
+	vkey := mux.Vars(r)["key"]
+	count := strings.Count(vkey, "*")
+	if !key.IsValid(vkey) || count > 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("katamari: pathKeyError key is not valid for patch"))
+		return
+	}
+
+	if !app.Audit(r) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "%s", errors.New("katamari: this request is not authorized"))
+		return
+	}
+
+	event, err := messages.DecodeReader(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	currentRaw, err := app.Storage.Get(vkey)
+	if err != nil {
+		if err.Error() == "katamari: not found" {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	currentObj, err := objects.Decode(currentRaw)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	patchBytes, err := base64.StdEncoding.DecodeString(event.Data)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", errors.New("katamari: failed to decode patch data"))
+		return
+	}
+
+	mergedBytes, _, err := merge.MergeBytes([]byte(currentObj.Data), patchBytes)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	data, err := app.filters.Write.check(vkey, mergedBytes, app.Static)
+	if err != nil {
+		app.Console.Err("patchError["+vkey+"]", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(data)
+	index, err := app.Storage.Set(vkey, encoded)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "%s", err)
+		return
+	}
+
+	app.Console.Log("patch", vkey)
+	app.filters.After.check(vkey)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", "{"+
 		"\"index\": \""+index+"\""+

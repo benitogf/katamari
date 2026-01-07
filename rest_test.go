@@ -2,6 +2,7 @@ package katamari_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/benitogf/katamari"
+	"github.com/benitogf/katamari/objects"
+	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/require"
 )
 
@@ -282,4 +285,150 @@ func TestRestDeleteInvalidKey(t *testing.T) {
 	resp := w.Result()
 
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRestPatch(t *testing.T) {
+	t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+
+	// {"field1":"value1","field2":"value2"} base64 encoded
+	var jsonStr = []byte(`{"data":"eyJmaWVsZDEiOiJ2YWx1ZTEiLCJmaWVsZDIiOiJ2YWx1ZTIifQ=="}`)
+	req := httptest.NewRequest("POST", "/patchtest", bytes.NewBuffer(jsonStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	data, err := app.Storage.Get("patchtest")
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+
+	// {"field2":"patched"} base64 encoded - only patches field2
+	var patchStr = []byte(`{"data":"eyJmaWVsZDIiOiJwYXRjaGVkIn0="}`)
+	req = httptest.NewRequest("PATCH", "/patchtest", bytes.NewBuffer(patchStr))
+	w = httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp = w.Result()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	patchedData, err := app.Storage.Get("patchtest")
+	require.NoError(t, err)
+	require.NotEqual(t, string(data), string(patchedData))
+}
+
+func TestRestPatchNotFound(t *testing.T) {
+	t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+
+	// {"field":"value"} base64 encoded
+	var patchStr = []byte(`{"data":"eyJmaWVsZCI6InZhbHVlIn0="}`)
+	req := httptest.NewRequest("PATCH", "/nonexistent", bytes.NewBuffer(patchStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestRestPatchInvalidKey(t *testing.T) {
+	t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+
+	// {"field":"value"} base64 encoded
+	var patchStr = []byte(`{"data":"eyJmaWVsZCI6InZhbHVlIn0="}`)
+	req := httptest.NewRequest("PATCH", "/test/*", bytes.NewBuffer(patchStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRestPatchWriteFilterOnMergedData(t *testing.T) {
+	t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+
+	// Write filter that requires "requiredField" to exist in the data
+	// This would fail if filter was applied to partial patch data only
+	app.WriteFilter("filteredpatch", func(key string, data []byte) ([]byte, error) {
+		var obj map[string]interface{}
+		if err := json.Unmarshal(data, &obj); err != nil {
+			return nil, err
+		}
+		if _, ok := obj["requiredField"]; !ok {
+			return nil, errors.New("requiredField is missing")
+		}
+		return data, nil
+	})
+
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+
+	// Create initial data directly in storage (bypassing write filter for setup)
+	// {"requiredField":"exists","otherField":"value1"} base64 encoded
+	_, err := app.Storage.Set("filteredpatch", "eyJyZXF1aXJlZEZpZWxkIjoiZXhpc3RzIiwib3RoZXJGaWVsZCI6InZhbHVlMSJ9")
+	require.NoError(t, err)
+
+	// Patch with only otherField (no requiredField in patch): {"otherField":"patched"}
+	// base64: eyJvdGhlckZpZWxkIjoicGF0Y2hlZCJ9
+	// If filter was applied to patch data only, this would fail because requiredField is missing
+	// But with merged data, requiredField exists from original data, so it should pass
+	var patchStr = []byte(`{"data":"eyJvdGhlckZpZWxkIjoicGF0Y2hlZCJ9"}`)
+	req := httptest.NewRequest("PATCH", "/filteredpatch", bytes.NewBuffer(patchStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Verify the data was patched correctly
+	patchedData, err := app.Storage.Get("filteredpatch")
+	require.NoError(t, err)
+
+	obj, err := objects.Decode(patchedData)
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(obj.Data), &result)
+	require.NoError(t, err)
+
+	// Both fields should exist: requiredField from original, otherField patched
+	require.Equal(t, "exists", result["requiredField"])
+	require.Equal(t, "patched", result["otherField"])
+}
+
+func TestRestPatchPreservesCreated(t *testing.T) {
+	t.Parallel()
+	app := katamari.Server{}
+	app.Silence = true
+	app.Start("localhost:0")
+	defer app.Close(os.Interrupt)
+
+	// {"field1":"original"} base64 encoded
+	index, err := app.Storage.Set("preservetest", "eyJmaWVsZDEiOiJvcmlnaW5hbCJ9")
+	require.NoError(t, err)
+	require.Equal(t, "preservetest", index)
+
+	originalData, err := app.Storage.Get("preservetest")
+	require.NoError(t, err)
+
+	// {"field1":"patched"} base64 encoded
+	var patchStr = []byte(`{"data":"eyJmaWVsZDEiOiJwYXRjaGVkIn0="}`)
+	req := httptest.NewRequest("PATCH", "/preservetest", bytes.NewBuffer(patchStr))
+	w := httptest.NewRecorder()
+	app.Router.ServeHTTP(w, req)
+	resp := w.Result()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	patchedData, err := app.Storage.Get("preservetest")
+	require.NoError(t, err)
+
+	require.NotEqual(t, string(originalData), string(patchedData))
 }
